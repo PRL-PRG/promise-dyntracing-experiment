@@ -43,7 +43,7 @@ analyze <- function(database_filepath) {
 export_table <- function(datatable, output_file) {
   datatable %>%
     spread(`ARGUMENT TYPE`, `COUNT`) %>%
-    mutate(`UNACCOUNTED` = `ALL` - (`CUSTOM` + `DEFAULT`)) %>%
+    mutate(`UNACCOUNTED` = `ALL` - (`NON-DEFAULT ARGUMENT` + `DEFAULT ARGUMENT`)) %>%
     replace(., is.na(.), 0) %>%
     write_tsv(output_file)
 }
