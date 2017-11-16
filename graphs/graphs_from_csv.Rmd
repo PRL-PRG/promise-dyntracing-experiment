@@ -1,0 +1,853 @@
+---
+title: "R dyntrace report"
+author: "K. Siek, A. Goel"
+output: 
+  html_document:
+    theme: flatly # default cerulean journal flatly readable spacelab united cosmo lumen paper sandstone simplex yeti
+    highlight: tango
+params:
+  CSV_DIR: "/home/kondziu/workspace/promise-dyntracing-experiment/graph/csv/"
+  PRINT_DATA: TRUE
+  
+  
+---
+
+<style>
+  .col2 {
+    columns: 2 200px;         /* number of columns and width in pixels*/
+    -webkit-columns: 2 200px; /* chrome, safari */
+    -moz-columns: 2 200px;    /* firefox */
+  }
+  
+  div.together {
+    display: inline-block;
+    width: 100%;
+  }
+</style>
+
+``` {r, include=FALSE}
+# rmarkdown::render("graphs_from_csv.Rmd", params = list(CSV_DIR = "/home/kondziu/workspace/R-dyntrace/reports/aggregate/", PRINT_DATA = TRUE))
+#params <- data.frame(PRINT_DATA=TRUE, CSV_DIR="/home/kondziu/workspace/R-dyntrace/reports/aggregate/")
+
+library(dplyr)
+library(hashmap)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(scales)
+library(gridExtra)
+library(png)
+
+pp <- function(number) format(number, big.mark=",", scientific=FALSE, trim=FALSE, digits=2)
+load_local_csv <- function (csv_file) as_tibble(read.csv(file.path(params$CSV_DIR, csv_file)))
+print_data <- function (x) if(params$PRINT_DATA) print(x, row.names=FALSE)
+prettify <- function(x) x %>% mutate(number=pp_trunc(number), percent=pp_perc(percent)) %>% as.data.frame
+pp_trunc <- function(x) ifelse(x==0, paste(format(x, digits=2, scientific=FALSE)),
+                               ifelse(x < 1000, format(x, digits=2, scientific=FALSE), 
+                                      ifelse(x < 1000000, 
+                                             paste(format(floor((x/1000)*10)/10, digits=2, scientific=FALSE), "k", sep=""), 
+                                             paste(format(floor((x/1000000)*10)/10, digits=2, scientific=FALSE), "mln", sep=""))))
+pp_perc <- function(x) dollar_format(prefix="", suffix="%")(x)
+is_outlier <- function(x) x < quantile(x, 0.25) - 1.5 * IQR(x) | x > quantile(x, 0.75) + 1.5 * IQR(x)
+
+make_graphs_for_packages <- function(data, f) {
+  graphs <- lapply((data %>% select(name) %>% distinct %>% pull(name)), f(data))
+  do.call("grid.arrange", c(graphs, ncol=ceiling(sqrt(length(graphs)))))
+}
+
+make_graphs_for_range <- function(data, range_column, f, max.col=10) {
+  graphs <- lapply(data %>% select(!!range_column) %>% distinct %>% pull(!!range_column),
+                   function(x) f(data %>% filter_(paste(range_column,"==",quote(x)))))
+  do.call("grid.arrange", c(graphs, ncol=min(length(graphs), max.col)))
+}
+```
+
+``` {r, include=FALSE}
+basic_info <- 
+  load_local_csv("basic_info.csv") %>%
+  group_by(name) %>%
+  summarise(
+    datasets=paste(name, collapse=", "),
+    n.datasets=n(),
+    n.functions=sum(n.functions),
+    n.calls=sum(n.calls),
+    n.promises=sum(n.promises),
+    n.promise.forces=sum(n.promise.forces),
+    n.promise.lookups=sum(n.promise.lookups), 
+    n.alien.promises=sum(n.alien.promises),
+    n.alien.promise.forces=sum(n.alien.promise.forces)
+  )
+
+top5_basic_info <- 
+  basic_info %>% 
+  arrange(desc(n.calls, n.promises, n.promise.accesses, n.functions))%>% head(5)
+
+aggregate_basic_info <- 
+  basic_info %>% summarise(
+    name="*",
+    datasets=paste(name, collapse=", "),
+    n.datasets=n(),
+    n.functions=sum(n.functions),
+    n.calls=sum(n.calls),
+    n.promises=sum(n.promises),
+    n.promise.forces=sum(n.promise.forces),
+    n.promise.lookups=sum(n.promise.lookups), 
+    n.alien.promises=sum(n.alien.promises),
+    n.alien.promise.forces=sum(n.alien.promise.forces)
+  )
+
+missing_basic_info <- 
+  basic_info %>% summarise(
+    name="...",
+    datasets="...",
+    n.datasets="...",
+    n.functions="...",
+    n.calls="...",
+    n.promises="...",
+    n.promise.forces="...",
+    n.promise.lookups="...", 
+    n.alien.promises="...",
+    n.alien.promise.forces="..."
+  )
+```
+
+## Dataset
+
+```{r, echo=FALSE, comment="", row.names=FALSE}
+basic_info %>% select(name) %>% distinct %>% pull(name) %>% as.character %>% print(row.names=FALSE)
+```
+
+<!--r path -->
+## Overview
+
+``` {r, echo=FALSE, warning=FALSE}
+union(top5_basic_info, aggregate_basic_info) %>% 
+  mutate(
+    n.functions=pp_trunc(n.functions), 
+    n.calls=pp_trunc(n.calls), 
+    n.promises=pp_trunc(n.promises), 
+    n.promise.accesses=pp_trunc(n.promise.forces + n.promise.lookups),
+    n.promise.forces=pp_trunc(n.promise.forces),
+    n.promise.lookups=pp_trunc(n.promise.lookups)
+  ) %>% 
+  select(name, n.functions, n.calls, n.promises, 
+         n.promise.accesses, n.promise.forces, 
+         n.promise.lookups) %>%  
+  kable(col.names=c("package", "functions", "calls", "promises",
+                    "promise accesses", "promise forces",
+                    "promise lookups"), align="lrrrrrr")
+```
+
+<div style="font-size: 50%; padding-top: 2em">
+**promise force** means the promise is accessed and the code of the promise is executed  
+**promise lookup** mean the promise is accessed and the code of the promise is not executed
+</div>
+
+<!--div style="font-size: 50%;">
+(showing top 5)
+</div-->
+
+<!--Alien promises are promises which were created before we began tracing. We don't have all the information regarding them, so we generally ignore them, including in the data below. They also are a subject of a lot of lookups in functions `from base::*`, which we don't record to save disk space.-->
+
+## Promise accesses
+
+```{r, include=FALSE}
+forces <- 
+  load_local_csv("fuzzy_forces.csv") %>% 
+  group_by(classification) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+```
+
+``` {r, echo=FALSE}
+forces %>% prettify %>% kable(col.names=c("classification","number","percentage"), align="lrr")
+```
+
+<!--``` {r evaluations-forces-graph, echo=FALSE, comment="", fig.width=10, fig.height=5}
+ggplot(forces, aes(x="", y=percent, fill=classification)) + 
+  geom_bar(width=1, stat="identity") + 
+  #geom_text(aes(y=cumsum(percent)-percent/2, label=classification)) +
+  coord_polar("y", start=0) +
+  theme(legend.position="right", axis.title.y=element_blank())
+```-->
+
+<div style="font-size: 50%; padding-top: 2em">
+**promise force** means the promise is accessed and the code of the promise is executed  
+**promise lookup** mean the promise is accessed and the code of the promise is not executed
+</div>
+
+
+```{r evaluations-forces-separate, include=FALSE}
+forces <- 
+  load_local_csv("fuzzy_forces.csv")
+  
+```
+
+```{r, echo=FALSE, fig.width=10, fig.height=3}
+g_class <- function(x, y_axis=FALSE) {
+    ggplot(forces %>% filter(classification==x), aes(x=classification, percent)) +
+    geom_violin(draw_quantiles = c(.25, .5, .75)) +
+    scale_y_continuous(labels=pp_perc) +
+    theme(axis.title.x=element_blank(), legend.position="none") +
+    ylab("percentage") +
+    theme(axis.title.y=if(y_axis)element_text() else element_blank())
+}
+
+grid.arrange(
+  g_class("accessed 2+ times, forced once", TRUE),
+  g_class("accessed once, forced once"),
+  g_class("accessed 1+ times, never forced"),
+  g_class("never accessed"),
+  ncol=4, widths=c(1.1,1,1,1))
+```
+
+## Number of accesses to a promise
+
+### Aggregate
+
+``` {r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+evaluations <- 
+  load_local_csv("promise_evaluations.csv") %>%
+  group_by(no.of.evaluations) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number)) %>%
+  mutate(labels=no.of.evaluations) %>%
+  mutate(no.of.evaluations=as.numeric(as.character(no.of.evaluations))) %>% 
+  mutate(no.of.evaluations=ifelse(is.na(no.of.evaluations), 
+                                  max(no.of.evaluations, na.rm=TRUE)+1, 
+                                  no.of.evaluations)) %>% 
+  arrange(no.of.evaluations)
+  
+ggplot(evaluations, aes(x=no.of.evaluations, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  scale_x_discrete(limit=0:11, labels=evaluations %>% pull(labels)) +
+  theme(axis.title.x=element_blank(), legend.position="none") +
+  ylab("No. of promises") + xlab("No. of accesses")
+``` 
+
+<div style="font-size: 50%">
+Promise types follow the type designations in ``Rinternals.h``.  
+</div>
+
+### Distribution per package
+
+``` {r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+evaluations <- load_local_csv("promise_evaluations.csv")
+make_graphs_for_range(evaluations, "no.of.evaluations", max.col=6, f=function(data)
+  ggplot(data, aes(x=no.of.evaluations, y=percent)) +
+    geom_violin(draw_quantiles = c(.25, .5, .75)) +
+    scale_y_continuous(labels=pp_perc) +
+    theme(axis.title.x=element_blank(), 
+          axis.title.y=element_blank(), 
+          legend.position="none")
+)
+
+```
+
+### Separate results per package
+
+``` {r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=10}
+make_graphs_for_packages(load_local_csv("promise_evaluations.csv"), function(data) function(package) {
+  evaluations <- 
+    data %>% 
+    filter(name == !!package) %>%
+    mutate(percent=100*number/sum(number)) %>%
+    mutate(labels=no.of.evaluations) %>%
+    mutate(no.of.evaluations=as.numeric(as.character(no.of.evaluations))) %>% 
+    mutate(no.of.evaluations=ifelse(is.na(no.of.evaluations), 
+                                    max(no.of.evaluations, na.rm=TRUE)+1, 
+                                    no.of.evaluations)) %>% 
+    arrange(no.of.evaluations)
+ 
+  ggplot(evaluations, aes(x=no.of.evaluations, y=number)) + 
+    geom_col() +
+    theme(axis.title.y=element_blank(),
+          axis.text=element_blank(), 
+          axis.ticks=element_blank(),
+          legend.position="none") +
+    xlab(package)
+})
+``` 
+
+## Promise code types
+
+``` {r, echo=FALSE, fig.width=10, fig.height=5}
+promise_types <- 
+  load_local_csv("promise_types.csv") %>%
+  group_by(type) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+ggplot(promise_types, aes(x=type, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(axis.title.x=element_blank(), 
+        legend.position="none", 
+        axis.text.x=element_text(angle=90, vjust=.5)) +
+  ylab("No. of promises") + 
+  xlab("Promise type")
+```
+
+<div style="font-size: 50%">
+Promise types follow the type designations in ``Rinternals.h``.  
+<!--**α→β** indicates that type **α** variously evaluates to type **β**.
+**α** indicates that the promise contains the expression of type **α**.  
+**→α** indicates that the promise contains a promise which contains the expression of type **α**, etc.
+**BCODE →α** indicates that it's a byte-compiled expression that was originally of type **α**.  
+**SYM→α** indicates that it's a symbol that points to an expression of type **α**.  -->
+</div>
+
+## What's inside promises?
+
+```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+promise_full_types <-
+  load_local_csv("promise_full_types.csv") %>%
+  group_by(type) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number)) %>% 
+  mutate(type=as.character(type)) %>%
+  filter(grepl("^PROM", type)) %>%
+  mutate(type=gsub("PROM", "", type))
+  #mutate(type=ifelse(len(type) > 15, paste0(strtrim(type, 13), ".."), type))
+
+ggplot(promise_full_types, aes(x=type, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(axis.title.x=element_blank(), 
+        legend.position="none", 
+        axis.text.x=element_text(angle=90, vjust=.5, hjust=1)) +
+  ylab("No. of promises") + 
+  xlab("Promise full type (PROM)")
+```
+
+<div style="font-size: 50%">
+Promise types follow the type designations in ``Rinternals.h``.  
+<!--**α→β** indicates that type **α** variously evaluates to type **β**.  -->
+**α** indicates that the promise contains the expression of type **α**.  
+**→α** indicates that the promise contains a promise which contains the expression of type **α**, etc.
+<!--**BCODE →α** indicates that it's a byte-compiled expression that was originally of type **α**.  
+**SYM→α** indicates that it's a symbol that points to an expression of type **α**.  -->
+</div>
+
+## What do promises return?
+
+``` {r echo=FALSE, fig.width=10, fig.height=5}
+return_types <- 
+  load_local_csv("return_types.csv") %>%
+  group_by(type) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+ggplot(return_types, aes(x=type, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(axis.title.x=element_blank(), 
+        legend.position="none", 
+        axis.text.x=element_text(angle=90, vjust=.5, hjust=1)) +
+  ylab("No. of promises") + 
+  xlab("Return type")
+```
+
+<div style="font-size: 50%">
+Promise types follow the type designations in ``Rinternals.h``.  
+</div>
+
+## What do specific promises return?
+
+```{r promise-types-to-return-types-pie, echo=FALSE, comment="", fig.width=10.5, fig.height=4.5}
+types_to_return_types <- 
+  load_local_csv("promise_code_to_return_types.csv") %>%
+  group_by(types) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+ggplot(types_to_return_types, aes(x=types, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(axis.title.x=element_blank(), 
+        axis.title.y=element_blank(),
+        legend.position="none", 
+        axis.text.x=element_text(angle=90, vjust=.5, hjust=1)) +
+  ylab("No. of promises") + 
+  xlab("Type/return type")
+```
+
+<div style="font-size: 50%">
+Promise types follow the type designations in ``Rinternals.h``.  
+**α→β** indicates that the promise contains an expression of type **α** which evaluates to  an expression of type **β** when the promise is forced.
+</div>
+
+## Promise forces by types
+
+```{r evaluations-forces-by-type, echo=FALSE, , comment="", fig.width=10, fig.height=5}
+force.histogram.by.type <- 
+  load_local_csv("forces_by_type.csv") %>%
+  group_by(type, no.of.forces) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+ggplot(
+  force.histogram.by.type, 
+  aes(x=type, y=number, fill=factor(no.of.forces))) + 
+geom_bar(stat="identity", position="dodge") +
+ylab("No. of promises") + 
+scale_fill_discrete(name="No. of forces",
+                    breaks=(force.histogram.by.type$no.of.forces %>% unique),
+                    labels=(force.histogram.by.type$no.of.forces %>% unique)) +
+scale_y_continuous(labels=pp_trunc) +
+theme(axis.title.x=element_blank(), legend.position = c(0.9, 0.9))
+```
+
+<div style="font-size: 50%">
+Promise types follow the type designations in ``Rinternals.h``.
+</div>
+
+## Promise evaluation distances
+
+<!--Effective distance is the distance from the call where a promise originated to the call in which it was evaluated. It is measured along the call graph (along inbound edges).  Since the data is gathered from a trace, the call graph is a tree.-->
+
+```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+actual_distances <- 
+  load_local_csv("actual_distances.csv") %>%
+  group_by(actual_distance) %>% 
+  summarise(number=sum(number, na.rm = TRUE)) %>% 
+  mutate(percent=100*number/sum(number))
+
+ggplot(actual_distances, aes(x=actual_distance, y=number)) + 
+  geom_col() +
+  scale_x_discrete(limits=c(NA,0:20,">20",-1)) +
+  scale_y_continuous(labels=pp_trunc) +
+  ylab("No. of promises") + 
+  theme(axis.title.x=element_blank())
+```
+
+<div style="font-size: 50%">
+**n** - distance from the function for which a promise was created and the function in which it was evaluated    
+**NA** - promise was not executed, there is no distance measure (a virgin promise)  
+**-1** - promise was executed but there is no path from the origin to the point of evaluation (an escaped promise)    
+</div>
+
+## Functions and calls by type
+
+<center>
+<div class="col2">
+<div class="together">
+```{r, echo=FALSE, fig.width=5, fig.height=4}
+calls.types <- 
+  load_local_csv("call_types.csv") %>%
+  group_by(type) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+slices <- (calls.types %>% arrange(number))$number
+labels <- (calls.types %>% arrange(number) %>% mutate(type = ifelse(percent>1, paste0(as.character(type), " (", floor(percent), "%)", sep=""), "")))$type
+par(mar=c(0,2,2,2))
+
+pie(slices, labels, main="Call types")
+```
+</div>
+
+```{r, echo=FALSE, fig.width=5, fig.height=4}
+function.types <- 
+  load_local_csv("function_types.csv") %>%
+  group_by(type) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+slices <- (function.types %>% arrange(number))$number
+labels <- (function.types %>% arrange(number) %>% mutate(type = ifelse(percent>1, paste0(as.character(type), " (", floor(percent), "%)", sep=""), "")))$type
+par(mar=c(0,2,2,2))
+
+pie(slices, labels, main="Function types")
+```
+</div>
+</center>
+
+<div style="font-size: 50%">
+**functions** refers to function definitions   
+**calls** refers to function executions/calls
+</div>
+
+## Byte-code compilation
+
+<center>
+<div class="col2">
+<div class="together">
+```{r, echo=FALSE, fig.width=5, fig.height=3.5, warning=FALSE}
+closure.call.compilation.histogram <- 
+  load_local_csv("compiled_calls.csv") %>%
+  group_by(compiled) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+slices <- (closure.call.compilation.histogram)$number
+labels <- (closure.call.compilation.histogram)$compiled %>% as.character
+par(mar=c(0,2,2,2))
+
+pie(slices, labels, main="Compiled closures (calls)")
+```
+</div>
+
+```{r, echo=FALSE, fig.width=5, fig.height=3.5, warning=FALSE}
+closure.function.compilation.histogram <- 
+  load_local_csv("compiled_functions.csv") %>%
+  group_by(compiled) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+slices <- (closure.function.compilation.histogram)$number
+labels <- (closure.function.compilation.histogram %>% mutate(type = ifelse(percent>1, compiled, "")))$compiled
+par(mar=c(0,2,2,2))
+
+pie(slices, labels, main="Compiled closures (functions)")
+```
+
+</div>
+</center>
+
+<div style="font-size: 50%">
+When calling a function it's either byte-code **compiled** or **uncompiled**. When agregated across all calls to a function, a function can be:  
+**compiled** - all calls to this function are compiled,  
+**uncompiled** - none of the calls to this function are compiled,  
+**after 1st** - a function can be compiled by the JIT, so it can be uncompiled initially and then compiled later on,  
+**erratic** - a function is sometimes compiled and sometimes not; it can indicate that two separate functions are indistinguishable to the tracer (same definition, unknown location) and one of them is compiled while another is not.
+</div>
+
+## Interactions among promises
+
+```{r promise-forced-by-another-evaluation, echo=FALSE, comment="", fig.width=10, fig.height=4.5}
+promises_forced_by_another_promise <-   
+  load_local_csv("promises_forced_by_another_promise.csv") %>%
+  group_by(forced_by_another) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+g_receive <- 
+  ggplot(promises_forced_by_another_promise, aes(x=forced_by_another, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(legend.position="none") +
+  ylab("No. of promises") + 
+  xlab("This promise forced\nby another promise")
+  
+promises_forcing_other_promises <- 
+  load_local_csv("promises_forcing_other_promises.csv") %>%
+  group_by(number_of_forced_promises) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+promises_forcing_other_promises_small <-
+  promises_forcing_other_promises %>% 
+  mutate(number_of_forced_promises=ifelse(number_of_forced_promises>=3, "3+", 
+                                          number_of_forced_promises)) %>%
+  group_by(number_of_forced_promises) %>%
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+promises_forcing_other_promises_big <-
+  promises_forcing_other_promises %>% 
+  filter(number_of_forced_promises >= 3) %>%
+  group_by(number_of_forced_promises) %>%
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+g_cause_small <- 
+  ggplot(promises_forcing_other_promises_small, aes(x=number_of_forced_promises, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  ylab("No. of promises") + 
+  xlab("No. of promises forced\nby this promise") +
+  theme(legend.position="none", axis.title.y=element_blank())
+
+g_cause_big <- 
+  ggplot(promises_forcing_other_promises_big, aes(x=number_of_forced_promises, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  ylab("No. of promises") + 
+  xlab("No. of promises forced\nby this promise (3+)") +
+  theme(legend.position="none", axis.title.y=element_blank())
+  
+
+grid.arrange(g_receive, g_cause_small, g_cause_big, ncol=3, widths=c(4,5,9))
+```
+
+<div style="font-size: 50%">
+Promises forced by other promises:  
+`TRUE` is when a promise was created within some promise x but was forced within a different promise y.   
+`FALSE` is when a promise was forced within the same promise as it was created.  
+`NA` means the promise was not forced.  
+</div>
+
+
+
+
+
+## Strictness
+
+```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+strict_calls <- 
+  load_local_csv("call_strictness.csv") %>%
+  group_by(strict) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+strict_calls_pie <-
+  ggplot(strict_calls, aes(x=strict, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(legend.position="none") +
+  ylab("No. of calls") + 
+  xlab("Call strictness")
+
+strict_closure_calls <- 
+  load_local_csv("call_strictness_by_type.csv") %>%
+  filter(type=="closure") %>%
+  group_by(type, strict) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number)) %>%
+  mutate(strict=as.logical(strict))
+
+strict_closure_calls_pie <-
+  ggplot(strict_closure_calls, aes(x=strict, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(legend.position="none") +
+  ylab("No. of calls") + 
+  xlab("Call strictness (closures)")
+
+strict_functions <-
+  load_local_csv("function_strictness.csv") %>%
+  group_by(strict) %>%
+  summarise(number=sum(number)) %>%
+  mutate(percent=100*number/sum(number))
+
+strict_functions_pie <-
+  ggplot(strict_functions, aes(x=strict, y=number)) +
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(legend.position="none") +
+  ylab("No. of functions") +
+  xlab("Function strictness")
+
+strict_closure_functions <- 
+  load_local_csv("function_strictness_by_type.csv") %>%
+  filter(type=="closure") %>%
+  group_by(type, strict) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number)) %>%
+  mutate(strict=as.logical(strict))
+
+strict_closure_functions_pie <-
+  ggplot(strict_closure_functions, aes(x=strict, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(legend.position="none") +
+  ylab("No. of functions") + 
+  xlab("Function strictness (closures)")
+
+grid.arrange(strict_calls_pie, strict_closure_calls_pie, 
+             strict_functions_pie, strict_closure_functions_pie,
+             ncol=4, widths=c(1,1,1,1))
+```
+
+
+
+
+
+<div style="font-size: 50%">
+A call is **strict** if all of its arguments are **evaluated** and none of the arguments is **escaped**. (This means that a function may pass unevaluated promises to a child call and still be strict, but it cannot leak the promise).  
+A function is **strict** if all of its calls are **strict**. Functions that don't take promises are neither **strict** nor **non-strict** -- these can be either arrity-0 closures or built-in (which accept values rather than promises).
+</div>
+
+## Call strictness ratios (dominant)
+
+```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+strict_calls_ratio <- 
+  load_local_csv("call_strictness_ratio.csv") %>%
+  group_by(strictness_ratio) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(short=ifelse(strictness_ratio=="0/0" |
+                        strictness_ratio=="1/1" |
+                        strictness_ratio=="2/2", 
+                      as.character(strictness_ratio),
+                      "other")) %>%
+  mutate(percent=100*number/sum(number))
+
+strict_calls_ratio_dominant <- 
+  strict_calls_ratio %>% 
+  group_by(short) %>% 
+  summarize(number=sum(number)) %>%
+  mutate(percent=100*number/sum(number))
+
+ggplot(strict_calls_ratio_dominant, aes(x=short, y=number)) +
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(legend.position="none") +
+  ylab("No. of calls") +
+  xlab("Ratio of evaluated promises")
+```
+
+<div style="font-size: 50%">
+**Strictness ratio** of the form `n/m` means that a call evaluated `n` promises out of `m` promises that were created for it. `0/0` can mean either that a function had no arguments or that it was a built-in etc (had arguments, but they were passed without promises).
+</div>
+
+## Call strictness ratios (other top 20)
+
+```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+strict_calls_ratio_other_top20 <- 
+  strict_calls_ratio %>% 
+  filter(short=="other") %>% 
+  arrange(desc(number)) %>%
+  head(20)
+
+ggplot(strict_calls_ratio_other_top20, aes(x=strictness_ratio, y=number)) +
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(legend.position="none") +
+  ylab("No. of calls") +
+  xlab("Ratio of evaluated promises")
+```
+
+<div style="font-size: 50%">
+**Strictness ratio** of the form `n/m` means that a call evaluated `n` promises out of `m` promises that were created for it. `0/0` can mean either that a function had no arguments or that it was a built-in etc (had arguments, but they were passed without promises).
+</div>
+
+
+## Call strictness ratios (other - top 20)
+
+```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+strict_calls_ratio_other <- 
+  strict_calls_ratio %>% 
+  filter(short=="other") %>%
+  arrange(desc(number)) %>%
+  tail(-20)
+
+ggplot(strict_calls_ratio_other, aes(x=strictness_ratio, y=number)) +
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(legend.position="none", axis.text.x=element_text(size = 5, angle=90, vjust=.5)) +
+  ylab("No. of calls") +
+  xlab("Ratio of evaluated promises")
+```
+
+<div style="font-size: 50%">
+**Strictness ratio** of the form `n/m` means that a call evaluated `n` promises out of `m` promises that were created for it. `0/0` can mean either that a function had no arguments or that it was a built-in etc (had arguments, but they were passed without promises).
+</div>
+
+## Function strictness rate
+
+```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+strict_functions_rate <- 
+  load_local_csv("function_strictness_rate.csv") %>%
+  group_by(strictness_rate) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+ggplot(strict_functions_rate , aes(x=strictness_rate, y=number)) +
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  scale_x_discrete(limit=c(NA, "0","(0,10〉","(10,20〉", "(20,30〉", "(30,40〉", "(40,50〉", "(50,60〉", "(60,70〉","(70,80〉","(80,90〉","(90,100)","100")) +
+  theme(legend.position="none") + #, axis.text.x=element_text(angle=90, vjust=.5)) +
+  ylab("No. of functions") +
+  xlab("Ratio of evaluated promises [%]")
+```
+
+<div style="font-size: 50%">
+**Strictness rate** reflects what percentage of calls were strict.  
+**NA** means the function had no argument.  
+**(n,m〉** means the function had between n% and m% strict calls.
+</div>
+
+## Evaluation order
+
+```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+promise_force_orders <- 
+  load_local_csv("evaluation_order.csv") %>%
+  group_by(no.of.force.orders) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+ggplot(promise_force_orders, aes(x=no.of.force.orders, y=number)) +
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  scale_x_discrete(limit=c(0:10,">10")) +
+  theme(legend.position="none") + #, axis.text.x=element_text(angle=90, vjust=.5)) +
+  ylab("No. of functions") +
+  xlab("No. of force orders")
+```
+
+<!--## Argument promise mode
+
+<div style="font-size: 50%">
+How many argument promises are default and how many are not.
+</div>
+
+```{r, echo=FALSE}
+apm <- read.table("/home/kondziu/workspace/R-dyntrace/reports/Argument Promise Mode - argument-promise-mode.tsv", sep="\t", header=TRUE)
+kable(apm, "html", col.names=c("Runnable", "All", "Default argument", "Non-default argument",
+                    "Unaccounted", "% of Default Arguments",
+                    "% of Non-default Arguments", "% of Unaccounted")) #%>% kable_styling(bootstrap_options = c("condensed"), font_size = 10) %>% row_spec(0, font_size = 10)
+```
+
+<div style="font-size: 50%; padding-top:2em">
+https://docs.google.com/spreadsheets/d/1miVXUxCoeYiBR0eiCB3Ipa3KBCDw7OZ77qy7RJHFJ_8/edit#gid=333058396
+</div>
+
+## Argument position laziness (top 20)
+
+<div style="font-size: 50%; padding-top:2em">
+At each argument position, how often is the argument evaluated and how often it is not.
+</div>
+
+```{r, echo=FALSE, warning=FALSE}
+apl <- read.table("/home/kondziu/workspace/R-dyntrace/reports/Argument Position Laziness - Sheet1.tsv", sep="\t", header=TRUE, fill=TRUE) %>% head(20)
+kable(apl, "html", col.names=c("Function type", "Function ID", "Argument position", "Strict", "Lazy", "Strict %", "Lazy %")) #%>% #kable_styling(bootstrap_options = c("condensed"), font_size = 10) %>% row_spec(0, font_size = 10)
+```
+
+<div style="font-size: 50%; padding-top:2em">
+https://docs.google.com/spreadsheets/d/1Fb9JdbTMXqoX-xJqhxH063ZQjL9wE5ghO12y63TxyOs/edit#gid=0
+</div>
+
+## Environment access 
+
+<div style="font-size: 50%; padding-top:2em">
+How often, environment functions are used to access, create or modify existing environments
+</div>
+
+<img src="/home/kondziu/workspace/R-dyntrace/reports/img/1.png" style="width: 180px"/>
+<img src="/home/kondziu/workspace/R-dyntrace/reports/img/2.png" style="width: 180px"/>
+<img src="/home/kondziu/workspace/R-dyntrace/reports/img/4.png" style="width: 180px"/>
+<img src="/home/kondziu/workspace/R-dyntrace/reports/img/5.png" style="width: 180px"/>
+<img src="/home/kondziu/workspace/R-dyntrace/reports/img/6.png" style="width: 180px"/>
+<img src="/home/kondziu/workspace/R-dyntrace/reports/img/7.png" style="width: 180px"/>
+<img src="/home/kondziu/workspace/R-dyntrace/reports/img/8.png" style="width: 180px"/>
+<img src="/home/kondziu/workspace/R-dyntrace/reports/img/9.png" style="width: 180px"/>
+<img src="/home/kondziu/workspace/R-dyntrace/reports/img/10.png" style="width: 180px"/>
+
+
+<div style="font-size: 50%; padding-top:2em">
+https://docs.google.com/spreadsheets/d/1nwoPDs2gdipw0vtHqhfFWv4cwGQrp5b7qAbUjqsf4pc/edit#gid=177224429
+</div-->
+
+## Default and non-default promise arguments
+
+<center>
+<img src="/home/kondziu/workspace/R-dyntrace/reports/img/argument-promise-mode.png" style="width: 400px"/>
+</center>
+
+## Calls to specific functions
+
+```{r function-calls-selected-counts, echo=FALSE, comment="", fig.width=10, fig.height=4.5}
+specific_calls <- 
+  load_local_csv("specific_calls.csv") %>%
+  group_by(function_name) %>% 
+  summarise(number=sum(number)) 
+
+ggplot(specific_calls, aes(x=function_name, y=number)) +
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(legend.position="none", axis.text.x=element_text(angle=90, vjust=.5, hjust=1, size=4)) +
+  ylab("No. of calls") +
+  xlab("Function")
+```
