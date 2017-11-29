@@ -7,9 +7,6 @@ TRACER_PROCESSES=2
 trace: 
 	dyntrace/packages.sh $(TRACER) $(INPUT_DIR) $(TRACER_PROCESSES) $(PACKAGES)
 
-trace24:
-	
-
 analyze-argument-promise-mode:
 	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/table
 	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/graph
@@ -21,8 +18,3 @@ analyze-environment:
 	analysis/environment.R $(INPUT_DIR) $(OUTPUT_DIR)/environment/table $(OUTPUT_DIR)/environment/graph
 
 analyze: analyze-environment analyze-argument-promise-mode
-
-
-	
-
-
