@@ -137,6 +137,13 @@ dehumanize_function_type = function(type)
         ifelse(type == "special", 2,
           ifelse(type == "primitive", 3, NA)))))
 
+SEXP_TYPE_NAMES = c(
+    "NIL", "SYM", "LIST", "CLOS", "ENV",  "PROM", # 0-5
+    "LANG", "SPECIAL", "BUILTIN", "CHAR",  "LGL", # 6-10
+    "INT", "REAL", "CPLX", "STR", "DOT", "ANY",   # 13-18
+    "VEC", "EXPR", "BCODE", "EXTPTR", "WEAKREF",  # 19-23
+    "RAW", "S4", "...")                           # 24-25, 69
+
 SEXP_TYPES <- hashmap(
   keys=c(0:10,13:25,69), 
   values=c(

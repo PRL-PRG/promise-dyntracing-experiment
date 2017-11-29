@@ -6,10 +6,8 @@ output:
     theme: flatly # default cerulean journal flatly readable spacelab united cosmo lumen paper sandstone simplex yeti
     highlight: tango
 params:
-  CSV_DIR: "/home/kondziu/workspace/promise-dyntracing-experiment/graph/csv/"
+  CSV_DIR: "/home/kondziu/workspace/promise-dyntracing-experiment/graphs/csv/"
   PRINT_DATA: TRUE
-  
-  
 ---
 
 <style>
@@ -26,8 +24,8 @@ params:
 </style>
 
 ``` {r, include=FALSE}
-# rmarkdown::render("graphs_from_csv.Rmd", params = list(CSV_DIR = "/home/kondziu/workspace/R-dyntrace/reports/aggregate/", PRINT_DATA = TRUE))
-#params <- data.frame(PRINT_DATA=TRUE, CSV_DIR="/home/kondziu/workspace/R-dyntrace/reports/aggregate/")
+#rmarkdown::render("graphs_from_csv.Rmd", params = list(CSV_DIR = "/home/kondziu/workspace/R-dyntrace/reports/aggregate/", PRINT_DATA = TRUE))
+#params <- data.frame(PRINT_DATA=TRUE, CSV_DIR="/home/kondziu/workspace/promise-dyntracing-experiment/graphs/csv/")
 
 library(dplyr)
 library(hashmap)
@@ -37,6 +35,13 @@ library(kableExtra)
 library(scales)
 library(gridExtra)
 library(png)
+
+SEXP_TYPE_NAMES = c(
+    "NIL", "SYM", "LIST", "CLOS", "ENV",  "PROM", # 0-5
+    "LANG", "SPECIAL", "BUILTIN", "CHAR",  "LGL", # 6-10
+    "INT", "REAL", "CPLX", "STR", "DOT", "ANY",   # 13-18
+    "VEC", "EXPR", "BCODE", "EXTPTR", "WEAKREF",  # 19-23
+    "RAW", "S4")                                  # 24-25
 
 pp <- function(number) format(number, big.mark=",", scientific=FALSE, trim=FALSE, digits=2)
 load_local_csv <- function (csv_file) as_tibble(read.csv(file.path(params$CSV_DIR, csv_file)))
@@ -190,7 +195,7 @@ g_class <- function(x, y_axis=FALSE) {
     scale_y_continuous(labels=pp_perc) +
     theme(axis.title.x=element_blank(), legend.position="none") +
     ylab("percentage") +
-    theme(axis.title.y=if(y_axis)element_text() else element_blank())
+    theme(axis.title.y=if (y_axis) element_text() else element_blank())
 }
 
 grid.arrange(
@@ -242,7 +247,6 @@ make_graphs_for_range(evaluations, "no.of.evaluations", max.col=6, f=function(da
           axis.title.y=element_blank(), 
           legend.position="none")
 )
-
 ```
 
 ### Separate results per package
@@ -257,14 +261,22 @@ make_graphs_for_packages(load_local_csv("promise_evaluations.csv"), function(dat
     mutate(no.of.evaluations=as.numeric(as.character(no.of.evaluations))) %>% 
     mutate(no.of.evaluations=ifelse(is.na(no.of.evaluations), 
                                     max(no.of.evaluations, na.rm=TRUE)+1, 
-                                    no.of.evaluations)) %>% 
-    arrange(no.of.evaluations)
+                                    no.of.evaluations))
+  
+  evaluations <- 
+    tibble(no.of.evaluations=c(0:11)) %>% 
+    left_join(evaluations, by="no.of.evaluations") %>%
+    mutate(
+      number=ifelse(is.na(number), 0, number),
+      percent=ifelse(is.na(percent), 0, percent))
  
   ggplot(evaluations, aes(x=no.of.evaluations, y=number)) + 
     geom_col() +
+    scale_x_discrete(limit=0:11, labels=c(0:10,">10")) +
     theme(axis.title.y=element_blank(),
-          axis.text=element_blank(), 
-          axis.ticks=element_blank(),
+          axis.text.y=element_blank(), 
+          axis.ticks.y=element_blank(),
+          axis.text.x=element_text(angle = 90, size = 5, vjust=.5),
           legend.position="none") +
     xlab(package)
 })
@@ -272,14 +284,14 @@ make_graphs_for_packages(load_local_csv("promise_evaluations.csv"), function(dat
 
 ## Promise code types
 
+### Aggregate
+
 ``` {r, echo=FALSE, fig.width=10, fig.height=5}
 promise_types <- 
-  load_local_csv("promise_types.csv") %>%
-  group_by(type) %>% 
-  summarise(number=sum(number)) %>% 
-  mutate(percent=100*number/sum(number))
+  load_local_csv("promise_types.csv")
 
-ggplot(promise_types, aes(x=type, y=number)) + 
+ggplot(promise_types %>% group_by(type) %>% summarise(number=sum(number)) %>% mutate(percent=100*number/sum(number)), 
+       aes(x=type, y=number)) + 
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
   theme(axis.title.x=element_blank(), 
@@ -297,6 +309,49 @@ Promise types follow the type designations in ``Rinternals.h``.
 **BCODE →α** indicates that it's a byte-compiled expression that was originally of type **α**.  
 **SYM→α** indicates that it's a symbol that points to an expression of type **α**.  -->
 </div>
+
+### Distribution per package
+
+``` {r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+make_graphs_for_range(promise_types, "type", max.col=5, f=function(data)
+  ggplot(data, aes(x=type, y=percent)) +
+    geom_violin(draw_quantiles = c(.25, .5, .75)) +
+    scale_y_continuous(labels=pp_perc) +
+    theme(axis.title.x=element_blank(), 
+          axis.title.y=element_blank(), 
+          legend.position="none")
+)
+```
+
+### Separate results per package
+
+``` {r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=10}
+available_sexps <- promise_types %>% select(type) %>% distinct %>% pull(type)
+
+make_graphs_for_packages(promise_types, function(data) function(package) {
+  promise_types <- 
+    data %>% 
+    filter(name == !!package) %>%
+    group_by(type) %>% summarise(number=sum(number)) %>% 
+    mutate(percent=100*number/sum(number))
+  
+  promise_types <- 
+    tibble(type=available_sexps) %>% 
+    left_join(promise_types, by="type") %>%
+    mutate(
+      number=ifelse(is.na(number), 0, number),
+      percent=ifelse(is.na(percent), 0, percent))
+ 
+  ggplot(promise_types, aes(x=type, y=number)) + 
+    geom_col() +
+    theme(axis.title.y=element_blank(),
+          axis.text.y=element_blank(), 
+          axis.ticks.y=element_blank(),
+          axis.text.x=element_text(angle=90, size=5, vjust=.5),
+          legend.position="none") +
+    xlab(package)
+})
+``` 
 
 ## What's inside promises?
 
@@ -380,15 +435,16 @@ Promise types follow the type designations in ``Rinternals.h``.
 
 ## Promise forces by types
 
+### Aggregate
+
 ```{r evaluations-forces-by-type, echo=FALSE, , comment="", fig.width=10, fig.height=5}
-force.histogram.by.type <- 
-  load_local_csv("forces_by_type.csv") %>%
-  group_by(type, no.of.forces) %>% 
-  summarise(number=sum(number)) %>% 
-  mutate(percent=100*number/sum(number))
+force.histogram.by.type <- load_local_csv("forces_by_type.csv") 
 
 ggplot(
-  force.histogram.by.type, 
+  force.histogram.by.type %>%
+    group_by(type, no.of.forces) %>% 
+    summarise(number=sum(number)) %>% 
+    mutate(percent=100*number/sum(number)), 
   aes(x=type, y=number, fill=factor(no.of.forces))) + 
 geom_bar(stat="identity", position="dodge") +
 ylab("No. of promises") + 
@@ -402,6 +458,19 @@ theme(axis.title.x=element_blank(), legend.position = c(0.9, 0.9))
 <div style="font-size: 50%">
 Promise types follow the type designations in ``Rinternals.h``.
 </div>
+
+### Distribution per package
+
+``` {r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+make_graphs_for_range(force.histogram.by.type, "type", max.col=5, f=function(data)
+  ggplot(data, aes(x=no.of.forces, y=percent)) +
+    geom_violin(draw_quantiles = c(.25, .5, .75)) +
+    scale_y_continuous(labels=pp_perc) +
+    theme(axis.title.x=element_blank(), 
+          axis.title.y=element_blank(), 
+          legend.position="none")
+)
+```
 
 ## Promise evaluation distances
 

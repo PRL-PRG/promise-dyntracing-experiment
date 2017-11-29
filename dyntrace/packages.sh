@@ -2,6 +2,7 @@
 
 # $1 is the R executable used for dyntracing
 # $2 is the directory in which the dyntraces will be serialized.
+# $3-... packages to run tracing on, if not present then read from $PACKAGES_FILE
 SCRIPT_DIR=$(cd $(dirname "$0"); pwd)
 FILE=$SCRIPT_DIR/vignettes.R
 OUTPUT_DIR=$(cd $2; pwd)/`date +"%Y-%m-%d-%H-%M-%S"`
@@ -19,7 +20,6 @@ export R_COMPILE_PKGS=1
 export R_DISABLE_BYTECODE=0
 export R_ENABLE_JIT=3
 export R_KEEP_PKG_SOURCE=yes
-
 export RDT_COMPILE_VIGNETTE=false
 
 PACKAGES=
@@ -33,14 +33,20 @@ if [ $# -ge 3 ]
 then
     PACKAGES="$@"
 else
-    PACKAGES=$(cat $PACKAGE_FILE | grep -v '^#' | grep -v '^$' | tr -s ' ' | tail -n +2 | cut -f 2 -d';' | xargs echo)
+    PACKAGES=$(cat dyntrace/packages.csv | grep -v '^#' | grep -v '^$' | cut -f 1 -d';' | xargs echo)
 fi
 
-echo $PACKAGES
+echo R_COMPILE_PKGS=$R_COMPILE_PKGS
+echo R_DISABLE_BYTECODE=$R_DISABLE_BYTECODE
+echo R_ENABLE_JIT=$R_ENABLE_JIT
+echo R_KEEP_PKG_SOURCE=$R_KEEP_PKG_SOURCE
+echo RDT_COMPILE_VIGNETTE=$RDT_COMPILE_VIGNETTE
+echo Tracing packages: $PACKAGES
 
 for package in $PACKAGES
 do 
-    echo "$CMD $package"
+    echo "Tracing $package ($CMD)"
     time $CMD $package 2>&1 | tee "${LOGS_DIR}/${package}.log" 
     echo "$package" >> $DYNTRACED_PACKAGE_FILE
+    echo "Done tracing $package ($CMD)"
 done
