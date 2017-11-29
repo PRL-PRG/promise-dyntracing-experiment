@@ -2,7 +2,14 @@
 
 # $1 is the R executable used for dyntracing
 # $2 is the directory in which the dyntraces will be serialized.
-# $3-... packages to run tracing on, if not present then read from $PACKAGES_FILE
+# $3 is the number of separate parallel R processes that will be used to trace.
+# $4-... packages to run tracing on, if not present then read from $PACKAGES_FILE
+N_PROCESSES=8
+if [ -n "$3" ]
+then
+    N_PROCESSES="$3"
+fi
+
 SCRIPT_DIR=$(cd $(dirname "$0"); pwd)
 FILE=$SCRIPT_DIR/vignettes.R
 OUTPUT_DIR=$(cd $2; pwd)/`date +"%Y-%m-%d-%H-%M-%S"`
@@ -29,7 +36,8 @@ then
     CMD="$CMD --compile"        
 fi    
 
-if [ $# -ge 3 ]
+shift 3
+if [ $# -gt 0 ]
 then
     PACKAGES="$@"
 else
@@ -41,12 +49,29 @@ echo R_DISABLE_BYTECODE=$R_DISABLE_BYTECODE
 echo R_ENABLE_JIT=$R_ENABLE_JIT
 echo R_KEEP_PKG_SOURCE=$R_KEEP_PKG_SOURCE
 echo RDT_COMPILE_VIGNETTE=$RDT_COMPILE_VIGNETTE
+echo N_PROCESSES=$N_PROCESSES
+echo R_LIBS=$R_LIBS
 echo Tracing packages: $PACKAGES
 
-for package in $PACKAGES
-do 
-    echo "Tracing $package ($CMD)"
-    time $CMD $package 2>&1 | tee "${LOGS_DIR}/${package}.log" 
-    echo "$package" >> $DYNTRACED_PACKAGE_FILE
-    echo "Done tracing $package ($CMD)"
+n_packages=`echo $PACKAGES | tr ' ' '\n' | wc -l`
+slice_size=$(($n_packages / $N_PROCESSES + 1))
+
+function trace {
+    process=$1; shift
+    echo "[$process] Slice: $@"
+    for package in $@
+    do 
+        echo "[$process] Tracing $package ($CMD)"
+        time $CMD $package 2>&1 | tee "${LOGS_DIR}/${package}.log" 
+        echo "$package" >> $DYNTRACED_PACKAGE_FILE
+        echo "[$process] Done tracing $package ($CMD)"
+    done
+}
+
+for process in `seq 1 $N_PROCESSES`
+do    
+    slice=`echo $PACKAGES | tr ' ' '\n' | \
+           tail -n +$((($process - 1)* $slice_size + 1)) | \
+           head -n $slice_size`
+    trace $process $slice &
 done
