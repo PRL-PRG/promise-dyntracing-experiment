@@ -62,7 +62,7 @@ function trace {
     for package in $@
     do 
         echo "[$process] Tracing $package ($CMD)"
-        time $CMD $package 2>&1 | tee "${LOGS_DIR}/${package}.log" 
+        time $CMD $package 2>&1 | tee -a "${LOGS_DIR}/${package}.log" 
         echo "$package" >> $DYNTRACED_PACKAGE_FILE
         echo "[$process] Done tracing $package ($CMD)"
     done
@@ -73,5 +73,11 @@ do
     slice=`echo $PACKAGES | tr ' ' '\n' | \
            tail -n +$((($process - 1)* $slice_size + 1)) | \
            head -n $slice_size`
-    trace $process $slice &
+
+    if [ $N_PROCESSES -le 1 ]
+    then
+        trace $process $slice
+    else
+        trace $process $slice &
+    fi
 done
