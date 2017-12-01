@@ -1,8 +1,8 @@
 INPUT_DIR=2017-11-06-13-41-34
 OUTPUT_DIR=output
 
-TRACER=../betteR-dyntrace/bin/R
-TRACER_PROCESSES=8
+TRACER=../better-R-dyntrace/bin/R
+TRACER_PROCESSES=1
 
 trace: 
 	dyntrace/packages.sh $(TRACER) $(INPUT_DIR) $(TRACER_PROCESSES) $(PACKAGES)
@@ -10,10 +10,12 @@ trace:
 check-data:
 	dyntrace/check_results.sh $(INPUT_DIR)
 
+get-todo-packages:
+	dyntrace/get_todo_list.sh $(INPUT_DIR)
+
 clean-data:
 	dyntrace/clean_results.sh $(INPUT_DIR)
 	
-
 analyze-argument-promise-mode:
 	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/table
 	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/graph
