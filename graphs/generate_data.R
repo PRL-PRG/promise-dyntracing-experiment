@@ -970,5 +970,5 @@ for (arg in commandArgs(trailingOnly=TRUE)) {
   #arg <- "/home/kondziu/workspace/R-dyntrace/data/rivr.sqlite"
   name <- gsub("\\..*$", "", basename(arg))
   print(name)
-  main(name, arg, "/home/kondziu/workspace/promise-dyntracing-experiment/graph/csv/", debug=TRUE)
+  main(name, arg, Sys.getenv("CSV_DIR"), debug=TRUE)
 }
