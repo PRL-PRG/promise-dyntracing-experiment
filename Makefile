@@ -1,8 +1,10 @@
 INPUT_DIR=2017-11-06-13-41-34
 OUTPUT_DIR=output
 
-TRACER=../better-R-dyntrace/bin/R
+TRACER=../R-dyntrace/bin/R
 TRACER_PROCESSES=1
+PACKAGES=
+
 
 trace: 
 	dyntrace/packages.sh $(TRACER) $(INPUT_DIR) $(TRACER_PROCESSES) $(PACKAGES)
