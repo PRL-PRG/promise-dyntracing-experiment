@@ -88,5 +88,7 @@ do
         trace $process $slice
     else
         trace $process $slice &
+        PIDS
     fi
+    
 done

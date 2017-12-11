@@ -11,7 +11,7 @@ do
     size=`du -h $sqlite_file | cut -f 1`
     package=`echo $base_file | cut -f 1 -d-`
     vignette=`echo $base_file | cut -f 2 -d-`
-    printf "%20s %50s %8s %5s\n"  $package $vignette $size $ok
+    printf "%20s %50s %8s %5s\n"  $package $vignette $size $ok $csv
 
 done
 }

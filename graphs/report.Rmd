@@ -846,8 +846,11 @@ ggplot(promise_force_orders, aes(x=no.of.force.orders, y=number)) +
   xlab("No. of force orders")
 ```
 
-<!--## Argument promise mode
+## Argument promise mode
 
+TODO 
+
+<!--
 <div style="font-size: 50%">
 How many argument promises are default and how many are not.
 </div>
@@ -862,9 +865,11 @@ kable(apm, "html", col.names=c("Runnable", "All", "Default argument", "Non-defau
 <div style="font-size: 50%; padding-top:2em">
 https://docs.google.com/spreadsheets/d/1miVXUxCoeYiBR0eiCB3Ipa3KBCDw7OZ77qy7RJHFJ_8/edit#gid=333058396
 </div>
-
+-->
 ## Argument position laziness (top 20)
 
+TODO
+<!--
 <div style="font-size: 50%; padding-top:2em">
 At each argument position, how often is the argument evaluated and how often it is not.
 </div>
@@ -877,9 +882,11 @@ kable(apl, "html", col.names=c("Function type", "Function ID", "Argument positio
 <div style="font-size: 50%; padding-top:2em">
 https://docs.google.com/spreadsheets/d/1Fb9JdbTMXqoX-xJqhxH063ZQjL9wE5ghO12y63TxyOs/edit#gid=0
 </div>
-
+-->
 ## Environment access 
 
+TODO
+<!--
 <div style="font-size: 50%; padding-top:2em">
 How often, environment functions are used to access, create or modify existing environments
 </div>
@@ -901,9 +908,11 @@ https://docs.google.com/spreadsheets/d/1nwoPDs2gdipw0vtHqhfFWv4cwGQrp5b7qAbUjqsf
 
 ## Default and non-default promise arguments
 
-<center>
+TODO
+
+<!--center>
 <img src="/home/kondziu/workspace/R-dyntrace/reports/img/argument-promise-mode.png" style="width: 400px"/>
-</center>
+</center-->
 
 ## Calls to specific functions
 
