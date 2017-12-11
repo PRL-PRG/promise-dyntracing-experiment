@@ -4,7 +4,7 @@
 # $2 is the directory in which the dyntraces will be serialized.
 # $3 is the number of separate parallel R processes that will be used to trace.
 # $4-... packages to run tracing on, if not present then read from $PACKAGES_FILE
-N_PROCESSES=8
+N_PROCESSES=1
 if [ -n "$3" ]
 then
     N_PROCESSES="$3"
