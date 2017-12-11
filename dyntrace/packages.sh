@@ -4,11 +4,13 @@
 # $2 is the directory in which the dyntraces will be serialized.
 # $3 is the number of separate parallel R processes that will be used to trace.
 # $4-... packages to run tracing on, if not present then read from $PACKAGES_FILE
-N_PROCESSES=8
+N_PROCESSES=1
 if [ -n "$3" ]
 then
     N_PROCESSES="$3"
 fi
+
+echo $0 $@
 
 SCRIPT_DIR=$(cd $(dirname "$0"); pwd)
 FILE=$SCRIPT_DIR/vignettes.R
@@ -17,6 +19,13 @@ DATA_DIR=$OUTPUT_DIR/data/
 LOGS_DIR=$OUTPUT_DIR/logs/
 PACKAGE_FILE=$SCRIPT_DIR/packages.csv
 DYNTRACED_PACKAGE_FILE=$OUTPUT_DIR/packages.txt
+
+if [ -n "$PACKAGE_LIST" ] 
+then
+    PACKAGE_LIST=dyntrace/packages.csv
+fi
+
+
 mkdir -p $DATA_DIR
 mkdir -p $LOGS_DIR
 echo > $DYNTRACED_PACKAGE_FILE 
@@ -41,7 +50,7 @@ if [ $# -gt 0 ]
 then
     PACKAGES="$@"
 else
-    PACKAGES=$(cat dyntrace/packages.csv | grep -v '^#' | grep -v '^$' | cut -f 1 -d';' | xargs echo)
+    PACKAGES=$(cat "$PACKAGE_FILE" | grep -v '^#' | grep -v '^$' | cut -f 1 -d';' | xargs echo)
 fi
 
 echo R_COMPILE_PKGS=$R_COMPILE_PKGS
