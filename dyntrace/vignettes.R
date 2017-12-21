@@ -30,11 +30,11 @@ dir.create(instrumented.code.dir, recursive = TRUE, showWarnings = FALSE)
 log.dir <- paste(cfg$options$`output-dir`, "logs", sep="/")
 dir.create(log.dir, recursive = TRUE, showWarnings = FALSE)
 
-rdt.cmd.head <- function(database_filepath, verbose=TRUE)
+rdt.cmd.head <- function(database_filepath, verbose=FALSE)
   paste(
     "library(promisedyntracer)\n",
     "\n",
-    "dyntracer <- create_dyntracer('", database_filepath, "',", "FALSE,", verbose, ")\n",
+    "dyntracer <- create_dyntracer('", database_filepath, "',verbose=", verbose, ")\n",
     "dyntrace(dyntracer, {\n",
     sep="")
 
