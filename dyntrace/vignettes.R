@@ -34,7 +34,7 @@ rdt.cmd.head <- function(database_filepath, verbose=TRUE)
   paste(
     "library(promisedyntracer)\n",
     "\n",
-    "dyntracer <- create_dyntracer('", database_filepath, "',", verbose, ")\n",
+    "dyntracer <- create_dyntracer('", database_filepath, "',", "FALSE,", verbose, ")\n",
     "dyntrace(dyntracer, {\n",
     sep="")
 

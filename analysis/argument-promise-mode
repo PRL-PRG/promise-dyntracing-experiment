@@ -6,7 +6,8 @@ suppressPackageStartupMessages(library(optparse))
 suppressWarnings(suppressPackageStartupMessages(library(tidyverse)))
 
 databases <- function(input_dirpath)
-  Filter(function(filename) { file_ext(filename) == "sqlite" },
+  Filter(function(filename) { file_ext(filename) == "sqlite" &&
+                              file_test("-f", paste0(file_path_sans_ext(filename), ".OK")) },
          list.files(path=input_dirpath,
                     full.names=TRUE,
                     recursive=TRUE,
@@ -45,7 +46,21 @@ export_table <- function(datatable, output_file) {
     spread(`ARGUMENT TYPE`, `COUNT`) %>%
     mutate(`UNACCOUNTED` = `ALL` - (`NON-DEFAULT ARGUMENT` + `DEFAULT ARGUMENT`)) %>%
     replace(., is.na(.), 0) %>%
-    write_tsv(output_file)
+    write_csv(output_file)
+}
+
+create_graph <- function(datatable, output_file) {
+  graph <-
+    datatable %>%
+    spread(`ARGUMENT TYPE`, `COUNT`) %>%
+    mutate(`DEFAULT ARGUMENT` = 100 * `DEFAULT ARGUMENT` / `ALL`,
+           `NON-DEFAULT ARGUMENT` = 100 * `NON-DEFAULT ARGUMENT` / `ALL`) %>%
+    gather(`ARGUMENT TYPE`, `PROPORTION (% of PROMISES)`, -`RUNNABLE`, -`ALL`) %>%
+    ggplot(aes(`ARGUMENT TYPE`, `PROPORTION (% of PROMISES)`)) +
+    geom_violin(draw_quantiles = c(0.25, 0.5, 0.75)) +
+    ggtitle("Proportion of Default and Non-Default promise arguments")
+
+  ggsave(plot = graph, output_file)
 }
 
 parse_program_arguments <- function() {
@@ -73,11 +88,12 @@ main <- function() {
   table_dir = arguments$args[2]
   graph_dir = arguments$args[3]
   datatable <- create_table(input_dir)
-  export_table(datatable, file.path(table_dir, "argument-promise-mode.tsv"))
+  export_table(datatable, file.path(table_dir, "argument-promise-mode.csv"))
+
   ## analyze_table(datatable,
   ##               file.path(table_dir, "environment-usage-lower-quartile.tsv"),
   ##               file.path(table_dir, "environment-usage-upper-quartile.tsv"))
-  ## create_graph(datatable, file.path(graph_dir, "fun-"))
+  create_graph(datatable, file.path(graph_dir, "argument-promise-mode.png"))
 }
 
 main()

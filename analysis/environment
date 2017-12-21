@@ -101,9 +101,24 @@ create_graph <- function(datatable, output_file) {
         geom_violin() +
         geom_boxplot(width = 0.2)
       filename <- paste0(output_file,.$`FUNCTION NAME`[1],".png")
-      ggsave(plot=plot, file=filename)
+      ggsave(plot=plot, filename=filename)
       data.frame(filename=filename)
-      })
+    })
+
+
+  datatable %>%
+    spread(`FUNCTION NAME`, `COUNT`) %>%
+    gather(`FUNCTION NAME`, `COUNT`, -`TOTAL CALLS`, -`RUNNABLE`) %>%
+    mutate(`COUNT` = 100 * `COUNT` / `TOTAL CALLS`) %>%
+    group_by(`FUNCTION NAME`) %>%
+    do({
+      p <-
+        ggplot(data=., aes(`FUNCTION NAME`, `COUNT`)) +
+        geom_violin(draw_quantiles = c(0.25, 0.5, 0.75))
+      filename <- paste0(output_file,.$`FUNCTION NAME`[1],"-relative.png")
+      ggsave(plot=p, filename=filename)
+      data.frame(filename=filename)
+    })
 }
 
 parse_program_arguments <- function() {
