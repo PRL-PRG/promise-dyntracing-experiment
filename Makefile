@@ -29,7 +29,7 @@ aggregate-csv:
 	
 make-report:
 	$(VANILLA_RSCRIPT) -e "rmarkdown::render('graphs/report.Rmd', params=list(CSV_DIR=$(DATA_DIR)/csv, PRINT_DATA=TRUE))"
-	
+
 analyze-argument-promise-mode:
 	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/table
 	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/graph
@@ -40,4 +40,14 @@ analyze-environment:
 	mkdir -p $(OUTPUT_DIR)/environment/graph
 	analysis/environment.R $(DATA_DIR) $(OUTPUT_DIR)/environment/table $(OUTPUT_DIR)/environment/graph
 
-analyze: analyze-environment analyze-argument-promise-mode
+analyze-argument-position-laziness:
+	mkdir -p $(OUTPUT_DIR)/argument-position-laziness/table
+	mkdir -p $(OUTPUT_DIR)/argument-position-laziness/graph
+	analysis/argument-position-laziness $(INPUT_DIR) $(OUTPUT_DIR)/argument-position-laziness/table $(OUTPUT_DIR)/argument-position-laziness/graph
+
+analyze-side-effects:
+	mkdir -p $(OUTPUT_DIR)/side-effects/table
+	mkdir -p $(OUTPUT_DIR)/side-effects/graph
+	analysis/side-effects $(INPUT_DIR) $(OUTPUT_DIR)/side-effects/table $(OUTPUT_DIR)/side-effects/graph
+
+analyze: analyze-environment analyze-argument-promise-mode analyze-argument-position-laziness
