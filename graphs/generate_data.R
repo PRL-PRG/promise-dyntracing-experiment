@@ -969,6 +969,7 @@ get_function_calls <- function(functions, calls, n.calls, ...) {
     select(function_id, function_name, number, percent) %>%
     collect(n=Inf)
     lapply(patterns, function(pattern) {filter(data, grepl(pattern, function_name))} ) %>% bind_rows
+  data
 }
 
 for (arg in commandArgs(trailingOnly=TRUE)) {
