@@ -518,7 +518,7 @@ get_function_compilations_by_type_actual <- function(calls, functions, n.functio
   
   histogram <- 
     left_join(specific_functions, select(calls, call_id, function_id, compiled), by="function_id") %>% 
-    group_by(function_id) %>% summarise(runs=count(), compiled_runs=sum(compiled), type=type) %>% 
+    group_by(function_id) %>% summarise(runs=length(call_id), compiled_runs=sum(compiled), type=type) %>% 
     mutate(compiled=ifelse(compiled_runs == 0, 0, as.character(ifelse(runs == compiled_runs, 1, ifelse(compiled_runs == runs - 1, 2, 3))))) %>% 
     group_by(type, compiled) %>% count %>% rename(number=n) %>%
     collect %>% ungroup() %>%
@@ -527,6 +527,8 @@ get_function_compilations_by_type_actual <- function(calls, functions, n.functio
     mutate(percent_overall=100*number/n.functions) %>%
     mutate(percent_within_type=100*number/functions_by_type_hashmap[[type]])
     
+  write("hi", stderr())
+  
   { if (is.na(specific_type))
     histogram
   else
