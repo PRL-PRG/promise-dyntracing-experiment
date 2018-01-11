@@ -15,6 +15,6 @@ sort > "$done"
 
 <dyntrace/packages.csv cut -f 1 -d\; | sort > "$all"
 
-comm -2 -3 "$all" "$done"
+comm -2 -3 "$all" "$done" | tee "$1/rerun.csv"
 
 rm "$all" "$done"

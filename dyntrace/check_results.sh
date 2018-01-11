@@ -21,6 +21,7 @@ correct=`echo "$info" | tr -s ' ' |  cut -f 5 -d ' ' | grep TRUE | wc -l`
 incorrect=`echo "$info" | tr -s ' ' |  cut -f 5 -d ' ' | grep FALSE | wc -l`
 total=`echo "$info" | wc -l`
 
-echo "$info"
-printf "\n%42s  SUCCEEDED: %4s  FAILED: %4s  TOTAL: %4s\n" "" $correct $incorrect $total
+echo "$info" | tee "$1"/health.txt
+printf "\n%42s  SUCCEEDED: %4s  FAILED: %4s  TOTAL: %4s\n" "" $correct $incorrect $total | tee -a "$1"/health.txt
+
 
