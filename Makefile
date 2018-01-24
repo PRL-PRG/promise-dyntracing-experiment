@@ -11,19 +11,23 @@ VANILLA_RSCRIPT=Rscript
 trace: 
 	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(PACKAGES)
 
-check-data:
+check:
 	dyntrace/check_results.sh $(DATA_DIR)
 
 get-todo-packages:
 	dyntrace/get_todo_list.sh $(DATA_DIR)
 
-clean-data:
+clean:
 	dyntrace/clean_results.sh $(DATA_DIR)
 
-make-csv:
+csvs:
 	graphs/generate_data.sh $(DATA_DIR)/data/*.sqlite
 
-make-report:
+aggregate-csvs:
+	if [ -e $(DATA_DIR)/csv/_all ]; then rm -ri $(DATA_DIR)/csv/_all; fi
+	graphs/aggregate_csvs.sh $(DATA_DIR)/csv/_all $(DATA_DIR)/csv/*
+	
+report:
 	$(VANILLA_RSCRIPT) -e "rmarkdown::render('graphs/report.Rmd', params=list(CSV_DIR=$(DATA_DIR)/csv, PRINT_DATA=TRUE))"
 
 analyze-argument-promise-mode:

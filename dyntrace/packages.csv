@@ -130,7 +130,6 @@ nonnest2;1;66
 sparseMVN;1;122
 moveHMM;1;29
 SSM;1;37
-proftools;1;21
 RRTCS;1;20
 GGMselect;1;35
 requireR;1;16
@@ -2216,3 +2215,4 @@ MedOr;1;8
 metaplotr;1;47
 lfe;4;194
 mpe;1;57
+proftools;1;21

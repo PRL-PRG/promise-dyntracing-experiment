@@ -14,8 +14,11 @@ log_line_to_csv <- function(where, ...) {
   write.table(what, file=where, sep=",", append=TRUE, col.names=header, row.names=FALSE)
 }
 
-store <- function(name, output_path) function(table) function(...) 
-  suppressWarnings(log_line_to_csv(file.path(output_path, paste(table, "csv", sep=".")), name=name, ...))
+store <- function(name, output_path) function(table) function(...) {
+  path <- file.path(output_path, paste(table, "csv", sep="."))
+  write(paste("writing to", path), stderr())
+  suppressWarnings(log_line_to_csv(path, name=name, ...))
+}
 
 main <- function(package, database_path, output_path, debug = TRUE) {
   
@@ -969,6 +972,6 @@ get_function_calls <- function(functions, calls, n.calls, ...) {
 for (arg in commandArgs(trailingOnly=TRUE)) {
   #arg <- "/home/kondziu/workspace/R-dyntrace/data/rivr.sqlite"
   name <- gsub("\\..*$", "", basename(arg))
-  print(name)
-  main(name, arg, "/home/kondziu/workspace/promise-dyntracing-experiment/graph/csv/", debug=TRUE)
+  write(name, stderr())
+  main(name, arg, Sys.getenv("CSV_DIR"), debug=TRUE)
 }
