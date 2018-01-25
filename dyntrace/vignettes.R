@@ -30,18 +30,16 @@ dir.create(instrumented.code.dir, recursive = TRUE, showWarnings = FALSE)
 log.dir <- paste(cfg$options$`output-dir`, "logs", sep="/")
 dir.create(log.dir, recursive = TRUE, showWarnings = FALSE)
 
-rdt.cmd.head <- function(database_filepath, verbose=FALSE)
+rdt.cmd.head <- function()
   paste(
     "library(promisedyntracer)\n",
     "\n",
-    "dyntracer <- create_dyntracer('", database_filepath, "',verbose=", verbose, ")\n",
-    "dyntrace(dyntracer, {\n",
+    "dyntrace_promises({\n",
     sep="")
 
-rdt.cmd.tail<- function(path)
-  paste("\n})\n",
-        "destroy_dyntracer(dyntracer)\n",
-        "write('OK', '", path, "')\n",
+rdt.cmd.tail<- function(database_filepath, verbose=FALSE, path)
+  paste("\n}\n, '", database_filepath, "'\n, verbose=", verbose, ")\n",
+        "\nwrite('OK', '", path, "')\n",
         sep="")
 
 instrument.vignettes <- function(packages) {
@@ -98,9 +96,9 @@ instrument.vignettes <- function(packages) {
       write(paste("[", i.packages, "/", n.packages, "::", i.vignettes, "/", n.vignettes, "/", total.vignettes, "] Writing vignette to: ", instrumented.code.path, sep=""), stdout())
 
       vignette.code <- readLines(vignette.code.path)
-      instrumented.code <- c(rdt.cmd.head(tracer.output.path, verbose = FALSE),
+      instrumented.code <- c(rdt.cmd.head(),
                              paste0("    ", vignette.code),
-                             rdt.cmd.tail(tracer.ok.path))
+                             rdt.cmd.tail(tracer.output.path, verbose = FALSE, tracer.ok.path))
                                                 
       write(instrumented.code, instrumented.code.path)
       
