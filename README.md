@@ -4,17 +4,32 @@ Scripts for collecting and processing data about promise execution in R
 
 ## Prerequisites
 
-optparse
-stringr
-hashmap
-tidyr
-dplyr
-gridExtra
-kableExtra
-png
-scales
-ggplot2
-knitr
+The following packages are necessary for running the experiments (in addition
+to any traced packages): `optparse`, `stringr`, `hashmap`, `tidyr`, `dplyr`,
+`gridExtra`, `kableExtra`, `png`, `scales`, `ggplot2`, `knitr`.
+
+Installation script:
+
+```r
+install.packages(c("optparse", "stringr", "hashmap", 
+                   "tidyr", "dplyr", "gridExtra", 
+                    "kableExtra", "png", "scales", 
+                    "ggplot2", "knitr"),
+                 #repos='http://cran.us.r-project.org',
+                 #Ncpus=20,                            # run in parallel using 20 cores
+                 #keep_outputs=T,                      # keeps outputs in ".out" files in current directory
+                 INSTALL_opts=c(
+                 "--byte-compile",                     # byte-compile packages
+                 "--example",                          # extract and keep examples
+                 "--install-tests",                    # copy and retain test directory for the package
+                 "--with-keep.source",                 # keep line numbers
+                 "--no-multiarch"),
+                 dependencies = c("Depends",
+                                  "Imports",
+                                  "LinkingTo",
+                                  "Suggests",
+                                  "Enhances"))
+```
 
 ## Basic process
 
