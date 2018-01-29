@@ -1,5 +1,5 @@
 DATA_DIR=data/2017-11-06-13-41-34
-ANALYSIS_DIR=output
+OUTPUT_DIR=output
 
 TRACER=../R-dyntrace/bin/R
 PROCESSES=1
@@ -26,7 +26,7 @@ csvs:
 aggregate-csvs:
 	if [ -e $(DATA_DIR)/csv/_all ]; then rm -ri $(DATA_DIR)/csv/_all; fi
 	graphs/aggregate_csvs.sh $(DATA_DIR)/csv/_all $(DATA_DIR)/csv/*
-	
+
 report:
 	$(VANILLA_RSCRIPT) -e "rmarkdown::render('graphs/report.Rmd', params=list(CSV_DIR=$(DATA_DIR)/csv, PRINT_DATA=TRUE))"
 
@@ -50,4 +50,9 @@ analyze-side-effects:
 	mkdir -p $(OUTPUT_DIR)/side-effects/graph
 	analysis/side-effects $(INPUT_DIR) $(OUTPUT_DIR)/side-effects/table $(OUTPUT_DIR)/side-effects/graph
 
-analyze: analyze-environment analyze-argument-promise-mode analyze-argument-position-laziness
+analyze-promise-memory-usage:
+	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/table
+	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/graph
+	analysis/promise-memory-usage.R $(INPUT_DIR) $(OUTPUT_DIR)/promise-memory-usage/table $(OUTPUT_DIR)/promise-memory-usage/graph
+
+analyze: analyze-environment analyze-argument-promise-mode analyze-argument-position-laziness analyze-promise-memory-usage
