@@ -1,9 +1,7 @@
-suppressPackageStartupMessages(library("optparse")) 
 suppressPackageStartupMessages(library("dplyr"))
-suppressPackageStartupMessages(library("stringr"))
-suppressPackageStartupMessages(library("hashmap"))
+suppressPackageStartupMessages(library("tidyr"))
 
-CSV_DIR=paste("/media/kondziu/b7a9548c-13a0-4fe6-8a28-de8d491a209b/R/traces/lucoa/2017-12-15-16-01-42/", "csv/_all/", sep="/")
+CSV_DIR=commandArgs(trailingOnly=TRUE)[1] #paste(, "csv/_all/", sep="/")
 
 load_csv <- function (filename) read.csv(paste(CSV_DIR, "/", filename, ".csv", sep=""))
 
@@ -17,6 +15,7 @@ metadata <- load_csv("metadata")
 promise_evaluations <- load_csv("promise_evaluations")
 forces <- load_csv("forces")
 fuzzy_forces <- load_csv("fuzzy_forces")
+forces_by_type <- load_csv("forces_by_type")
 promise_types <- load_csv("promise_types")
 return_types <- load_csv("return_types")
 promise_code_to_return_types <- load_csv("promise_code_to_return_types")
@@ -106,3 +105,5 @@ conglomeration <-
   left_join(flat_function_strictness_by_type, by="name") %>%  
   left_join(flat_call_strictness_ratio, by="name") %>%  
   left_join(flat_function_strictness_ratio, by="name")
+
+write.csv(conglomeration, file=file.path(CSV_DIR, "summary.csv"))

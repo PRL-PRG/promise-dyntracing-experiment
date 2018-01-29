@@ -8,7 +8,7 @@ PACKAGES=
 VANILLA_R=R
 VANILLA_RSCRIPT=Rscript
 
-trace: 
+trace:
 	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(PACKAGES)
 
 check:
@@ -27,8 +27,11 @@ aggregate-csvs:
 	if [ -e $(DATA_DIR)/csv/_all ]; then rm -ri $(DATA_DIR)/csv/_all; fi
 	graphs/aggregate_csvs.sh $(DATA_DIR)/csv/_all $(DATA_DIR)/csv/*
 
+conglomerate-csvs:
+	Rscript graphs/conglomerate_csvs.R $(DATA_DIR)/csv/_all
+
 report:
-	$(VANILLA_RSCRIPT) -e "rmarkdown::render('graphs/report.Rmd', params=list(CSV_DIR=$(DATA_DIR)/csv, PRINT_DATA=TRUE))"
+	$(VANILLA_RSCRIPT) -e "rmarkdown::render('graphs/report.Rmd', params=list(CSV_DIR='$(DATA_DIR)/csv/_all', PRINT_DATA=TRUE))"
 
 analyze-argument-promise-mode:
 	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/table

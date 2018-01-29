@@ -2,6 +2,35 @@
 
 Scripts for collecting and processing data about promise execution in R
 
+## Prerequisites
+
+The following packages are necessary for running the experiments (in addition
+to any traced packages): `optparse`, `stringr`, `hashmap`, `tidyr`, `dplyr`,
+`gridExtra`, `kableExtra`, `png`, `scales`, `ggplot2`, `knitr`.
+
+Installation script:
+
+```r
+install.packages(c("optparse", "stringr", "hashmap", 
+                   "tidyr", "dplyr", "gridExtra", 
+                    "kableExtra", "png", "scales", 
+                    "ggplot2", "knitr"),
+                 #repos='http://cran.us.r-project.org',
+                 #Ncpus=20,                            # run in parallel using 20 cores
+                 #keep_outputs=T,                      # keeps outputs in ".out" files in current directory
+                 INSTALL_opts=c(
+                 "--byte-compile",                     # byte-compile packages
+                 "--example",                          # extract and keep examples
+                 "--install-tests",                    # copy and retain test directory for the package
+                 "--with-keep.source",                 # keep line numbers
+                 "--no-multiarch"),
+                 dependencies = c("Depends",
+                                  "Imports",
+                                  "LinkingTo",
+                                  "Suggests",
+                                  "Enhances"))
+```
+
 ## Basic process
 
 The basic process of tracing vignettes and processing the data is as follows. We describe the constitutent parts and various options below in more detail.
@@ -179,8 +208,30 @@ make aggregate-csvs DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/2017-12-15-01-42"
 
 ## Making a huge CSV
 
+Using aggregated files, creates a single mostly-human-readable summary CSV containing all the information (actually it skips two tables, because I don't know hot to turn them into columns).
 
+```
+make conglomerate-csvs DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/2017-12-15-01-42"
+```
+
+## Running analyses
+
+To run all analyses at once,
+
+```
+make analyze
+```
+
+To run a particular analysis,
+
+```
+make analyze-environment
+```
 
 ## Generating a report
 
+(WIP)
 
+```r
+make report DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/2017-12-15-01-42"
+```

@@ -48,6 +48,14 @@ instrument.vignettes <- function(packages) {
   if (length(new_packages) > 0) {
     install.packages(new_packages,
                      repos='http://cran.us.r-project.org',
+                     #Ncpus=20,                            # run in parallel using 20 cores
+                     #keep_outputs=T,                      # keeps outputs in ".out" files in current directory
+                     INSTALL_opts=c(
+                     "--byte-compile",                     # byte-compile packages
+                     "--example",                          # extract and keep examples
+                     "--install-tests",                    # copy and retain test directory for the package
+                     "--with-keep.source",                 # keep line numbers
+                     "--no-multiarch"),
                      dependencies = c("Depends",
                                       "Imports",
                                       "LinkingTo",

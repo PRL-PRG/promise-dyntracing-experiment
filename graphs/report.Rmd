@@ -23,7 +23,7 @@ params:
   }
 </style>
 
-``` {r, include=FALSE}
+``` {r, "initial setup", include=FALSE}
 #rmarkdown::render("graphs_from_csv.Rmd", params = list(CSV_DIR = "/home/kondziu/workspace/R-dyntrace/reports/aggregate/", PRINT_DATA = TRUE))
 #params <- data.frame(PRINT_DATA=TRUE, CSV_DIR="/home/kondziu/workspace/promise-dyntracing-experiment/graphs/csv/")
 
@@ -44,7 +44,11 @@ SEXP_TYPE_NAMES = c(
     "RAW", "S4")                                  # 24-25
 
 pp <- function(number) format(number, big.mark=",", scientific=FALSE, trim=FALSE, digits=2)
-load_local_csv <- function (csv_file) as_tibble(read.csv(file.path(params$CSV_DIR, csv_file)))
+load_local_csv <- function (csv_file) {
+    path <- file.path(params$CSV_DIR, csv_file)
+    write(paste("reading", path), stderr())
+    as_tibble(read.csv(path))
+}
 print_data <- function (x) if(params$PRINT_DATA) print(x, row.names=FALSE)
 prettify <- function(x) x %>% mutate(number=pp_trunc(number), percent=pp_perc(percent)) %>% as.data.frame
 pp_trunc <- function(x) ifelse(x==0, paste(format(x, digits=2, scientific=FALSE)),
@@ -67,7 +71,7 @@ make_graphs_for_range <- function(data, range_column, f, max.col=10) {
 }
 ```
 
-``` {r, include=FALSE}
+``` {r, "basic info", include=FALSE}
 basic_info <- 
   load_local_csv("basic_info.csv") %>%
   group_by(name) %>%
@@ -118,14 +122,14 @@ missing_basic_info <-
 
 ## Dataset
 
-```{r, echo=FALSE, comment="", row.names=FALSE}
+```{r, "dataset", echo=FALSE, comment="", row.names=FALSE}
 basic_info %>% select(name) %>% distinct %>% pull(name) %>% as.character %>% print(row.names=FALSE)
 ```
 
 <!--r path -->
 ## Overview
 
-``` {r, echo=FALSE, warning=FALSE}
+``` {r, "overview", echo=FALSE, warning=FALSE}
 union(top5_basic_info, aggregate_basic_info) %>% 
   mutate(
     n.functions=pp_trunc(n.functions), 
@@ -156,7 +160,7 @@ union(top5_basic_info, aggregate_basic_info) %>%
 
 ## Promise accesses
 
-```{r, include=FALSE}
+```{r, "promise accesses", include=FALSE}
 forces <- 
   load_local_csv("fuzzy_forces.csv") %>% 
   group_by(classification) %>% 
@@ -164,7 +168,7 @@ forces <-
   mutate(percent=100*number/sum(number))
 ```
 
-``` {r, echo=FALSE}
+``` {r, "promise accesses kable", echo=FALSE}
 forces %>% prettify %>% kable(col.names=c("classification","number","percentage"), align="lrr")
 ```
 
@@ -182,13 +186,13 @@ ggplot(forces, aes(x="", y=percent, fill=classification)) +
 </div>
 
 
-```{r evaluations-forces-separate, include=FALSE}
+```{r, "promise accesses forces", include=FALSE}
 forces <- 
   load_local_csv("fuzzy_forces.csv")
   
 ```
 
-```{r, echo=FALSE, fig.width=10, fig.height=3}
+```{r, "promise accesses forces packages", echo=FALSE, fig.width=10, fig.height=3}
 g_class <- function(x, y_axis=FALSE) {
     ggplot(forces %>% filter(classification==x), aes(x=classification, percent)) +
     geom_violin(draw_quantiles = c(.25, .5, .75)) +
@@ -210,7 +214,7 @@ grid.arrange(
 
 ### Aggregate
 
-``` {r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+``` {r, "number of accesses to a promise, aggregate", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
 evaluations <- 
   load_local_csv("promise_evaluations.csv") %>%
   group_by(no.of.evaluations) %>% 
@@ -237,7 +241,7 @@ Promise types follow the type designations in ``Rinternals.h``.
 
 ### Distribution per package
 
-``` {r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+``` {r, "number of accesses to a promise, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
 evaluations <- load_local_csv("promise_evaluations.csv")
 make_graphs_for_range(evaluations, "no.of.evaluations", max.col=6, f=function(data)
   ggplot(data, aes(x=no.of.evaluations, y=percent)) +
@@ -251,7 +255,7 @@ make_graphs_for_range(evaluations, "no.of.evaluations", max.col=6, f=function(da
 
 ### Separate results per package
 
-``` {r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=10}
+``` {r, "number of accesses to a promise, separate per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=10}
 make_graphs_for_packages(load_local_csv("promise_evaluations.csv"), function(data) function(package) {
   evaluations <- 
     data %>% 
@@ -286,7 +290,7 @@ make_graphs_for_packages(load_local_csv("promise_evaluations.csv"), function(dat
 
 ### Aggregate
 
-``` {r, echo=FALSE, fig.width=10, fig.height=5}
+``` {r, "promise code types, aggregate", echo=FALSE, fig.width=10, fig.height=5}
 promise_types <- 
   load_local_csv("promise_types.csv")
 
@@ -312,7 +316,7 @@ Promise types follow the type designations in ``Rinternals.h``.
 
 ### Distribution per package
 
-``` {r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+``` {r, "promise code types, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
 make_graphs_for_range(promise_types, "type", max.col=5, f=function(data)
   ggplot(data, aes(x=type, y=percent)) +
     geom_violin(draw_quantiles = c(.25, .5, .75)) +
@@ -325,7 +329,7 @@ make_graphs_for_range(promise_types, "type", max.col=5, f=function(data)
 
 ### Separate results per package
 
-``` {r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=10}
+``` {r, "promise code types, separate per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=10}
 available_sexps <- promise_types %>% select(type) %>% distinct %>% pull(type)
 
 make_graphs_for_packages(promise_types, function(data) function(package) {
@@ -355,7 +359,7 @@ make_graphs_for_packages(promise_types, function(data) function(package) {
 
 ## What's inside promises?
 
-```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+```{r, "what's inside promises", echo=FALSE, fig.width=10, fig.height=4.5}
 promise_full_types <-
   load_local_csv("promise_full_types.csv") %>%
   group_by(type) %>% 
@@ -387,7 +391,7 @@ Promise types follow the type designations in ``Rinternals.h``.
 
 ## What do promises return?
 
-``` {r echo=FALSE, fig.width=10, fig.height=5}
+``` {r, "what do promises return",  echo=FALSE, fig.width=10, fig.height=5}
 return_types <- 
   load_local_csv("return_types.csv") %>%
   group_by(type) %>% 
@@ -410,7 +414,7 @@ Promise types follow the type designations in ``Rinternals.h``.
 
 ## What do specific promises return?
 
-```{r promise-types-to-return-types-pie, echo=FALSE, comment="", fig.width=10.5, fig.height=4.5}
+```{r, "what do specific promises return", echo=FALSE, comment="", fig.width=10.5, fig.height=4.5}
 types_to_return_types <- 
   load_local_csv("promise_code_to_return_types.csv") %>%
   group_by(types) %>% 
@@ -437,7 +441,7 @@ Promise types follow the type designations in ``Rinternals.h``.
 
 ### Aggregate
 
-```{r evaluations-forces-by-type, echo=FALSE, , comment="", fig.width=10, fig.height=5}
+```{r, "promise forces by types, aggregate",  echo=FALSE, , comment="", fig.width=10, fig.height=5}
 force.histogram.by.type <- load_local_csv("forces_by_type.csv") 
 
 ggplot(
@@ -461,7 +465,7 @@ Promise types follow the type designations in ``Rinternals.h``.
 
 ### Distribution per package
 
-``` {r, echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+<!--``` {r, "promise forces by types, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
 make_graphs_for_range(force.histogram.by.type, "type", max.col=5, f=function(data)
   ggplot(data, aes(x=no.of.forces, y=percent)) +
     geom_violin(draw_quantiles = c(.25, .5, .75)) +
@@ -470,13 +474,13 @@ make_graphs_for_range(force.histogram.by.type, "type", max.col=5, f=function(dat
           axis.title.y=element_blank(), 
           legend.position="none")
 )
-```
+```-->
 
 ## Promise evaluation distances
 
 <!--Effective distance is the distance from the call where a promise originated to the call in which it was evaluated. It is measured along the call graph (along inbound edges).  Since the data is gathered from a trace, the call graph is a tree.-->
-
-```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+<!--
+```{r, "promise forces by types, separate per package", echo=FALSE, fig.width=10, fig.height=4.5}
 actual_distances <- 
   load_local_csv("actual_distances.csv") %>%
   group_by(actual_distance) %>% 
@@ -490,6 +494,7 @@ ggplot(actual_distances, aes(x=actual_distance, y=number)) +
   ylab("No. of promises") + 
   theme(axis.title.x=element_blank())
 ```
+-->
 
 <div style="font-size: 50%">
 **n** - distance from the function for which a promise was created and the function in which it was evaluated    
@@ -502,7 +507,7 @@ ggplot(actual_distances, aes(x=actual_distance, y=number)) +
 <center>
 <div class="col2">
 <div class="together">
-```{r, echo=FALSE, fig.width=5, fig.height=4}
+```{r, "calls by type", echo=FALSE, fig.width=5, fig.height=4}
 calls.types <- 
   load_local_csv("call_types.csv") %>%
   group_by(type) %>% 
@@ -517,7 +522,7 @@ pie(slices, labels, main="Call types")
 ```
 </div>
 
-```{r, echo=FALSE, fig.width=5, fig.height=4}
+```{r, "functions by type", echo=FALSE, fig.width=5, fig.height=4}
 function.types <- 
   load_local_csv("function_types.csv") %>%
   group_by(type) %>% 
@@ -543,7 +548,7 @@ pie(slices, labels, main="Function types")
 <center>
 <div class="col2">
 <div class="together">
-```{r, echo=FALSE, fig.width=5, fig.height=3.5, warning=FALSE}
+```{r, "byte-code compilation, calls", echo=FALSE, fig.width=5, fig.height=3.5, warning=FALSE}
 closure.call.compilation.histogram <- 
   load_local_csv("compiled_calls.csv") %>%
   group_by(compiled) %>% 
@@ -558,7 +563,7 @@ pie(slices, labels, main="Compiled closures (calls)")
 ```
 </div>
 
-```{r, echo=FALSE, fig.width=5, fig.height=3.5, warning=FALSE}
+```{r, "byte-code compilation, functions", echo=FALSE, fig.width=5, fig.height=3.5, warning=FALSE}
 closure.function.compilation.histogram <- 
   load_local_csv("compiled_functions.csv") %>%
   group_by(compiled) %>% 
@@ -585,7 +590,7 @@ When calling a function it's either byte-code **compiled** or **uncompiled**. Wh
 
 ## Interactions among promises
 
-```{r promise-forced-by-another-evaluation, echo=FALSE, comment="", fig.width=10, fig.height=4.5}
+```{r, "interactions among poromises", echo=FALSE, comment="", fig.width=10, fig.height=4.5}
 promises_forced_by_another_promise <-   
   load_local_csv("promises_forced_by_another_promise.csv") %>%
   group_by(forced_by_another) %>% 
@@ -654,7 +659,7 @@ Promises forced by other promises:
 
 ## Strictness
 
-```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+```{r, "call strictnes", echo=FALSE, fig.width=10, fig.height=4.5}
 strict_calls <- 
   load_local_csv("call_strictness.csv") %>%
   group_by(strict) %>% 
@@ -731,7 +736,7 @@ A function is **strict** if all of its calls are **strict**. Functions that don'
 
 ## Call strictness ratios (dominant)
 
-```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+```{r, "strict calls ratio", echo=FALSE, fig.width=10, fig.height=4.5}
 strict_calls_ratio <- 
   load_local_csv("call_strictness_ratio.csv") %>%
   group_by(strictness_ratio) %>% 
@@ -763,7 +768,7 @@ ggplot(strict_calls_ratio_dominant, aes(x=short, y=number)) +
 
 ## Call strictness ratios (other top 20)
 
-```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+```{r, "call strictness ratios, other top 20", echo=FALSE, fig.width=10, fig.height=4.5}
 strict_calls_ratio_other_top20 <- 
   strict_calls_ratio %>% 
   filter(short=="other") %>% 
@@ -785,7 +790,7 @@ ggplot(strict_calls_ratio_other_top20, aes(x=strictness_ratio, y=number)) +
 
 ## Call strictness ratios (other - top 20)
 
-```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+```{r, "call strictness ratios, top 20", echo=FALSE, fig.width=10, fig.height=4.5}
 strict_calls_ratio_other <- 
   strict_calls_ratio %>% 
   filter(short=="other") %>%
@@ -806,7 +811,7 @@ ggplot(strict_calls_ratio_other, aes(x=strictness_ratio, y=number)) +
 
 ## Function strictness rate
 
-```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+```{r, "function strictness rate", echo=FALSE, fig.width=10, fig.height=4.5}
 strict_functions_rate <- 
   load_local_csv("function_strictness_rate.csv") %>%
   group_by(strictness_rate) %>% 
@@ -830,7 +835,7 @@ ggplot(strict_functions_rate , aes(x=strictness_rate, y=number)) +
 
 ## Evaluation order
 
-```{r, echo=FALSE, fig.width=10, fig.height=4.5}
+```{r, "evaluation order", echo=FALSE, fig.width=10, fig.height=4.5}
 promise_force_orders <- 
   load_local_csv("evaluation_order.csv") %>%
   group_by(no.of.force.orders) %>% 
@@ -855,12 +860,12 @@ TODO
 How many argument promises are default and how many are not.
 </div>
 
-```{r, echo=FALSE}
+{r, "x", echo=FALSE}
 apm <- read.table("/home/kondziu/workspace/R-dyntrace/reports/Argument Promise Mode - argument-promise-mode.tsv", sep="\t", header=TRUE)
 kable(apm, "html", col.names=c("Runnable", "All", "Default argument", "Non-default argument",
                     "Unaccounted", "% of Default Arguments",
                     "% of Non-default Arguments", "% of Unaccounted")) #%>% kable_styling(bootstrap_options = c("condensed"), font_size = 10) %>% row_spec(0, font_size = 10)
-```
+
 
 <div style="font-size: 50%; padding-top:2em">
 https://docs.google.com/spreadsheets/d/1miVXUxCoeYiBR0eiCB3Ipa3KBCDw7OZ77qy7RJHFJ_8/edit#gid=333058396
@@ -874,10 +879,9 @@ TODO
 At each argument position, how often is the argument evaluated and how often it is not.
 </div>
 
-```{r, echo=FALSE, warning=FALSE}
+{r, "y", echo=FALSE, warning=FALSE}
 apl <- read.table("/home/kondziu/workspace/R-dyntrace/reports/Argument Position Laziness - Sheet1.tsv", sep="\t", header=TRUE, fill=TRUE) %>% head(20)
 kable(apl, "html", col.names=c("Function type", "Function ID", "Argument position", "Strict", "Lazy", "Strict %", "Lazy %")) #%>% #kable_styling(bootstrap_options = c("condensed"), font_size = 10) %>% row_spec(0, font_size = 10)
-```
 
 <div style="font-size: 50%; padding-top:2em">
 https://docs.google.com/spreadsheets/d/1Fb9JdbTMXqoX-xJqhxH063ZQjL9wE5ghO12y63TxyOs/edit#gid=0
