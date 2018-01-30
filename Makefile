@@ -58,4 +58,9 @@ analyze-promise-memory-usage:
 	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/graph
 	analysis/promise-memory-usage.R $(INPUT_DIR) $(OUTPUT_DIR)/promise-memory-usage/table $(OUTPUT_DIR)/promise-memory-usage/graph
 
-analyze: analyze-environment analyze-argument-promise-mode analyze-argument-position-laziness analyze-promise-memory-usage
+analyze-promise-lifespan:
+	mkdir -p $(OUTPUT_DIR)/promise-lifespan/table
+	mkdir -p $(OUTPUT_DIR)/promise-lifespan/graph
+	analysis/promise-lifespan.R $(INPUT_DIR) $(OUTPUT_DIR)/promise-lifespan/table $(OUTPUT_DIR)/promise-lifespan/graph
+
+analyze: analyze-environment analyze-argument-promise-mode analyze-argument-position-laziness analyze-promise-memory-usage analyze-promise-lifespan
