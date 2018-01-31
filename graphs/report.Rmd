@@ -3,8 +3,12 @@ title: "R dyntrace report"
 author: "K. Siek, A. Goel"
 output: 
   html_document:
-    theme: flatly # default cerulean journal flatly readable spacelab united cosmo lumen paper sandstone simplex yeti
+    theme: flatly # default cerulean journal flatly readable 
+                  # spacelab united cosmo lumen paper sandstone simplex yeti
     highlight: tango
+    toc: true
+    toc_depth: 3
+    number_sections: true
 params:
   CSV_DIR: "/home/kondziu/workspace/promise-dyntracing-experiment/graphs/csv/"
   PRINT_DATA: TRUE
@@ -23,9 +27,13 @@ params:
   }
 </style>
 
+
+
 ``` {r, "initial setup", include=FALSE}
 #rmarkdown::render("graphs_from_csv.Rmd", params = list(CSV_DIR = "/home/kondziu/workspace/R-dyntrace/reports/aggregate/", PRINT_DATA = TRUE))
 #params <- data.frame(PRINT_DATA=TRUE, CSV_DIR="/home/kondziu/workspace/promise-dyntracing-experiment/graphs/csv/")
+
+knitr::opts_chunk$set(cache=TRUE)
 
 library(dplyr)
 library(hashmap)
@@ -47,7 +55,7 @@ pp <- function(number) format(number, big.mark=",", scientific=FALSE, trim=FALSE
 load_local_csv <- function (csv_file) {
     path <- file.path(params$CSV_DIR, csv_file)
     write(paste("reading", path), stderr())
-    as_tibble(read.csv(path))
+    as_tibble(read.csv(path, stringsAsFactors=FALSE))
 }
 print_data <- function (x) if(params$PRINT_DATA) print(x, row.names=FALSE)
 prettify <- function(x) x %>% mutate(number=pp_trunc(number), percent=pp_perc(percent)) %>% as.data.frame
@@ -55,13 +63,27 @@ pp_trunc <- function(x) ifelse(x==0, paste(format(x, digits=2, scientific=FALSE)
                                ifelse(x < 1000, format(x, digits=2, scientific=FALSE), 
                                       ifelse(x < 1000000, 
                                              paste(format(floor((x/1000)*10)/10, digits=2, scientific=FALSE), "k", sep=""), 
-                                             paste(format(floor((x/1000000)*10)/10, digits=2, scientific=FALSE), "mln", sep=""))))
+                                             paste(format(floor((x/1000000)*10)/10, digits=2, scientific=FALSE), "m", sep=""))))
 pp_perc <- function(x) dollar_format(prefix="", suffix="%")(x)
 is_outlier <- function(x) x < quantile(x, 0.25) - 1.5 * IQR(x) | x > quantile(x, 0.75) + 1.5 * IQR(x)
 
-make_graphs_for_packages <- function(data, f) {
+#http://mathematicalcoffee.blogspot.cz/2014/06/ggpie-pie-graphs-in-ggplot2.html
+ggpie <- function (dat, by, totals, labels=by) {
+    ggplot(dat, aes_string(x=factor(1), y=totals, fill=by)) +
+        geom_bar(stat='identity', color='black') +
+        guides(fill=guide_legend(override.aes=list(colour=NA))) + # removes black borders from legend
+        coord_polar(theta='y') +
+        theme(axis.ticks=element_blank(),
+            axis.text.y=element_blank(),
+            axis.text.x=element_text(colour='black'),
+            axis.title=element_blank(),
+            legend.position='none') +
+    scale_y_continuous(breaks=cumsum(dat[[totals]]) - dat[[totals]] / 2, labels=dat[[labels]])
+}
+
+make_graphs_for_packages <- function(data, f, max.col=10) {
   graphs <- lapply((data %>% select(name) %>% distinct %>% pull(name)), f(data))
-  do.call("grid.arrange", c(graphs, ncol=ceiling(sqrt(length(graphs)))))
+  do.call("grid.arrange", c(graphs, ncol=min(max.col, ceiling(sqrt(length(graphs))))))
 }
 
 make_graphs_for_range <- function(data, range_column, f, max.col=10) {
@@ -118,16 +140,24 @@ missing_basic_info <-
     n.alien.promises="...",
     n.alien.promise.forces="..."
   )
+
+ n.packages <- basic_info %>% count %>% pull(n)
+ 
+ # some graphical stuff
+ package_figure_width <- 10
+ package_figure_columns <- min(7, ceiling(sqrt(n.packages)))
+ package_figure_rows <- ceiling(n.packages/package_figure_columns)
+ package_figure_height <- ceiling(10/7 * package_figure_rows)
 ```
 
-## Dataset
+# Dataset
 
 ```{r, "dataset", echo=FALSE, comment="", row.names=FALSE}
 basic_info %>% select(name) %>% distinct %>% pull(name) %>% as.character %>% print(row.names=FALSE)
 ```
 
 <!--r path -->
-## Overview
+# Overview
 
 ``` {r, "overview", echo=FALSE, warning=FALSE}
 union(top5_basic_info, aggregate_basic_info) %>% 
@@ -158,7 +188,7 @@ union(top5_basic_info, aggregate_basic_info) %>%
 
 <!--Alien promises are promises which were created before we began tracing. We don't have all the information regarding them, so we generally ignore them, including in the data below. They also are a subject of a lot of lookups in functions `from base::*`, which we don't record to save disk space.-->
 
-## Promise accesses
+# Promise accesses
 
 ```{r, "promise accesses", include=FALSE}
 forces <- 
@@ -192,6 +222,8 @@ forces <-
   
 ```
 
+## Distribution per package
+
 ```{r, "promise accesses forces packages", echo=FALSE, fig.width=10, fig.height=3}
 g_class <- function(x, y_axis=FALSE) {
     ggplot(forces %>% filter(classification==x), aes(x=classification, percent)) +
@@ -210,9 +242,9 @@ grid.arrange(
   ncol=4, widths=c(1.1,1,1,1))
 ```
 
-## Number of accesses to a promise
+# Number of accesses to a promise
 
-### Aggregate
+## Aggregate
 
 ``` {r, "number of accesses to a promise, aggregate", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
 evaluations <- 
@@ -239,7 +271,7 @@ ggplot(evaluations, aes(x=no.of.evaluations, y=number)) +
 Promise types follow the type designations in ``Rinternals.h``.  
 </div>
 
-### Distribution per package
+## Distribution per package/vignette
 
 ``` {r, "number of accesses to a promise, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
 evaluations <- load_local_csv("promise_evaluations.csv")
@@ -253,10 +285,10 @@ make_graphs_for_range(evaluations, "no.of.evaluations", max.col=6, f=function(da
 )
 ```
 
-### Separate results per package
+## Separate results per package/vignette
 
-``` {r, "number of accesses to a promise, separate per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=10}
-make_graphs_for_packages(load_local_csv("promise_evaluations.csv"), function(data) function(package) {
+``` {r, "number of accesses to a promise, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+make_graphs_for_packages(load_local_csv("promise_evaluations.csv"), max.col=package_figure_columns, f=function(data) function(package) {
   evaluations <- 
     data %>% 
     filter(name == !!package) %>%
@@ -273,22 +305,24 @@ make_graphs_for_packages(load_local_csv("promise_evaluations.csv"), function(dat
     mutate(
       number=ifelse(is.na(number), 0, number),
       percent=ifelse(is.na(percent), 0, percent))
- 
+  
   ggplot(evaluations, aes(x=no.of.evaluations, y=number)) + 
     geom_col() +
     scale_x_discrete(limit=0:11, labels=c(0:10,">10")) +
+    scale_y_continuous(labels=pp_trunc, breaks=c(max(pull(evaluations, number)))) +
     theme(axis.title.y=element_blank(),
-          axis.text.y=element_blank(), 
+          axis.text.y=element_text(angle=90, size=5, vjust=.5),
           axis.ticks.y=element_blank(),
-          axis.text.x=element_text(angle = 90, size = 5, vjust=.5),
+          axis.text.x=element_text(angle=90, size=5, vjust=.5),
+          axis.title.x=element_text(size=5),
           legend.position="none") +
     xlab(package)
 })
 ``` 
 
-## Promise code types
+# Promise code types
 
-### Aggregate
+## Aggregate
 
 ``` {r, "promise code types, aggregate", echo=FALSE, fig.width=10, fig.height=5}
 promise_types <- 
@@ -314,7 +348,7 @@ Promise types follow the type designations in ``Rinternals.h``.
 **SYM→α** indicates that it's a symbol that points to an expression of type **α**.  -->
 </div>
 
-### Distribution per package
+## Distribution per package/vignette
 
 ``` {r, "promise code types, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
 make_graphs_for_range(promise_types, "type", max.col=5, f=function(data)
@@ -327,12 +361,12 @@ make_graphs_for_range(promise_types, "type", max.col=5, f=function(data)
 )
 ```
 
-### Separate results per package
+## Separate results per package/vignette
 
-``` {r, "promise code types, separate per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=10}
+``` {r, "promise code types, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
 available_sexps <- promise_types %>% select(type) %>% distinct %>% pull(type)
 
-make_graphs_for_packages(promise_types, function(data) function(package) {
+make_graphs_for_packages(promise_types, max.col=package_figure_columns, f=function(data) function(package) {
   promise_types <- 
     data %>% 
     filter(name == !!package) %>%
@@ -348,16 +382,18 @@ make_graphs_for_packages(promise_types, function(data) function(package) {
  
   ggplot(promise_types, aes(x=type, y=number)) + 
     geom_col() +
+    scale_y_continuous(labels=pp_trunc, breaks=c(max(pull(promise_types, number)))) +
     theme(axis.title.y=element_blank(),
-          axis.text.y=element_blank(), 
+          axis.text.y=element_text(angle=90, size=5, vjust=.5),
           axis.ticks.y=element_blank(),
           axis.text.x=element_text(angle=90, size=5, vjust=.5),
+          axis.title.x=element_text(size=5),
           legend.position="none") +
     xlab(package)
 })
 ``` 
 
-## What's inside promises?
+# Type traces
 
 ```{r, "what's inside promises", echo=FALSE, fig.width=10, fig.height=4.5}
 promise_full_types <-
@@ -365,40 +401,40 @@ promise_full_types <-
   group_by(type) %>% 
   summarise(number=sum(number)) %>% 
   mutate(percent=100*number/sum(number)) %>% 
-  mutate(type=as.character(type)) %>%
-  filter(grepl("^PROM", type)) %>%
-  mutate(type=gsub("PROM", "", type))
+  mutate(type=as.character(type)) #%>%
+  #filter(grepl("^PROM", type)) %>%
+  #mutate(type=gsub("PROM", "", type))
   #mutate(type=ifelse(len(type) > 15, paste0(strtrim(type, 13), ".."), type))
 
-ggplot(promise_full_types, aes(x=type, y=number)) + 
-  geom_col() +
-  scale_y_continuous(labels=pp_trunc) +
-  theme(axis.title.x=element_blank(), 
-        legend.position="none", 
-        axis.text.x=element_text(angle=90, vjust=.5, hjust=1)) +
-  ylab("No. of promises") + 
-  xlab("Promise full type (PROM)")
+promise_full_types %>% 
+  arrange(desc(number)) %>%
+  mutate(number=pp_trunc(number), percent=pp_perc(percent)) %>%
+  kable(col.names=c("type trace", "number", "percent"), align="lrr")
 ```
 
 <div style="font-size: 50%">
 Promise types follow the type designations in ``Rinternals.h``.  
 <!--**α→β** indicates that type **α** variously evaluates to type **β**.  -->
 **α** indicates that the promise contains the expression of type **α**.  
-**→α** indicates that the promise contains a promise which contains the expression of type **α**, etc.
-<!--**BCODE →α** indicates that it's a byte-compiled expression that was originally of type **α**.  
-**SYM→α** indicates that it's a symbol that points to an expression of type **α**.  -->
+**PROM→α** indicates that the promise contains a promise which contains the expression of type **α**, etc.  
+**BCODE →α** indicates that it's a byte-compiled expression that was originally of type **α**.    
+**SYM→α** indicates that it's a symbol that points to an expression of type **α**.  
+**...** is a type that could not has not been correctly determined.
 </div>
 
-## What do promises return?
+# Promise return types
 
-``` {r, "what do promises return",  echo=FALSE, fig.width=10, fig.height=5}
+## Aggregate
+
+``` {r, "promise return types, aggregate",  echo=FALSE, fig.width=10, fig.height=5}
 return_types <- 
-  load_local_csv("return_types.csv") %>%
-  group_by(type) %>% 
-  summarise(number=sum(number)) %>% 
-  mutate(percent=100*number/sum(number))
+  load_local_csv("return_types.csv")
 
-ggplot(return_types, aes(x=type, y=number)) + 
+ggplot(return_types %>%   
+         group_by(type) %>% 
+         summarise(number=sum(number)) %>% 
+         mutate(percent=100*number/sum(number)), 
+       aes(x=type, y=number)) + 
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
   theme(axis.title.x=element_blank(), 
@@ -412,6 +448,51 @@ ggplot(return_types, aes(x=type, y=number)) +
 Promise types follow the type designations in ``Rinternals.h``.  
 </div>
 
+## Distribution per package/vignette
+
+``` {r, "promise return types, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+make_graphs_for_range(return_types, "type", max.col=5, f=function(data)
+  ggplot(data, aes(x=type, y=percent)) +
+    geom_violin(draw_quantiles = c(.25, .5, .75)) +
+    scale_y_continuous(labels=pp_perc) +
+    theme(axis.title.x=element_blank(), 
+          axis.title.y=element_blank(), 
+          legend.position="none")
+)
+```
+
+## Separate results per package/vignette
+
+``` {r, "promise return types, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+available_sexps <- return_types %>% select(type) %>% distinct %>% pull(type)
+
+make_graphs_for_packages(return_types, max.col=package_figure_columns, f=function(data) function(package) {
+  promise_types <- 
+    data %>% 
+    filter(name == !!package) %>%
+    group_by(type) %>% summarise(number=sum(number)) %>% 
+    mutate(percent=100*number/sum(number))
+  
+  promise_types <- 
+    tibble(type=available_sexps) %>% 
+    left_join(promise_types, by="type") %>%
+    mutate(
+      number=ifelse(is.na(number), 0, number),
+      percent=ifelse(is.na(percent), 0, percent))
+ 
+  ggplot(promise_types, aes(x=type, y=number)) + 
+    geom_col() +
+    scale_y_continuous(labels=pp_trunc, breaks=c(max(pull(promise_types, number)))) +
+    theme(axis.title.y=element_blank(),
+          axis.text.y=element_text(angle=90, size=5, vjust=.5),
+          axis.ticks.y=element_blank(),
+          axis.text.x=element_text(angle=90, size=5, vjust=.5),
+          axis.title.x=element_text(size=5),
+          legend.position="none") +
+    xlab(package)
+})
+``` 
+
 ## What do specific promises return?
 
 ```{r, "what do specific promises return", echo=FALSE, comment="", fig.width=10.5, fig.height=4.5}
@@ -419,7 +500,8 @@ types_to_return_types <-
   load_local_csv("promise_code_to_return_types.csv") %>%
   group_by(types) %>% 
   summarise(number=sum(number)) %>% 
-  mutate(percent=100*number/sum(number))
+  mutate(percent=100*number/sum(number)) %>%
+  arrange(desc(number))
 
 ggplot(types_to_return_types, aes(x=types, y=number)) + 
   geom_col() +
@@ -437,9 +519,9 @@ Promise types follow the type designations in ``Rinternals.h``.
 **α→β** indicates that the promise contains an expression of type **α** which evaluates to  an expression of type **β** when the promise is forced.
 </div>
 
-## Promise forces by types
+# Promise forces by types
 
-### Aggregate
+## Aggregate
 
 ```{r, "promise forces by types, aggregate",  echo=FALSE, , comment="", fig.width=10, fig.height=5}
 force.histogram.by.type <- load_local_csv("forces_by_type.csv") 
@@ -463,38 +545,85 @@ theme(axis.title.x=element_blank(), legend.position = c(0.9, 0.9))
 Promise types follow the type designations in ``Rinternals.h``.
 </div>
 
-### Distribution per package
+## Distribution per package
 
-<!--``` {r, "promise forces by types, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
-make_graphs_for_range(force.histogram.by.type, "type", max.col=5, f=function(data)
-  ggplot(data, aes(x=no.of.forces, y=percent)) +
-    geom_violin(draw_quantiles = c(.25, .5, .75)) +
+```{r, "promise forces by types, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=10}
+
+types <- force.histogram.by.type %>% pull(type) %>% unique
+forces <- force.histogram.by.type %>% pull(no.of.forces) %>% unique
+featured_packages <- force.histogram.by.type %>% pull(name) %>% unique
+
+force_histogram_filled_in <- 
+  expand.grid(type=types, no.of.forces=forces, name=featured_packages) %>%
+  left_join(force.histogram.by.type, by=c("type", "no.of.forces", "name")) %>%
+  mutate(number=ifelse(is.na(number), 0, number),
+         percent=ifelse(is.na(percent_overall), 0, percent_overall)) %>%
+  mutate(forces=paste0(type, "/", no.of.forces)) %>%
+  #select(forces, number, percent, name) %>% 
+  arrange(forces) %>% 
+  as_tibble
+
+make_graphs_for_range(force_histogram_filled_in, "forces", max.col=5,
+  f=function(data) 
+    ggplot(data, aes(x=forces, y=percent)) +
+    geom_violin() +
+    #geom_violin(draw_quantiles=c(.25, .5, .75)) + # this one errors out and idk why
     scale_y_continuous(labels=pp_perc) +
-    theme(axis.title.x=element_blank(), 
-          axis.title.y=element_blank(), 
+    theme(axis.title.x=element_blank(),
+          axis.title.y=element_blank(),
           legend.position="none")
 )
-```-->
+```
 
-## Promise evaluation distances
+## Separate results per package/vignette
+
+``` {r, "promise forces by types, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+#type_range <- force_histogram_filled_in %>% select(type) %>% distinct %>% pull(forces)
+
+make_graphs_for_packages(force_histogram_filled_in, max.col=package_figure_columns, f=function(data) function(package) {
+  force_histogram <- 
+    data %>% 
+    filter(name == !!package) %>%
+    group_by(type, no.of.forces) %>% 
+      summarise(number=sum(number)) %>% 
+      mutate(percent=100*number/sum(number))
+    #group_by(type) %>% summarise(number=sum(number)) %>% 
+    #mutate(percent=100*number/sum(number))
+  
+  ggplot(
+    force_histogram,
+    aes(x=type, y=number, fill=factor(no.of.forces))) + 
+    geom_bar(stat="identity", position="dodge") +
+    scale_y_continuous(labels=pp_trunc, breaks=c(max(pull(force_histogram, number)))) +
+    theme(axis.title.y=element_blank(),
+          axis.text.y=element_text(angle=90, size=5, vjust=.5),
+          axis.ticks.y=element_blank(),
+          axis.text.x=element_text(angle=90, size=5, vjust=.5),
+          axis.title.x=element_text(size=5),
+          legend.position="none") +
+    xlab(package)
+})
+``` 
+
+# Promise evaluation distances
+
+## Aggregate
 
 <!--Effective distance is the distance from the call where a promise originated to the call in which it was evaluated. It is measured along the call graph (along inbound edges).  Since the data is gathered from a trace, the call graph is a tree.-->
-<!--
-```{r, "promise forces by types, separate per package", echo=FALSE, fig.width=10, fig.height=4.5}
-actual_distances <- 
-  load_local_csv("actual_distances.csv") %>%
-  group_by(actual_distance) %>% 
-  summarise(number=sum(number, na.rm = TRUE)) %>% 
-  mutate(percent=100*number/sum(number))
 
-ggplot(actual_distances, aes(x=actual_distance, y=number)) + 
+```{r, "promise actual distances, aggregate", echo=FALSE, fig.width=10, fig.height=4.5}
+actual_distances <- load_local_csv("actual_distances.csv") 
+
+ggplot(actual_distances %>% 
+         group_by(actual_distance) %>% 
+         summarise(number=sum(number, na.rm=TRUE)) %>% 
+         mutate(percent=100*number/sum(number)), aes(x=actual_distance, y=number)) + 
   geom_col() +
   scale_x_discrete(limits=c(NA,0:20,">20",-1)) +
   scale_y_continuous(labels=pp_trunc) +
   ylab("No. of promises") + 
   theme(axis.title.x=element_blank())
 ```
--->
 
 <div style="font-size: 50%">
 **n** - distance from the function for which a promise was created and the function in which it was evaluated    
@@ -502,38 +631,58 @@ ggplot(actual_distances, aes(x=actual_distance, y=number)) +
 **-1** - promise was executed but there is no path from the origin to the point of evaluation (an escaped promise)    
 </div>
 
-## Functions and calls by type
+## Distribution per package/vignette
+
+``` {r, "promise actual distances, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=7}
+make_graphs_for_range(actual_distances %>%
+  mutate(actual_distance = ifelse(is.na(actual_distance), "NA", actual_distance)),
+  "actual_distance", max.col=5, f=function(data)
+  ggplot(data, aes(x=actual_distance, y=percent)) + 
+  geom_violin() +
+  scale_y_continuous(labels=pp_perc) +
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position="none")
+)
+```
+
+# Calls and functions by type
+
+## Aggregate
 
 <center>
 <div class="col2">
 <div class="together">
 ```{r, "calls by type", echo=FALSE, fig.width=5, fig.height=4}
-calls.types <- 
-  load_local_csv("call_types.csv") %>%
+calls_types <- load_local_csv("call_types.csv")
+
+data <- 
+  calls_types %>% 
   group_by(type) %>% 
   summarise(number=sum(number)) %>% 
   mutate(percent=100*number/sum(number))
-
-slices <- (calls.types %>% arrange(number))$number
-labels <- (calls.types %>% arrange(number) %>% mutate(type = ifelse(percent>1, paste0(as.character(type), " (", floor(percent), "%)", sep=""), "")))$type
-par(mar=c(0,2,2,2))
-
-pie(slices, labels, main="Call types")
+  
+ggplot(data, aes(x=type, y=number)) + 
+  geom_bar(stat="identity") +
+  ylab("No. of calls") + 
+  scale_y_continuous(labels=pp_trunc) +
+  theme(axis.title.x=element_blank())
 ```
 </div>
 
 ```{r, "functions by type", echo=FALSE, fig.width=5, fig.height=4}
-function.types <- 
-  load_local_csv("function_types.csv") %>%
+function_types <- load_local_csv("function_types.csv") #FIXME use the concatenated data
+  
+data <- function_types %>%
   group_by(type) %>% 
   summarise(number=sum(number)) %>% 
-  mutate(percent=100*number/sum(number))
+  mutate(percent=100*number/sum(number)) 
 
-slices <- (function.types %>% arrange(number))$number
-labels <- (function.types %>% arrange(number) %>% mutate(type = ifelse(percent>1, paste0(as.character(type), " (", floor(percent), "%)", sep=""), "")))$type
-par(mar=c(0,2,2,2))
-
-pie(slices, labels, main="Function types")
+ggplot(data, aes(x=type, y=number)) + 
+  geom_bar(stat="identity") +
+  ylab("No. of function definitions") + 
+  scale_y_continuous(labels=pp_trunc) +
+  theme(axis.title.x=element_blank())
 ```
 </div>
 </center>
@@ -543,23 +692,90 @@ pie(slices, labels, main="Function types")
 **calls** refers to function executions/calls
 </div>
 
-## Byte-code compilation
+## Calls by type, distribution per package/vignette
+
+``` {r, "calls by type, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+make_graphs_for_range(calls_types %>% mutate(percent = ifelse(is.na(percent), 0, percent)),
+  "type", max.col=5, f=function(data)
+  ggplot(data, aes(x=type, y=percent)) + 
+  geom_violin() +
+  scale_y_continuous(labels=pp_perc) +
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position="none")
+)
+```
+
+## Functions by type, distribution per package/vignette
+
+``` {r, "functions by type, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+make_graphs_for_range(function_types %>% mutate(percent = ifelse(is.na(percent), 0, percent)),
+  "type", max.col=5, f=function(data)
+  ggplot(data, aes(x=type, y=percent)) + 
+  geom_violin() +
+  scale_y_continuous(labels=pp_perc) +
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position="none")
+)
+```
+
+## Calls by type, separate results per package/vignette
+
+``` {r, "calls by type, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+make_graphs_for_packages(calls_types, max.col=package_figure_columns, f=function(data) function(package) {
+  package_data <- 
+    data %>% 
+    filter(name == !!package) %>%
+    group_by(type) %>% 
+    summarise(number=sum(number)) %>% 
+    mutate(percent=100*number/sum(number))
+  
+  ggplot(package_data, aes(x=type, y=number)) + 
+    geom_bar(stat="identity") +
+    scale_y_continuous(labels=pp_trunc, breaks=c(max(package_data$number))) +
+    theme(axis.title.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.text.y=element_text(angle=90, size=5, vjust=.5),
+          axis.text.x=element_text(angle=90, size=5, vjust=.5),
+          axis.title.x=element_text(size=5),
+          legend.position="none") +
+    xlab(package)
+})
+``` 
+
+## Functions by type, separate results per package/vignette
+
+``` {r, "functions by type, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+make_graphs_for_packages(function_types, max.col=package_figure_columns, f=function(data) function(package) {
+  package_data <- 
+    data %>% 
+    filter(name == !!package) %>%
+    group_by(type) %>% 
+    summarise(number=sum(number)) %>% 
+    mutate(percent=100*number/sum(number))
+  
+  ggplot(package_data, aes(x=type, y=number)) + 
+    geom_bar(stat="identity") +
+    scale_y_continuous(labels=pp_trunc, breaks=c(max(package_data$number))) +
+    theme(axis.title.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.text.y=element_text(angle=90, size=5, vjust=.5),
+          axis.text.x=element_text(angle=90, size=5, vjust=.5),
+          axis.title.x=element_text(size=5),
+          legend.position="none") +
+    xlab(package)
+})
+``` 
+
+# Byte-code compilation
 
 <center>
 <div class="col2">
 <div class="together">
 ```{r, "byte-code compilation, calls", echo=FALSE, fig.width=5, fig.height=3.5, warning=FALSE}
-closure.call.compilation.histogram <- 
-  load_local_csv("compiled_calls.csv") %>%
-  group_by(compiled) %>% 
-  summarise(number=sum(number)) %>% 
-  mutate(percent=100*number/sum(number))
+closure_call.compilation.histogram <- load_local_csv("compiled_calls.csv") # compiled
 
-slices <- (closure.call.compilation.histogram)$number
-labels <- (closure.call.compilation.histogram)$compiled %>% as.character
-par(mar=c(0,2,2,2))
-
-pie(slices, labels, main="Compiled closures (calls)")
 ```
 </div>
 
@@ -588,7 +804,7 @@ When calling a function it's either byte-code **compiled** or **uncompiled**. Wh
 **erratic** - a function is sometimes compiled and sometimes not; it can indicate that two separate functions are indistinguishable to the tracer (same definition, unknown location) and one of them is compiled while another is not.
 </div>
 
-## Interactions among promises
+# Interactions among promises
 
 ```{r, "interactions among poromises", echo=FALSE, comment="", fig.width=10, fig.height=4.5}
 promises_forced_by_another_promise <-   
