@@ -26,6 +26,9 @@ csvs:
 aggregate-csvs:
 	if [ -e $(DATA_DIR)/csv/_all ]; then rm -ri $(DATA_DIR)/csv/_all; fi
 	graphs/aggregate_csvs.sh $(DATA_DIR)/csv/_all $(DATA_DIR)/csv/*
+	
+concatenate-functions:
+	graphs/concat_functions.sh $(DATA_DIR)
 
 conglomerate-csvs:
 	Rscript graphs/conglomerate_csvs.R $(DATA_DIR)/csv/_all
