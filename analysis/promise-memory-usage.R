@@ -26,7 +26,7 @@ analyze_database <- function(database_filepath) {
     summarize(`COUNT` = n()) %>%
     collect() %>%
     mutate(`OBJECT TYPE` = "PROMISE", `SIZE` = `COUNT` * 52 / (1024 * 1024))
-    
+
   object_size_summary <-
     type_distribution_table %>%
     group_by(type) %>%
