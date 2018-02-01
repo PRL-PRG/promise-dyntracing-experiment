@@ -469,6 +469,7 @@ get_calls_by_type <- function(calls, functions, n.calls) {
     mutate(type=humanize_function_type(type), percent=100*number/n.calls)
 }
 
+# TODO pass complete function table and n.functions
 get_functions_by_type <- function(functions, n.functions) {
   functions %>% 
   group_by(type) %>% count %>% rename(number=n) %>% 
@@ -507,6 +508,7 @@ get_call_compilations_by_type <- function(calls, functions, n.calls, specific_ty
 }
 
 # This one checks in the calls rather than in the function, so functions which get compiled on the fly will register as such.
+# TODO pass complete function table and n.functions
 get_function_compilations_by_type_actual <- function(calls, functions, n.functions, specific_type=NA) {
   functions_by_type <- get_functions_by_type(functions, n.functions)
   functions_by_type_hashmap <- hashmap(functions_by_type$type, functions_by_type$number)
@@ -705,13 +707,16 @@ get_function_strictness <- function(calls, functions, promise_associations, prom
     left_join(functions, by="function_id") %>% 
     left_join(promise_associations, by="call_id") %>% 
     filter(!is.na(promise_id)) %>%
-    left_join(promise.forces, by="promise_id") %>% 
+    left_join(promise.forces, by="promise_id") %>%
+    # XXX since call_id is unique per vignette by definition, we don't need to store here yet
     group_by(call_id, function_id) %>% 
     summarise(
       evaluated=sum(as.integer(!is.na(event_type) && (lifestyle != 3))), 
       count=n()) %>%
     collect %>% ungroup() %>%
     mutate(strict=(evaluated==count)) %>%
+    # TODO put a select here: select(function_id, strict) -- these are the only two fields which matter
+    # TODO need to store before this group_by function_id willcome from different packages
     group_by(function_id, strict) %>% summarise() %>%
     group_by(strict) %>%
     summarise(
@@ -754,12 +759,15 @@ get_function_strictness_rate <- function(calls, promise_associations, promise.fo
     left_join(promise_associations, by="call_id") %>% 
     filter(!is.na(promise_id)) %>%
     left_join(promise.forces, by="promise_id") %>% 
+    # XXX don't have to store here yet (see XXX above)
     group_by(call_id, function_id) %>% 
     summarise(
       evaluated=sum(as.integer(!is.na(event_type) && (lifestyle != 3))), 
       count=n()) %>%
     collect %>% 
     mutate(strict=(evaluated==count)) %>%
+    # TODO select only important fields: function_id, strict
+    # TODO have to store by here
     group_by(function_id) %>%
     summarise(
       strict_calls=sum(as.integer(strict)),

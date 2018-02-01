@@ -33,7 +33,7 @@ params:
 #rmarkdown::render("graphs_from_csv.Rmd", params = list(CSV_DIR = "/home/kondziu/workspace/R-dyntrace/reports/aggregate/", PRINT_DATA = TRUE))
 #params <- data.frame(PRINT_DATA=TRUE, CSV_DIR="/home/kondziu/workspace/promise-dyntracing-experiment/graphs/csv/")
 
-knitr::opts_chunk$set(cache=TRUE)
+#knitr::opts_chunk$set(cache=TRUE)
 
 library(dplyr)
 library(hashmap)
@@ -90,6 +90,62 @@ make_graphs_for_range <- function(data, range_column, f, max.col=10) {
   graphs <- lapply(data %>% select(!!range_column) %>% distinct %>% pull(!!range_column),
                    function(x) f(data %>% filter_(paste(range_column,"==",quote(x)))))
   do.call("grid.arrange", c(graphs, ncol=min(length(graphs), max.col)))
+}
+
+# hard-coded columns: number
+make_graphs_by_split <- function(data, key, split="name", max_columns=10, graphing_function=NA) {
+  if (is.na(graphing_function))
+    graphing_function <- 
+      function(package, data) 
+        ggplot(data, aes_string(x=key, y="number")) + 
+        geom_bar(stat="identity") +
+        scale_y_continuous(
+          labels=pp_trunc, 
+          breaks=c(max(data$number))) +
+        theme(
+          axis.title.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.text.y=element_text(angle=90, size=5, vjust=.5),
+          axis.text.x=element_text(angle=90, size=5, vjust=.5),
+          axis.title.x=element_text(size=5),
+          legend.position="none") +
+        xlab(package)
+    
+  packages <- data %>% select_(split) %>% distinct %>% pull(split)
+  key_range <- data %>% select_(key) %>% distinct %>% collect
+  
+  splitter <- function (package)
+    graphing_function(
+      package,
+      data %>% 
+        filter(UQ(rlang::sym(split)) == !!package) %>% 
+        group_by_(key) %>%
+        summarise(number=sum(number)) %>% 
+        right_join(key_range, by=key) %>%
+        mutate(number=ifelse(is.na(number), 0, number)))
+  
+  graphs <- lapply(packages, splitter)
+  do.call("grid.arrange", c(graphs, ncol=min(max_columns, ceiling(sqrt(length(graphs))))))
+}
+
+# hard coded: percent
+make_graphs_by_range <- function(data, range_column, max_columns=10, graphing_function=NA) {
+  if(is.na(graphing_function))
+    graphing_function <- function(data)
+      ggplot(data, aes_string(range_column, "percent")) + 
+      geom_violin() +
+      scale_y_continuous(labels=pp_perc) +
+      theme(axis.title.x=element_blank(),
+            axis.title.y=element_blank(),
+            legend.position="none")
+  
+  splitter <- function(x) 
+    graphing_function(clean_data %>% filter_(paste(range_column, "==", quote(x))))
+  
+  range <- data %>% select_(range_column) %>% distinct %>% pull(range_column)
+  clean_data <- data %>% mutate(percent = ifelse(is.na(percent), 0, percent))
+  graphs <- lapply(range, splitter)
+  do.call("grid.arrange", c(graphs, ncol=min(length(graphs), max_columns)))
 }
 ```
 
@@ -409,7 +465,8 @@ promise_full_types <-
 promise_full_types %>% 
   arrange(desc(number)) %>%
   mutate(number=pp_trunc(number), percent=pp_perc(percent)) %>%
-  kable(col.names=c("type trace", "number", "percent"), align="lrr")
+  select(number, percent, type) %>%
+  kable(col.names=c("number", "percent", "type trace"), align="lll")
 ```
 
 <div style="font-size: 50%">
@@ -646,6 +703,39 @@ make_graphs_for_range(actual_distances %>%
 )
 ```
 
+## Separate results per package/vignette
+
+``` {r, "promise evaluation distance, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+range <- actual_distances %>% select(actual_distance) %>% distinct %>% pull(actual_distance)
+
+make_graphs_for_packages(actual_distances, max.col=package_figure_columns, f=function(data) function(package) {
+  package_data <- 
+    data %>% 
+    filter(name == !!package) %>%
+    group_by(actual_distance) %>% 
+    summarise(number=sum(number)) %>% 
+    mutate(percent=100*number/sum(number))
+  
+  package_data <- 
+    tibble(actual_distance=range) %>% 
+    left_join(package_data, by="actual_distance") %>%
+    mutate(
+      number=ifelse(is.na(number), 0, number),
+      percent=ifelse(is.na(percent), 0, percent))
+  
+  ggplot(package_data, aes(x=actual_distance, y=number)) + 
+    geom_bar(stat="identity") +
+    scale_y_continuous(labels=pp_trunc, breaks=c(max(package_data$number))) +
+    theme(axis.title.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.text.y=element_text(angle=90, size=5, vjust=.5),
+          axis.text.x=element_text(angle=90, size=5, vjust=.5),
+          axis.title.x=element_text(size=5),
+          legend.position="none") +
+    xlab(package)
+})
+``` 
+
 # Calls and functions by type
 
 ## Aggregate
@@ -723,6 +813,7 @@ make_graphs_for_range(function_types %>% mutate(percent = ifelse(is.na(percent),
 ## Calls by type, separate results per package/vignette
 
 ``` {r, "calls by type, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+range <- calls_types %>% select(type) %>% distinct %>% pull(type)
 make_graphs_for_packages(calls_types, max.col=package_figure_columns, f=function(data) function(package) {
   package_data <- 
     data %>% 
@@ -730,6 +821,13 @@ make_graphs_for_packages(calls_types, max.col=package_figure_columns, f=function
     group_by(type) %>% 
     summarise(number=sum(number)) %>% 
     mutate(percent=100*number/sum(number))
+  
+  package_data <- 
+    tibble(type=range) %>% 
+    left_join(package_data, by="type") %>%
+    mutate(
+      number=ifelse(is.na(number), 0, number),
+      percent=ifelse(is.na(percent), 0, percent))
   
   ggplot(package_data, aes(x=type, y=number)) + 
     geom_bar(stat="identity") +
@@ -747,6 +845,7 @@ make_graphs_for_packages(calls_types, max.col=package_figure_columns, f=function
 ## Functions by type, separate results per package/vignette
 
 ``` {r, "functions by type, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+range <- function_types %>% select(type) %>% distinct %>% pull(type)
 make_graphs_for_packages(function_types, max.col=package_figure_columns, f=function(data) function(package) {
   package_data <- 
     data %>% 
@@ -754,6 +853,13 @@ make_graphs_for_packages(function_types, max.col=package_figure_columns, f=funct
     group_by(type) %>% 
     summarise(number=sum(number)) %>% 
     mutate(percent=100*number/sum(number))
+  
+  package_data <- 
+    tibble(type=range) %>% 
+    left_join(package_data, by="type") %>%
+    mutate(
+      number=ifelse(is.na(number), 0, number),
+      percent=ifelse(is.na(percent), 0, percent))
   
   ggplot(package_data, aes(x=type, y=number)) + 
     geom_bar(stat="identity") +
@@ -770,27 +876,42 @@ make_graphs_for_packages(function_types, max.col=package_figure_columns, f=funct
 
 # Byte-code compilation
 
+## Aggregate
+
 <center>
 <div class="col2">
 <div class="together">
 ```{r, "byte-code compilation, calls", echo=FALSE, fig.width=5, fig.height=3.5, warning=FALSE}
-closure_call.compilation.histogram <- load_local_csv("compiled_calls.csv") # compiled
+closure_call_compilation <- load_local_csv("compiled_calls.csv")
 
+data <- 
+  closure_call_compilation %>% 
+  group_by(compiled) %>% 
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+  
+ggplot(data, aes(x=compiled, y=number)) + 
+  geom_bar(stat="identity") +
+  ylab("No. of calls") + 
+  scale_y_continuous(labels=pp_trunc) +
+  theme(axis.title.x=element_blank())
 ```
 </div>
 
 ```{r, "byte-code compilation, functions", echo=FALSE, fig.width=5, fig.height=3.5, warning=FALSE}
-closure.function.compilation.histogram <- 
-  load_local_csv("compiled_functions.csv") %>%
+closure_function_compilation <- load_local_csv("compiled_functions.csv")
+
+data <- 
+  closure_function_compilation %>% 
   group_by(compiled) %>% 
   summarise(number=sum(number)) %>% 
   mutate(percent=100*number/sum(number))
-
-slices <- (closure.function.compilation.histogram)$number
-labels <- (closure.function.compilation.histogram %>% mutate(type = ifelse(percent>1, compiled, "")))$compiled
-par(mar=c(0,2,2,2))
-
-pie(slices, labels, main="Compiled closures (functions)")
+  
+ggplot(data, aes(x=compiled, y=number)) + 
+  geom_bar(stat="identity") +
+  ylab("No. of calls") + 
+  scale_y_continuous(labels=pp_trunc) +
+  theme(axis.title.x=element_blank())
 ```
 
 </div>
@@ -804,40 +925,132 @@ When calling a function it's either byte-code **compiled** or **uncompiled**. Wh
 **erratic** - a function is sometimes compiled and sometimes not; it can indicate that two separate functions are indistinguishable to the tracer (same definition, unknown location) and one of them is compiled while another is not.
 </div>
 
+## Compiled calls, distribution per package/vignette
+
+``` {r, "byte-code compilation, calls, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+make_graphs_for_range(closure_call_compilation %>% mutate(percent = ifelse(is.na(percent), 0, percent)),
+  "compiled", max.col=5, f=function(data)
+  ggplot(data, aes(x=compiled, y=percent)) + 
+  geom_violin() +
+  scale_y_continuous(labels=pp_perc) +
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position="none")
+)
+```
+
+## Compiled functions, distribution per package/vignette
+
+``` {r, "byte-code compilation, functions, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+make_graphs_for_range(closure_function_compilation %>% mutate(percent = ifelse(is.na(percent), 0, percent)),
+  "compiled", max.col=5, f=function(data)
+  ggplot(data, aes(x=compiled, y=percent)) + 
+  geom_violin() +
+  scale_y_continuous(labels=pp_perc) +
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position="none")
+)
+```
+
+## Compiled calls, separate results per package/vignette
+
+``` {r, "compiled calls, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+range <- closure_call_compilation %>% select(compiled) %>% distinct %>% pull(compiled)
+make_graphs_for_packages(closure_call_compilation, max.col=package_figure_columns, f=function(data) function(package) {
+  package_data <- 
+    data %>% 
+    filter(name == !!package) %>%
+    group_by(compiled) %>% 
+    summarise(number=sum(number)) %>% 
+    mutate(percent=100*number/sum(number))
+  
+  package_data <- 
+    tibble(compiled=range) %>% 
+    left_join(package_data, by="compiled") %>%
+    mutate(
+      number=ifelse(is.na(number), 0, number),
+      percent=ifelse(is.na(percent), 0, percent))
+  
+  ggplot(package_data, aes(x=compiled, y=number)) + 
+    geom_bar(stat="identity") +
+    scale_y_continuous(labels=pp_trunc, breaks=c(max(package_data$number))) +
+    theme(axis.title.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.text.y=element_text(angle=90, size=5, vjust=.5),
+          axis.text.x=element_text(angle=90, size=5, vjust=.5),
+          axis.title.x=element_text(size=5),
+          legend.position="none") +
+    xlab(package)
+})
+``` 
+
+## Compiled functions, separate results per package/vignette
+
+``` {r, "compiled functions, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+range <- closure_function_compilation %>% select(compiled) %>% distinct %>% pull(compiled)
+make_graphs_for_packages(closure_function_compilation, max.col=package_figure_columns, f=function(data) function(package) {
+  package_data <- 
+    data %>% 
+    filter(name == !!package) %>%
+    group_by(compiled) %>% 
+    summarise(number=sum(number)) %>% 
+    mutate(percent=100*number/sum(number))
+  
+  package_data <- 
+    tibble(compiled=range) %>% 
+    left_join(package_data, by="compiled") %>%
+    mutate(
+      number=ifelse(is.na(number), 0, number),
+      percent=ifelse(is.na(percent), 0, percent))
+  
+  ggplot(package_data, aes(x=compiled, y=number)) + 
+    geom_bar(stat="identity") +
+    scale_y_continuous(labels=pp_trunc, breaks=c(max(package_data$number))) +
+    theme(axis.title.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.text.y=element_text(angle=90, size=5, vjust=.5),
+          axis.text.x=element_text(angle=90, size=5, vjust=.5),
+          axis.title.x=element_text(size=5),
+          legend.position="none") +
+    xlab(package)
+})
+``` 
+
 # Interactions among promises
 
 ```{r, "interactions among poromises", echo=FALSE, comment="", fig.width=10, fig.height=4.5}
+# Graph one
 promises_forced_by_another_promise <-   
-  load_local_csv("promises_forced_by_another_promise.csv") %>%
-  group_by(forced_by_another) %>% 
-  summarise(number=sum(number)) %>% 
-  mutate(percent=100*number/sum(number))
-
+  load_local_csv("promises_forced_by_another_promise.csv")
+  
 g_receive <- 
-  ggplot(promises_forced_by_another_promise, aes(x=forced_by_another, y=number)) + 
+  ggplot(promises_forced_by_another_promise %>% 
+    group_by(forced_by_another) %>% 
+    summarise(number=sum(number)) %>% 
+    mutate(percent=100*number/sum(number)), 
+  aes(x=forced_by_another, y=number)) + 
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
   theme(legend.position="none") +
   ylab("No. of promises") + 
   xlab("This promise forced\nby another promise")
-  
+
+# Graphs two and three
 promises_forcing_other_promises <- 
-  load_local_csv("promises_forcing_other_promises.csv") %>%
+  load_local_csv("promises_forcing_other_promises.csv")
+
+promises_forcing_other_promises_summarized <- 
+  promises_forcing_other_promises %>%
   group_by(number_of_forced_promises) %>% 
   summarise(number=sum(number)) %>% 
   mutate(percent=100*number/sum(number))
 
+# Graph two
 promises_forcing_other_promises_small <-
-  promises_forcing_other_promises %>% 
+  promises_forcing_other_promises_summarized %>% 
   mutate(number_of_forced_promises=ifelse(number_of_forced_promises>=3, "3+", 
                                           number_of_forced_promises)) %>%
-  group_by(number_of_forced_promises) %>%
-  summarise(number=sum(number)) %>% 
-  mutate(percent=100*number/sum(number))
-
-promises_forcing_other_promises_big <-
-  promises_forcing_other_promises %>% 
-  filter(number_of_forced_promises >= 3) %>%
   group_by(number_of_forced_promises) %>%
   summarise(number=sum(number)) %>% 
   mutate(percent=100*number/sum(number))
@@ -850,6 +1063,14 @@ g_cause_small <-
   xlab("No. of promises forced\nby this promise") +
   theme(legend.position="none", axis.title.y=element_blank())
 
+# Graph three
+promises_forcing_other_promises_big <-
+  promises_forcing_other_promises_summarized %>% 
+  filter(number_of_forced_promises >= 3) %>%
+  group_by(number_of_forced_promises) %>%
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
 g_cause_big <- 
   ggplot(promises_forcing_other_promises_big, aes(x=number_of_forced_promises, y=number)) + 
   geom_col() +
@@ -858,7 +1079,7 @@ g_cause_big <-
   xlab("No. of promises forced\nby this promise (3+)") +
   theme(legend.position="none", axis.title.y=element_blank())
   
-
+# Drawing
 grid.arrange(g_receive, g_cause_small, g_cause_big, ncol=3, widths=c(4,5,9))
 ```
 
@@ -869,124 +1090,250 @@ Promises forced by other promises:
 `NA` means the promise was not forced.  
 </div>
 
+## Promises forced by another promise, distribution per package
 
+``` {r, "promises forced by another promise, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+make_graphs_for_range(
+  promises_forced_by_another_promise %>% 
+    mutate(percent = ifelse(is.na(percent), 0, percent)) %>%
+    mutate(forced_by_another = ifelse(is.na(forced_by_another), "NA", forced_by_another)),
+  "forced_by_another", max.col=5, f=function(data)
+  ggplot(data, aes(x=forced_by_another, y=percent)) + 
+  geom_violin() +
+  scale_y_continuous(labels=pp_perc) +
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position="none")
+)
+```
 
+## Promises forcing other promises, distribution per package
 
+``` {r, "promises forcing other promises, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+promises_forcing_other_promises_small_per_package <-
+  promises_forcing_other_promises %>% 
+  mutate(number_of_forced_promises=ifelse(number_of_forced_promises>=3, "3+", 
+                                          number_of_forced_promises)) %>%
+  group_by(name, number_of_forced_promises) %>%
+  summarise(number=sum(number), percent=sum(percent)) %>%
+  ungroup
+  
+make_graphs_for_range(
+  promises_forcing_other_promises_small_per_package %>% 
+    mutate(percent = ifelse(is.na(percent), 0, percent)) %>%
+    mutate(number_of_forced_promises = ifelse(is.na(number_of_forced_promises), "NA", number_of_forced_promises)),
+  "number_of_forced_promises", max.col=5, f=function(data)
+  ggplot(data, aes(x=number_of_forced_promises, y=percent)) + 
+  geom_violin() +
+  scale_y_continuous(labels=pp_perc) +
+  theme(axis.title.x=element_blank(),
+        axis.title.y=element_blank(),
+        legend.position="none")
+)
+```
 
-## Strictness
+## Promises forced by another promise, separate results per package/vignette
+
+``` {r, "promises forced by another promise, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+range <- promises_forced_by_another_promise %>% select(forced_by_another) %>% distinct %>% pull(forced_by_another)
+make_graphs_for_packages(promises_forced_by_another_promise, max.col=package_figure_columns, f=function(data) function(package) {
+  package_data <- 
+    data %>% 
+    filter(name == !!package) %>%
+    group_by(forced_by_another) %>% 
+    summarise(number=sum(number)) %>% 
+    mutate(percent=100*number/sum(number))
+  
+  package_data <- 
+    tibble(forced_by_another=range) %>% 
+    left_join(package_data, by="forced_by_another") %>%
+    mutate(
+      number=ifelse(is.na(number), 0, number),
+      percent=ifelse(is.na(percent), 0, percent))
+  
+  ggplot(package_data, aes(x=forced_by_another, y=number)) + 
+    geom_bar(stat="identity") +
+    scale_y_continuous(labels=pp_trunc, breaks=c(max(package_data$number))) +
+    theme(axis.title.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.text.y=element_text(angle=90, size=5, vjust=.5),
+          axis.text.x=element_text(angle=90, size=5, vjust=.5),
+          axis.title.x=element_text(size=5),
+          legend.position="none") +
+    xlab(package)
+})
+``` 
+
+## Promises forcing other promises, separate results per package/vignette
+
+``` {r, "promises forcing other promises, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+range <- promises_forcing_other_promises_small_per_package %>% select(number_of_forced_promises) %>% distinct %>% pull(number_of_forced_promises)
+make_graphs_for_packages(promises_forcing_other_promises_small_per_package, max.col=package_figure_columns, f=function(data) function(package) {
+  package_data <- 
+    data %>% 
+    filter(name == !!package) %>%
+    group_by(number_of_forced_promises) %>% 
+    summarise(number=sum(number)) %>% 
+    mutate(percent=100*number/sum(number))
+  
+  package_data <- 
+    tibble(number_of_forced_promises=range) %>% 
+    left_join(package_data, by="number_of_forced_promises") %>%
+    mutate(
+      number=ifelse(is.na(number), 0, number),
+      percent=ifelse(is.na(percent), 0, percent))
+  
+  ggplot(package_data, aes(x=number_of_forced_promises, y=number)) + 
+    geom_bar(stat="identity") +
+    scale_y_continuous(labels=pp_trunc, breaks=c(max(package_data$number))) +
+    theme(axis.title.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.text.y=element_text(angle=90, size=5, vjust=.5),
+          axis.text.x=element_text(angle=90, size=5, vjust=.5),
+          axis.title.x=element_text(size=5),
+          legend.position="none") +
+    xlab(package)
+})
+``` 
+
+# Call and function definition strictness
+
+## Aggregate
 
 ```{r, "call strictnes", echo=FALSE, fig.width=10, fig.height=4.5}
-strict_calls <- 
-  load_local_csv("call_strictness.csv") %>%
-  group_by(strict) %>% 
-  summarise(number=sum(number)) %>% 
-  mutate(percent=100*number/sum(number))
-
-strict_calls_pie <-
-  ggplot(strict_calls, aes(x=strict, y=number)) + 
-  geom_col() +
-  scale_y_continuous(labels=pp_trunc) +
-  theme(legend.position="none") +
-  ylab("No. of calls") + 
-  xlab("Call strictness")
+strictness_labeller <- function(x) 
+  filter(x, number>0) %>%
+  mutate(label=ifelse(is.na(strict),  
+                      ifelse(type=="closure", 
+                             "closure\n(no arguments)", 
+                             type),  
+                      ifelse(strict, 
+                             paste0(type, "\n(strict)"),
+                             paste0(type, "\n(non-strict)"))))
 
 strict_closure_calls <- 
   load_local_csv("call_strictness_by_type.csv") %>%
-  filter(type=="closure") %>%
-  group_by(type, strict) %>% 
+  strictness_labeller
+
+strict_closure_calls_aggregate <- 
+  strict_closure_calls %>%
+  group_by(label) %>% 
   summarise(number=sum(number)) %>% 
-  mutate(percent=100*number/sum(number)) %>%
-  mutate(strict=as.logical(strict))
+  mutate(percent=100*number/sum(number)) 
 
-strict_closure_calls_pie <-
-  ggplot(strict_closure_calls, aes(x=strict, y=number)) + 
+ggplot(strict_closure_calls_aggregate, aes(x=label, y=number)) + 
+  ggtitle("Call strictness") +
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
-  theme(legend.position="none") +
-  ylab("No. of calls") + 
-  xlab("Call strictness (closures)")
-
-strict_functions <-
-  load_local_csv("function_strictness.csv") %>%
-  group_by(strict) %>%
-  summarise(number=sum(number)) %>%
-  mutate(percent=100*number/sum(number))
-
-strict_functions_pie <-
-  ggplot(strict_functions, aes(x=strict, y=number)) +
-  geom_col() +
-  scale_y_continuous(labels=pp_trunc) +
-  theme(legend.position="none") +
-  ylab("No. of functions") +
-  xlab("Function strictness")
-
-strict_closure_functions <- 
-  load_local_csv("function_strictness_by_type.csv") %>%
-  filter(type=="closure") %>%
-  group_by(type, strict) %>% 
-  summarise(number=sum(number)) %>% 
-  mutate(percent=100*number/sum(number)) %>%
-  mutate(strict=as.logical(strict))
-
-strict_closure_functions_pie <-
-  ggplot(strict_closure_functions, aes(x=strict, y=number)) + 
-  geom_col() +
-  scale_y_continuous(labels=pp_trunc) +
-  theme(legend.position="none") +
-  ylab("No. of functions") + 
-  xlab("Function strictness (closures)")
-
-grid.arrange(strict_calls_pie, strict_closure_calls_pie, 
-             strict_functions_pie, strict_closure_functions_pie,
-             ncol=4, widths=c(1,1,1,1))
+  theme(legend.position="none", axis.title.x=element_blank()) +
+  ylab("No. of calls") 
 ```
 
+```{r, "function strictnes", echo=FALSE, fig.width=10, fig.height=4.5}
+strict_closure_functions <-
+  load_local_csv("function_strictness_by_type.csv") %>%
+  strictness_labeller
 
-
-
+strict_closure_functions_aggregate <-
+  strict_closure_functions %>%
+  group_by(label) %>%
+  summarise(number=sum(number)) %>%
+  mutate(percent=100*number/sum(number))
+ 
+ggplot(strict_closure_functions_aggregate, aes(x=label, y=number)) +
+  ggtitle("Function strictness") +
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(legend.position="none", axis.title.x=element_blank()) +
+  xlab("Function strictness (closures)")
+```
 
 <div style="font-size: 50%">
 A call is **strict** if all of its arguments are **evaluated** and none of the arguments is **escaped**. (This means that a function may pass unevaluated promises to a child call and still be strict, but it cannot leak the promise).  
 A function is **strict** if all of its calls are **strict**. Functions that don't take promises are neither **strict** nor **non-strict** -- these can be either arrity-0 closures or built-in (which accept values rather than promises).
 </div>
 
-## Call strictness ratios (dominant)
+## Call strictness, distribution per package/vignette
+
+``` {r, "call strictness, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=3}
+make_graphs_by_range(strict_closure_calls, range_column="label", max_columns=6)
+```
+
+## Function strictness, distribution per package/vignette
+
+``` {r, "function strictness, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=3}
+make_graphs_by_range(strict_closure_functions, range_column="label", max_columns=6)
+```
+
+## Call strictness, separate results per package/vignette
+
+``` {r, "call strictness, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+make_graphs_by_split(strict_closure_calls, key="label", max_columns=package_figure_columns)
+``` 
+
+## Function strictness, separate results per package/vignette
+
+``` {r, "function strictness, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+make_graphs_by_split(strict_closure_functions, key="label", max_columns=package_figure_columns)
+``` 
+
+# Call strictness ratio
+
+```{r, "strict calls ratio breakdown", echo=FALSE, fig.width=10, fig.height=4.5}
+# strict_calls_ratio <- load_local_csv("call_strictness_ratio.csv")
+# 
+# strict_calls_ratio_split_arg <- strict_calls_ratio %>% 
+#   mutate(evaluated_args=lapply(strsplit(strictnesss_ratio, "/"), `[[`, 1),
+#          total_args=lapply(strsplit(strictnesss_ratio, "/"), `[[`, 2))
+# 
+# range <- strict_calls_ratio_split_arg %>% select(total_args) %>% distinct %>% arrange(total_args) %>% top(20)
+# strict_calls_
+```
+
+## Call strictness ratios
 
 ```{r, "strict calls ratio", echo=FALSE, fig.width=10, fig.height=4.5}
 strict_calls_ratio <- 
-  load_local_csv("call_strictness_ratio.csv") %>%
+  load_local_csv("call_strictness_ratio.csv")
+
+threshold = strict_calls_ratio %>% 
   group_by(strictness_ratio) %>% 
   summarise(number=sum(number)) %>% 
-  mutate(short=ifelse(strictness_ratio=="0/0" |
-                        strictness_ratio=="1/1" |
-                        strictness_ratio=="2/2", 
-                      as.character(strictness_ratio),
-                      "other")) %>%
-  mutate(percent=100*number/sum(number))
+  select(number) %>% 
+  arrange(desc(number)) %>% 
+  head(8) %>% 
+  pull(number) %>% 
+  min
 
-strict_calls_ratio_dominant <- 
-  strict_calls_ratio %>% 
-  group_by(short) %>% 
-  summarize(number=sum(number)) %>%
-  mutate(percent=100*number/sum(number))
+strict_calls_ratio_labelled <- 
+  strict_calls_ratio %>%
+  group_by(strictness_ratio) %>% 
+  summarise(number=sum(number), 
+            percent=(100*number/sum(number))) %>% 
+  mutate(short=ifelse(number >= threshold, 
+                      as.character(strictness_ratio), 
+                      "other"))
 
-ggplot(strict_calls_ratio_dominant, aes(x=short, y=number)) +
+ggplot(strict_calls_ratio_labelled %>% 
+    group_by(short) %>% 
+    summarize(number=sum(number)),
+  aes(x=short, y=number)) +
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
   theme(legend.position="none") +
   ylab("No. of calls") +
-  xlab("Ratio of evaluated promises")
+  xlab("Ratio of evaluated promises (evaluated args/total args)")
 ```
 
 <div style="font-size: 50%">
 **Strictness ratio** of the form `n/m` means that a call evaluated `n` promises out of `m` promises that were created for it. `0/0` can mean either that a function had no arguments or that it was a built-in etc (had arguments, but they were passed without promises).
 </div>
 
-## Call strictness ratios (other top 20)
+## Call strictness ratios (top 20 within other)
 
 ```{r, "call strictness ratios, other top 20", echo=FALSE, fig.width=10, fig.height=4.5}
 strict_calls_ratio_other_top20 <- 
-  strict_calls_ratio %>% 
+  strict_calls_ratio_labelled %>% 
   filter(short=="other") %>% 
   arrange(desc(number)) %>%
   head(20)
@@ -1004,40 +1351,36 @@ ggplot(strict_calls_ratio_other_top20, aes(x=strictness_ratio, y=number)) +
 </div>
 
 
-## Call strictness ratios (other - top 20)
+## Call strictness ratios (all)
 
 ```{r, "call strictness ratios, top 20", echo=FALSE, fig.width=10, fig.height=4.5}
-strict_calls_ratio_other <- 
-  strict_calls_ratio %>% 
-  filter(short=="other") %>%
+strict_calls_ratio_labelled %>% 
   arrange(desc(number)) %>%
-  tail(-20)
-
-ggplot(strict_calls_ratio_other, aes(x=strictness_ratio, y=number)) +
-  geom_col() +
-  scale_y_continuous(labels=pp_trunc) +
-  theme(legend.position="none", axis.text.x=element_text(size = 5, angle=90, vjust=.5)) +
-  ylab("No. of calls") +
-  xlab("Ratio of evaluated promises")
+  select(strictness_ratio, number, percent) %>%
+  kable(col.names=c( "strictness ratio", "number", "percent"), align="lll")
 ```
 
 <div style="font-size: 50%">
 **Strictness ratio** of the form `n/m` means that a call evaluated `n` promises out of `m` promises that were created for it. `0/0` can mean either that a function had no arguments or that it was a built-in etc (had arguments, but they were passed without promises).
 </div>
 
-## Function strictness rate
+# Function strictness rate
+
+## Aggregate
 
 ```{r, "function strictness rate", echo=FALSE, fig.width=10, fig.height=4.5}
-strict_functions_rate <- 
-  load_local_csv("function_strictness_rate.csv") %>%
-  group_by(strictness_rate) %>% 
-  summarise(number=sum(number)) %>% 
-  mutate(percent=100*number/sum(number))
-
-ggplot(strict_functions_rate , aes(x=strictness_rate, y=number)) +
+strict_functions_rate <- load_local_csv("function_strictness_rate.csv")
+  
+ggplot(strict_functions_rate %>%
+         group_by(strictness_rate) %>% 
+         summarise(number=sum(number)), 
+       aes(x=strictness_rate, y=number)) +
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
-  scale_x_discrete(limit=c(NA, "0","(0,10〉","(10,20〉", "(20,30〉", "(30,40〉", "(40,50〉", "(50,60〉", "(60,70〉","(70,80〉","(80,90〉","(90,100)","100")) +
+  scale_x_discrete(
+    limit=c(NA, "0","(0,10〉","(10,20〉", "(20,30〉", "(30,40〉", 
+            "(40,50〉", "(50,60〉", "(60,70〉","(70,80〉","(80,90〉",
+            "(90,100)","100")) +
   theme(legend.position="none") + #, axis.text.x=element_text(angle=90, vjust=.5)) +
   ylab("No. of functions") +
   xlab("Ratio of evaluated promises [%]")
@@ -1049,103 +1392,72 @@ ggplot(strict_functions_rate , aes(x=strictness_rate, y=number)) +
 **(n,m〉** means the function had between n% and m% strict calls.
 </div>
 
-## Evaluation order
+## Function strictness rate, distribution per package/vignette
+
+``` {r, "function strictness rate, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=3}
+make_graphs_by_range(strict_functions_rate %>% mutate(strictness_rate=ifelse(is.na(strictness_rate),"NA",strictness_rate)), range_column="strictness_rate", max_columns=5)
+```
+
+## Function strictness rate, separate results per package/vignette
+
+``` {r, "function strictness rate, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+make_graphs_by_split(strict_functions_rate, key="strictness_rate", max_columns=package_figure_columns)
+``` 
+
+# Evaluation order
+
+## Aggregate
 
 ```{r, "evaluation order", echo=FALSE, fig.width=10, fig.height=4.5}
-promise_force_orders <- 
-  load_local_csv("evaluation_order.csv") %>%
-  group_by(no.of.force.orders) %>% 
-  summarise(number=sum(number)) %>% 
-  mutate(percent=100*number/sum(number))
+promise_force_orders <- load_local_csv("evaluation_order.csv")
 
-ggplot(promise_force_orders, aes(x=no.of.force.orders, y=number)) +
+
+
+ggplot(promise_force_orders %>%
+      group_by(no.of.force.orders) %>% 
+      summarise(number=sum(number)) %>% 
+      mutate(percent=100*number/sum(number)), 
+    aes(x=no.of.force.orders, y=number)) +
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
   scale_x_discrete(limit=c(0:10,">10")) +
-  theme(legend.position="none") + #, axis.text.x=element_text(angle=90, vjust=.5)) +
+  theme(legend.position="none") + 
   ylab("No. of functions") +
   xlab("No. of force orders")
 ```
 
-## Argument promise mode
+## Evaluation order, distribution per package/vignette
 
-TODO 
+``` {r, "evaluation order, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=3}
+make_graphs_by_range(promise_force_orders, range_column="no.of.force.orders", max_columns=4)
+```
 
-<!--
-<div style="font-size: 50%">
-How many argument promises are default and how many are not.
-</div>
+## Evaluation order, separate results per package/vignette
 
-{r, "x", echo=FALSE}
-apm <- read.table("/home/kondziu/workspace/R-dyntrace/reports/Argument Promise Mode - argument-promise-mode.tsv", sep="\t", header=TRUE)
-kable(apm, "html", col.names=c("Runnable", "All", "Default argument", "Non-default argument",
-                    "Unaccounted", "% of Default Arguments",
-                    "% of Non-default Arguments", "% of Unaccounted")) #%>% kable_styling(bootstrap_options = c("condensed"), font_size = 10) %>% row_spec(0, font_size = 10)
+``` {r, "evaluation order, separate per package", echo=FALSE, warning=FALSE, fig.width=package_figure_width, fig.height=package_figure_height}
+make_graphs_by_split(promise_force_orders, key="no.of.force.orders", max_columns=package_figure_columns)
+``` 
 
-
-<div style="font-size: 50%; padding-top:2em">
-https://docs.google.com/spreadsheets/d/1miVXUxCoeYiBR0eiCB3Ipa3KBCDw7OZ77qy7RJHFJ_8/edit#gid=333058396
-</div>
--->
+<!--## Argument promise mode
 ## Argument position laziness (top 20)
-
-TODO
-<!--
-<div style="font-size: 50%; padding-top:2em">
-At each argument position, how often is the argument evaluated and how often it is not.
-</div>
-
-{r, "y", echo=FALSE, warning=FALSE}
-apl <- read.table("/home/kondziu/workspace/R-dyntrace/reports/Argument Position Laziness - Sheet1.tsv", sep="\t", header=TRUE, fill=TRUE) %>% head(20)
-kable(apl, "html", col.names=c("Function type", "Function ID", "Argument position", "Strict", "Lazy", "Strict %", "Lazy %")) #%>% #kable_styling(bootstrap_options = c("condensed"), font_size = 10) %>% row_spec(0, font_size = 10)
-
-<div style="font-size: 50%; padding-top:2em">
-https://docs.google.com/spreadsheets/d/1Fb9JdbTMXqoX-xJqhxH063ZQjL9wE5ghO12y63TxyOs/edit#gid=0
-</div>
--->
 ## Environment access 
-
-TODO
-<!--
-<div style="font-size: 50%; padding-top:2em">
-How often, environment functions are used to access, create or modify existing environments
-</div>
-
-<img src="/home/kondziu/workspace/R-dyntrace/reports/img/1.png" style="width: 180px"/>
-<img src="/home/kondziu/workspace/R-dyntrace/reports/img/2.png" style="width: 180px"/>
-<img src="/home/kondziu/workspace/R-dyntrace/reports/img/4.png" style="width: 180px"/>
-<img src="/home/kondziu/workspace/R-dyntrace/reports/img/5.png" style="width: 180px"/>
-<img src="/home/kondziu/workspace/R-dyntrace/reports/img/6.png" style="width: 180px"/>
-<img src="/home/kondziu/workspace/R-dyntrace/reports/img/7.png" style="width: 180px"/>
-<img src="/home/kondziu/workspace/R-dyntrace/reports/img/8.png" style="width: 180px"/>
-<img src="/home/kondziu/workspace/R-dyntrace/reports/img/9.png" style="width: 180px"/>
-<img src="/home/kondziu/workspace/R-dyntrace/reports/img/10.png" style="width: 180px"/>
-
-
-<div style="font-size: 50%; padding-top:2em">
-https://docs.google.com/spreadsheets/d/1nwoPDs2gdipw0vtHqhfFWv4cwGQrp5b7qAbUjqsf4pc/edit#gid=177224429
-</div-->
-
-## Default and non-default promise arguments
-
-TODO
-
-<!--center>
-<img src="/home/kondziu/workspace/R-dyntrace/reports/img/argument-promise-mode.png" style="width: 400px"/>
-</center-->
+## Default and non-default promise arguments-->
 
 ## Calls to specific functions
 
 ```{r function-calls-selected-counts, echo=FALSE, comment="", fig.width=10, fig.height=4.5}
-specific_calls <- 
-  load_local_csv("specific_calls.csv") %>%
+#specific_calls <- 
+load_local_csv("specific_calls.csv") %>%
   group_by(function_name) %>% 
-  summarise(number=sum(number)) 
+  summarise(number=sum(number), percent=(100*number/sum(aggregate_basic_info$n.calls))) %>%
+  arrange(desc(number)) %>%
+  mutate(number=pp_trunc(number), percent=pp_perc(percent)) %>%
+  kable(col.names=c("function","number","percentage"), align="lrr")
 
-ggplot(specific_calls, aes(x=function_name, y=number)) +
-  geom_col() +
-  scale_y_continuous(labels=pp_trunc) +
-  theme(legend.position="none", axis.text.x=element_text(angle=90, vjust=.5, hjust=1, size=4)) +
-  ylab("No. of calls") +
-  xlab("Function")
+# ggplot(specific_calls, aes(x=function_name, y=number)) +
+#   geom_col() +
+#   scale_y_continuous(labels=pp_trunc) +
+#   theme(legend.position="none", axis.text.x=element_text(angle=90, vjust=.5, hjust=1, size=4)) +
+#   ylab("No. of calls") +
+#   xlab("Function")
 ```
