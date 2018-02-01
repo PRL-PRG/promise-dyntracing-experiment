@@ -214,6 +214,19 @@ Using aggregated files, creates a single mostly-human-readable summary CSV conta
 make conglomerate-csvs DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/2017-12-15-01-42"
 ```
 
+## Running analyses
+
+To run all analyses at once,
+
+```
+make analyze
+```
+
+To run a particular analysis,
+
+```
+make analyze-environment
+```
 
 ## Generating a report
 
