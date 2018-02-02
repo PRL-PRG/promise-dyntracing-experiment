@@ -25,7 +25,7 @@ csvs:
 aggregate-csvs:
 	if [ -e $(DATA_DIR)/csv/_all ]; then rm -ri $(DATA_DIR)/csv/_all; fi
 	graphs/aggregate_csvs.sh $(DATA_DIR)/csv/_all $(DATA_DIR)/csv/*
-	
+
 concatenate-functions:
 	graphs/concat_functions.sh $(DATA_DIR)
 
@@ -66,3 +66,6 @@ analyze-promise-lifespan:
 	analysis/promise-lifespan.R $(DATA_DIR) $(DATA_DIR)/output/promise-lifespan/table $(DATA_DIR)/output/promise-lifespan/graph
 
 analyze: analyze-environment analyze-argument-promise-mode analyze-argument-position-laziness analyze-promise-memory-usage analyze-promise-lifespan
+
+analysis-report:
+	$(VANILLA_RSCRIPT) -e "rmarkdown::render('analysis/analysis.Rmd', params=list(analysis_output_dir='`readlink -f $(DATA_DIR)/output`'), knit_root_dir='$(shell pwd)')"

@@ -1,0 +1,216 @@
+---
+title: "Analyses of Promises in R"
+author: "Aviral Goel"
+output: 
+  html_document:
+    theme: flatly
+    highlight: tango
+    keep_md: true
+    toc: true
+    toc_float: true
+    number_sections: true
+params:
+  analysis_output_dir: TRUE
+---
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(methods) ## including this prevents a warning - "executing load actions ..."
+library(DT)
+library(tidyverse)
+library(knitr)
+```
+
+```{r echo=FALSE, message=FALSE}
+# https://www.rdocumentation.org/packages/knitr/versions/1.17/topics/include_graphics
+show_graph <- function(analysis_name, graph_filename) {
+    file.path(params$analysis_output_dir, analysis_name, "graph", graph_filename) %>%
+    include_graphics()
+}
+
+get_table <- function(analysis_name, table_filename) {
+    file.path(params$analysis_output_dir, analysis_name, "table", table_filename) %>%
+    read_csv()
+}
+
+show_table <- function(analysis_name, table_filename) {
+    get_table(analysis_name, table_filename) %>%
+    datatable(rownames = FALSE)
+}
+```
+# Promise Lifespan
+
+This section discusses the lifespan of promises in terms of the number of GC Cycles.
+Essentially, we study how long promises are alive in terms of GC cycles, the minimum
+number of GC cycles for which they are required to be alive and the number of GC
+cycles for which they are alive above and beyond the minimum.
+
+## Categorization
+
+We categorize the promises observed while tracing as follows:
+
+1. **Foreign Promises** are created before the tracing starts. Since we don't see their creation, 
+   we can't study their lifespan in terms of GC cycles. They are **excluded from the analysis**
+2. **Immortal Promises** are created but not garbage collected while tracing. They are 
+   **excluded from the analysis** because we can't compute their lifespan.
+3. **Mortal Promises** are created and garbage collected while tracing.
+   They are the only promises that are **included in the analysis**.
+
+### Graph
+
+```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
+show_graph("promise-lifespan", "count.png")
+```
+
+**TOTAL PROMISE COUNT** = **FOREIGN PROMISE COUNT** + **IMMORTAL PROMISE COUNT** + **MORTAL PROMISE COUNT**
+
+### Table
+
+#### Summarized
+
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "counts-summarized.csv")
+```
+
+#### Raw
+
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "counts.csv")
+```
+
+### Insights
+
+This categorization sheds light on how many promises are excluded from the analysis.
+Clearly, the number of **Immortal Promises** and **Foreign Promises** is quite low.
+Any analysis done on **Mortal Promises** should be statistically relevant.
+
+
+## Alive Promise Count
+
+The following graph shows the number of mortal promises that are alive for a given number of GC cycles.
+
+### Graph
+
+```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
+show_graph("promise-lifespan", "alive.png")
+```
+
+### Table
+
+#### Summarized
+
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "alive-summarized.csv")
+```
+
+#### Raw
+
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "alive.csv")
+```
+
+### Insights
+
+We see that most promises are alive for the shortest possible duration, i.e. - one GC cycle.
+The remaining promises are a fraction of the number of promises that are alive for this duration.
+We also observe a decreasing trend in the number of promise that are alive for a given number of
+GC cycles, as the number of GC cycles increase. This means that most promises are used immediately
+and have little need of being alive for longer durations.
+
+
+## Indispensable Promise Count
+
+The following graph shows the number of mortal promises that need to be alive for a given number of GC cycles.
+
+### Graph
+
+```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
+show_graph("promise-lifespan", "indispensable.png")
+```
+
+### Table
+
+#### Summarized
+
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "indispensable-summarized.csv")
+```
+
+#### Raw
+
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "indispensable.csv")
+```
+
+
+## Dispensable Promises
+
+The following graph shows the number of promises that extend their required lifespan by a given number of GC cycles.
+
+### Graph
+
+```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
+show_graph("promise-lifespan", "dispensable.png")
+```
+
+### Table
+
+#### Summarized
+
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "dispensable-summarized.csv")
+```
+
+#### Raw
+
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "dispensable.csv")
+```
+
+
+## Unforced Promises
+
+The following graph shows the number of promises that are never forced.
+
+### Graph
+
+```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
+show_graph("promise-lifespan", "unforced.png")
+```
+
+### Table
+
+#### Summarized
+
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "unforced-summarized.csv")
+```
+
+#### Raw
+
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "unforced.csv")
+```
+
+
+## Comparison
+
+
+```{r echo=FALSE, message=FALSE}
+
+indispensable <- 
+    get_table("promise-lifespan", "indispensable-summarized.csv") %>%
+    rename(`INDISPENSABLE PROMISE COUNT` = `PROMISE COUNT`)
+
+dispensable <- 
+    get_table("promise-lifespan", "dispensable-summarized.csv") %>%
+    rename(`DISPENSABLE PROMISE COUNT` = `PROMISE COUNT`)
+
+alive <- 
+    get_table("promise-lifespan", "alive-summarized.csv") %>%
+    rename(`ALIVE PROMISE COUNT` = `PROMISE COUNT`)
+
+alive %>%
+full_join(indispensable, by = c("GC CYCLES" = "GC CYCLES")) %>%
+full_join(dispensable, by = c("GC CYCLES" = "GC CYCLES")) %>%
+datatable(rownames = FALSE)
+```

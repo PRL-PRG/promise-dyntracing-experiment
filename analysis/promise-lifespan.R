@@ -35,7 +35,15 @@ analyze_database <- function(database_filepath) {
       promise_lifecycle_table %>%
       filter(!is.na(`2`) & !is.na(`0`))
 
-    counts_table <-
+    unforced_promise_table <-
+      mortal_promise_table %>%
+      filter(is.na(`1`))
+
+    mortal_promise_table <-
+      mortal_promise_table %>%
+      filter(!is.na(`1`))
+
+  counts_table <-
       tibble(
         "SCRIPT" = script,
         "TOTAL PROMISE COUNT" =
@@ -51,6 +59,9 @@ analyze_database <- function(database_filepath) {
           nrow(),
         "MORTAL PROMISE COUNT" =
           mortal_promise_table %>%
+          nrow(),
+        "UNFORCED PROMISE COUNT" =
+          unforced_promise_table %>%
           nrow())
 
    alive_table <-
@@ -74,24 +85,61 @@ analyze_database <- function(database_filepath) {
      summarize(`PROMISE COUNT` = n()) %>%
      mutate(`SCRIPT`=script)
 
+  unforced_table <-
+    unforced_promise_table %>%
+    mutate(`GC CYCLES` = `2` - `0`) %>%
+    group_by(`GC CYCLES`) %>%
+    summarize(`PROMISE COUNT` = n()) %>%
+    mutate(`SCRIPT` = script)
+
   list(alive = alive_table,
        indispensable = indispensable_table,
        dispensable = dispensable_table,
-       counts = counts_table)
+       counts = counts_table,
+       unforced = unforced_table)
 }
 
 export_analyses <- function(datatable, table_dir) {
   datatable$alive %>%
     write_csv(file.path(table_dir, "alive.csv"))
 
+  datatable$alive %>%
+    group_by(`GC CYCLES`) %>%
+    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
+    write_csv(file.path(table_dir, "alive-summarized.csv"))
+
   datatable$indispensable %>%
     write_csv(file.path(table_dir, "indispensable.csv"))
+
+  datatable$indispensable %>%
+    group_by(`GC CYCLES`) %>%
+    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
+    write_csv(file.path(table_dir, "indispensable-summarized.csv"))
 
   datatable$dispensable %>%
     write_csv(file.path(table_dir, "dispensable.csv"))
 
+  datatable$dispensable %>%
+    group_by(`GC CYCLES`) %>%
+    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
+    write_csv(file.path(table_dir, "dispensable-summarized.csv"))
+
+  datatable$unforced %>%
+    write_csv(file.path(table_dir, "unforced.csv"))
+
+  datatable$unforced %>%
+    group_by(`GC CYCLES`) %>%
+    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
+    write_csv(file.path(table_dir, "unforced-summarized.csv"))
+
   datatable$counts %>%
     write_csv(file.path(table_dir, "counts.csv"))
+
+  datatable$counts %>%
+    select(-`SCRIPT`) %>%
+    summarise_each(funs(sum)) %>%
+    write_csv(file.path(table_dir, "counts-summarized.csv"))
+
 }
 
 combine_analyses <- function(tables_acc, tables) {
@@ -99,7 +147,8 @@ combine_analyses <- function(tables_acc, tables) {
   list(alive = bind_rows(tables_acc$alive, tables$alive),
        indispensable = bind_rows(tables_acc$indispensable, tables$indispensable),
        dispensable = bind_rows(tables_acc$dispensable, tables$dispensable),
-       counts = bind_rows(tables_acc$counts, tables$counts))
+       counts = bind_rows(tables_acc$counts, tables$counts),
+       unforced = bind_rows(tables_acc$unforced, tables$unforced))
 }
 
 visualize_analyses <- function(analyses) {
@@ -113,7 +162,7 @@ visualize_analyses <- function(analyses) {
       scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                     labels = trans_format("log10", math_format(10^.x))) +
       labs(x = "GC CYCLES", y = "PROMISE COUNT",
-           title = "Alive promises per GC Cycle duration"),
+           title = "Alive Promise Count"),
 
     indispensable =
       analyses$indispensable %>%
@@ -124,7 +173,7 @@ visualize_analyses <- function(analyses) {
       scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                     labels = trans_format("log10", math_format(10^.x))) +
       labs(x = "GC CYCLES", y = "PROMISE COUNT",
-           title = "Number of promises that have to be alive for a GC Cycle duration"),
+           title = "Indispensable Promise Count"),
 
     dispensable =
       analyses$dispensable %>%
@@ -135,7 +184,18 @@ visualize_analyses <- function(analyses) {
       scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                     labels = trans_format("log10", math_format(10^.x))) +
       labs(x = "GC CYCLES", y = "PROMISE COUNT",
-           title = "Number of promises that extend their minimum lifespan for each GC Cycle duration"),
+           title = "Dispensable Promise Count"),
+
+    unforced =
+      analyses$unforced %>%
+      group_by(`GC CYCLES`) %>%
+      summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
+      ggplot(data = ., aes(`GC CYCLES`)) +
+      geom_bar(aes(weight=`PROMISE COUNT`)) +
+      scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                    labels = trans_format("log10", math_format(10^.x))) +
+      labs(x = "GC CYCLES", y = "PROMISE COUNT",
+           title = "Unforced Promise Count"),
 
     counts =
       analyses$counts %>%
@@ -151,7 +211,7 @@ visualize_analyses <- function(analyses) {
       scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                     labels = trans_format("log10", math_format(10^.x))) +
       labs(x = "PROMISE TYPE", y = "PROMISE COUNT",
-           title = "Count of promise in each category")
+           title = "Promise Category Count")
     )
 
   visualizations
@@ -169,6 +229,9 @@ export_visualizations <- function(visualizations, graph_dir) {
 
   visualizations$count %>%
     ggsave(plot = ., filename=file.path(graph_dir, "count.png"))
+
+  visualizations$unforced %>%
+    ggsave(plot = ., filename=file.path(graph_dir, "unforced.png"))
 }
 
 main <- function() {
