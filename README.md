@@ -37,14 +37,17 @@ The basic process of tracing vignettes and processing the data is as follows. We
 
 ``` bash
 export R_LIBS=$DATA_ROOT/R/CRAN/
-make trace PROCESSES=1 DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME"                           # VERY LONG
+make trace PROCESSES=1    DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME"                        # VERY LONG
+
 NEW_RESULT_DIR=`ls $DATA_ROOT/R/traces/$HOSTNAME -t | grep ....-..-..-..-..-.. | head -1`
-make check DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"
-make get-todo-packages DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"
-make clean DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"
-make csvs DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"                        # LONG
-make aggregate-csvs DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"
-make report DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"                      # LONG
+
+make check                 DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"
+make get-todo-packages     DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"
+make clean                 DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"
+make concatenate-functions DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"       # LONG
+make csvs                  DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"       # VERY LONG
+make aggregate-csvs        DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"
+make report                DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"       # LONG
 ```
 
 ## Trace vignettes
