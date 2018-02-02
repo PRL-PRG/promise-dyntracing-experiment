@@ -1,4 +1,3 @@
-suppressPackageStartupMessages(library("optparse"))
 suppressPackageStartupMessages(library("dplyr"))
 suppressPackageStartupMessages(library("stringr"))
 suppressPackageStartupMessages(library("hashmap"))
@@ -16,107 +15,14 @@ log_line_to_csv <- function(where, ...) {
 
 store <- function(name, output_path) function(table) function(...) {
   path <- file.path(output_path, paste(table, "csv", sep="."))
-  write(path, stderr())
+  write(paste("writing", path), stderr())
   suppressWarnings(log_line_to_csv(path, name=name, ...))
 }
 
-main <- function(package, database_path, output_path, debug = TRUE) {
-  
-  # The database
-  db <- src_sqlite(database_path)
-  store <- store(name=package, output_path=output_path)
-  
-  # Output
-  dir.create(output_path, recursive=TRUE, showWarnings=FALSE)
-  
-  # Tables in the DB
-  promises <- db %>% tbl("promises")
-  promise_evaluations <- db %>% tbl("promise_evaluations")
-  promise_associations <- db %>% tbl("promise_associations")
-  promise_returns <- db %>% tbl("promise_returns")
-  calls <- db %>% tbl("calls") %>% rename(call_id = id)
-  functions <- db %>% tbl("functions") %>% rename(function_id = id)
-  arguments <- db %>% tbl("arguments")
-  metadata <- db %>% tbl("metadata")
-  
-  # Helper tables
-  promise.forces <- promise_evaluations %>% filter(promise_id >= 0 && event_type == 15)
-  promise.lookups <- promise_evaluations %>% filter(promise_id >= 0 && event_type == 0)
-  alien.promise.forces <- promise_evaluations %>% filter(promise_id < 0 && event_type == 15)
-  
-  # Overview stats
-  n.functions <- (functions %>% count %>% data.frame)$n
-  n.calls <- (calls %>% count %>% data.frame)$n
-  n.promises <- (promises %>% count %>% data.frame)$n
-  n.alien.promises <- (promise_evaluations %>% filter(promise_id < 0) %>% 
-                         group_by(promise_id) %>% count %>% data.frame)$promise_id %>% length
-  n.promise.forces <- (promise.forces %>% count %>% data.frame)$n
-  n.promise.lookups <- (promise.lookups %>% count %>% data.frame)$n 
-  n.alien.promise.forces <- (alien.promise.forces %>% count %>% data.frame)$n
-  n.alien.promise.lookups <- NA # I currently don't collect this information to save space
-  
-  # Write overview stats to file
-  store("basic_info")(
-    path = database_path,
-    n.functions = n.functions,
-    n.calls = n.calls,
-    n.promises = n.promises,
-    n.promise.forces = n.promise.forces,
-    n.promise.lookups = n.promise.lookups,
-    n.alien.promises = n.alien.promises,
-    n.alien.promise.forces = n.alien.promise.forces,
-    n.alien.promise.lookups = n.alien.promise.lookups
-  )
-  
-  # Write metadata to file
-  store("metadata")(metadata %>% distinct %>% as.data.frame)
-  
-  # Promise evaluation
-  store("forces")(get_forces(promises, promise.forces, n.promises))
-  store("fuzzy_forces")(get_fuzzy_forces(promises, promise_evaluations, n.promises))
-  store("promise_evaluations")(get_promise_evaluations(promises, promise_evaluations, n.promises, cutoff=10))
-  store("promises_forced_by_another_promise")(get_promises_forced_by_another_evaluations(promises, promise.forces, n.promises))
-  store("promises_forcing_other_promises")(get_cascading_promises(promises, promise.forces))
-  
-  # Promise types
-  store("promise_types")(get_promise_types(promises, n.promises, cutoff=NA))
-  store("promise_full_types")(get_full_promise_types(promises, n.promises, cutoff=NA))
-  store("return_types")(get_promise_return_types(promises, promise_returns, n.promises, cutoff=NA))
-  
-  store("promise_code_to_return_types")(get_promise_types_to_return_types(promises, promise_returns, n.promises, cutoff=NA))
-  store("forces_by_type")(get_forces_by_type(promises, promise.forces, n.promises, n.promise.forces))
-  
-  # Evaluation distances
-  store("actual_distances")(get_actual_distances(promises, promise.forces, n.promise.forces, cutoff=20))
-  
-  # Functions and calls
-  store("call_types")(get_calls_by_type(calls, functions, n.calls))
-  store("compiled_calls")(get_call_compilations_by_type(calls, functions, n.calls, "closure"))
-  
-  store("function_types")(get_functions_by_type(functions, n.functions))
-  store("compiled_functions")(get_function_compilations_by_type_actual(calls, functions, n.functions, "closure"))
-  
-  # Strictness
-  store("call_strictness")(get_call_strictness(calls, promise_associations, promise.forces, n.calls))
-  store("call_strictness_rate")(get_call_strictness_rate(calls, promise_associations, promise.forces, n.calls))
-  store("call_strictness_ratio")(get_call_strictness_ratios(calls, promise_associations, promise.forces, n.calls))
-  store("call_strictness_by_type")(get_call_strictness_by_type(calls, functions, promise_associations, promise.forces, n.calls))
-  
-  store("function_strictness")(get_function_strictness(calls, functions, promise_associations, promise.forces, n.functions))
-  store("function_strictness_rate")(get_function_strictness_rate(calls, promise_associations, promise.forces, n.functions))
-  store("function_strictness_by_type")(get_function_strictness_by_type(calls, functions, promise_associations, promise.forces, n.functions))
-  
-  x <- get_call_promise_evaluation_order(calls, promise_associations, promises, arguments, promise_evaluations)
-  x <- get_function_promise_evaluation_order(functions, calls, x)
-  x <- get_function_promise_force_order_histogram(x, n.functions, n.calls, cutoff=10)
-  store("evaluation_order")(x)
-  
-  # Specific calls
-  store("specific_calls")(
-    get_function_calls(functions, calls, n.calls, 
-                       "^<anonymous>$", "eval", "force", "delayAssign", 
-                       "return", "<-", "assign", "print") %>% 
-      select(function_name, number, percent))
+load <- function(input_path) function (csv_file) {
+    path <- file.path(input_path, paste0(csv_file, ".csv"))
+    write(paste("reading", path), stderr())
+    as_tibble(read.csv(path, stringsAsFactors=FALSE))
 }
 
 humanize_full_promise_type = function(full_type) {
@@ -149,7 +55,7 @@ SEXP_TYPE_NAMES = c(
     "actbind", "...")                             # 42, 69
 
 SEXP_TYPES <- hashmap(
-  keys=c(0:10,13:25,69), 
+  keys=c(0:10,13:25,42,69), 
   values=c(
     "NIL", "SYM", "LIST", "CLOS", "ENV",  "PROM", # 0-5
     "LANG", "SPECIAL", "BUILTIN", "CHAR",  "LGL", # 6-10
@@ -159,7 +65,7 @@ SEXP_TYPES <- hashmap(
     "actbind", "..."))                            # 42, 69
 
 SEXP_TYPES_REV <- hashmap(
-  values=c(0:10,13:25,69), 
+  values=c(0:10,13:25,42,69), 
   keys=c(
     "NIL", "SYM", "LIST", "CLOS", "ENV",  "PROM", # 0-5
     "LANG", "SPECIAL", "BUILTIN", "CHAR",  "LGL", # 6-10
@@ -507,12 +413,31 @@ get_call_compilations_by_type <- function(calls, functions, n.calls, specific_ty
     rename(percent = percent_within_type)
 }
 
-# This one checks in the calls rather than in the function, so functions which get compiled on the fly will register as such.
-# TODO pass complete function table and n.functions
-get_function_compilations_by_type_actual <- function(calls, functions, n.functions, specific_type=NA) {
+get_function_compilations_by_type_aggregate_over_functions <- function (histogram, functions, n.functions, specific_type=NA) {
   functions_by_type <- get_functions_by_type(functions, n.functions)
   functions_by_type_hashmap <- hashmap(functions_by_type$type, functions_by_type$number)
+  
+  histogram <-  
+    histogram %>%
+    collect %>%
+    group_by(function_id) %>% summarise(runs=sum(runs), compiled_runs=sum(compiled_runs), type=unique(type)) %>% 
+    mutate(compiled=ifelse(compiled_runs == 0, 0, as.character(ifelse(runs == compiled_runs, 1, ifelse(compiled_runs == runs - 1, 2, 3))))) %>%
+    group_by(type, compiled) %>% count %>% rename(number=n) %>%
+    collect %>% ungroup() %>%
+    mutate(compiled=ifelse(compiled == 1, "compiled", ifelse(compiled == 2, "after 1st", ifelse(compiled == 0, "uncompiled", "erratic")))) %>%
+    mutate(type=humanize_function_type(type)) %>%
+    mutate(percent_overall=100*number/n.functions) %>%
+    mutate(percent_within_type=100*number/functions_by_type_hashmap[[type]])
+    
+  { if (is.na(specific_type))
+    histogram
+  else
+    histogram %>% select(-type, -percent_overall) } %>% 
+    rename(percent = percent_within_type)
+}
 
+# This one checks in the calls rather than in the function, so functions which get compiled on the fly will register as such.
+get_function_compilations_by_type_actual <- function(calls, functions, n.functions, specific_type=NA, dont_aggregate_over_function_ids=FALSE) {
   specific_functions <- 
     if (is.na(specific_type)) {
       select(functions, function_id, type) 
@@ -522,23 +447,13 @@ get_function_compilations_by_type_actual <- function(calls, functions, n.functio
     }
   
   histogram <- 
-    left_join(specific_functions, select(calls, call_id, function_id, compiled), by="function_id") %>% 
-    group_by(function_id) %>% summarise(runs=length(call_id), compiled_runs=sum(compiled), type=type) %>% 
-    mutate(compiled=ifelse(compiled_runs == 0, 0, as.character(ifelse(runs == compiled_runs, 1, ifelse(compiled_runs == runs - 1, 2, 3))))) %>% 
-    group_by(type, compiled) %>% count %>% rename(number=n) %>%
-    collect %>% ungroup() %>%
-    mutate(compiled=ifelse(compiled == 1, "compiled", ifelse(compiled == 2, "after 1st", ifelse(compiled == 0, "uncompiled", "erratic")))) %>%
-    mutate(type=humanize_function_type(type)) %>%
-    mutate(percent_overall=100*number/n.functions) %>%
-    mutate(percent_within_type=100*number/functions_by_type_hashmap[[type]])
-    
-  write("hi", stderr())
+    left_join(specific_functions, select(calls, function_id, compiled), by="function_id") %>% 
+    group_by(function_id) %>% summarise(runs=n(), compiled_runs=sum(compiled), type=type) 
   
-  { if (is.na(specific_type))
-    histogram
-  else
-    histogram %>% select(-type, -percent_overall) } %>% 
-    rename(percent = percent_within_type)
+  if (dont_aggregate_over_function_ids)
+    return(histogram)
+  else     
+    return(get_function_compilations_by_type_aggregate_over_functions(histogram, functions, n.functions, specific_type))
 }
 
 # assumes one promise ==> one or zero forces
@@ -624,9 +539,11 @@ get_call_strictness <- function(calls, promise_associations, promise.forces, n.c
   rbind(histogram, nas)
 }
 
-get_call_strictness_ratios <- function(calls, promise_associations, promise.forces, n.calls) {
+get_call_strictness_ratios <- function(functions, calls, promise_associations, promise.forces, n.calls) {
   histogram <- 
     calls %>% 
+      left_join(functions, by="function_id")%>% 
+      filter(type==0) %>%
       left_join(promise_associations, by="call_id") %>% 
       filter(!is.na(promise_id)) %>%
       left_join(promise.forces, by="promise_id") %>% 
@@ -653,7 +570,7 @@ get_call_strictness_ratios <- function(calls, promise_associations, promise.forc
     select(strictness_ratio, number, percent, -promises, -evaluated) 
 }
 
-get_call_strictness_rate <- function(calls, promise_associations, promise.forces, n.calls) {
+get_call_strictness_rate <- function(functions, calls, promise_associations, promise.forces, n.calls) {
   classification_table <- c( "0", 
     "(0,10〉", "(10,20〉", "(20,30〉", 
     "(30,40〉", "(40,50〉", "(50,60〉", 
@@ -669,6 +586,8 @@ get_call_strictness_rate <- function(calls, promise_associations, promise.forces
   
   histogram <- 
     calls %>% 
+    left_join(functions, by="function_id") %>% 
+    filter(type==0) %>%
     left_join(promise_associations, by="call_id") %>% 
     filter(!is.na(promise_id)) %>%
     left_join(promise.forces, by="promise_id") %>% 
@@ -701,105 +620,76 @@ get_call_strictness_rate <- function(calls, promise_associations, promise.forces
   rbind(complete_histogram, nas)
 }
 
-get_function_strictness <- function(calls, functions, promise_associations, promise.forces, n.functions) {
+get_function_strictness_aggregate_over_functions <- function(histogram, n.functions)
+  histogram %>%
+    group_by(function_id) %>% summarise(evaluated=sum(evaluated), count=sum(count)) %>%
+    mutate(strict=(evaluated==count)) %>%
+    group_by(function_id, strict) %>% summarise() %>%
+    group_by(strict) %>% summarise(number=n(), percent=(100*n()/n.functions)) %>% as.data.frame
+
+get_function_strictness <- function(calls, functions, promise_associations, promise.forces, n.functions, dont_aggregate_over_function_ids=FALSE) {
+  
+  nas <-
+    calls %>% 
+    left_join(functions, by="function_id") %>% 
+    left_join(promise_associations, by="call_id") %>% 
+    #filter() %>% FIXME filter out non-closures
+    filter(is.na(promise_id)) %>% 
+    collect() %>%
+    group_by(function_id) %>%
+    summarise(type=unique(type), evaluated=NA, count=NA)
+  
   histogram <- 
     calls %>% 
     left_join(functions, by="function_id") %>% 
     left_join(promise_associations, by="call_id") %>% 
     filter(!is.na(promise_id)) %>%
     left_join(promise.forces, by="promise_id") %>%
-    # XXX since call_id is unique per vignette by definition, we don't need to store here yet
     group_by(call_id, function_id) %>% 
+    collect %>%
     summarise(
+      type=unique(type),
       evaluated=sum(as.integer(!is.na(event_type) && (lifestyle != 3))), 
       count=n()) %>%
-    collect %>% ungroup() %>%
-    mutate(strict=(evaluated==count)) %>%
-    # TODO put a select here: select(function_id, strict) -- these are the only two fields which matter
-    # TODO need to store before this group_by function_id willcome from different packages
-    group_by(function_id, strict) %>% summarise() %>%
-    group_by(strict) %>%
-    summarise(
-      number=n(), 
-      percent=100*n()/n.functions)
+    ungroup() %>%
+    group_by(function_id) %>% summarise(type=unique(type), evaluated=sum(evaluated), count=sum(count))
 
-  nas <-
-    calls %>% 
-    left_join(promise_associations, by="call_id") %>% 
-    left_join(functions, by="function_id") %>% 
-    filter(is.na(promise_id)) %>% 
-    group_by(function_id) %>%
-    summarise() %>% 
-    count() %>% rename(number=n) %>%
-    collect %>% ungroup() %>%
-    mutate(strict=NA, percent=100*number/n.functions)
-  
-  complete_histogram <- 
-       rbind(histogram %>% data.frame, nas %>% data.frame) 
-  
-  complete_histogram
+  rbind(histogram %>% data.frame, nas %>% data.frame)
 }
 
-get_function_strictness_rate <- function(calls, promise_associations, promise.forces, n.functions) {
-    classification_table <- c( "0", 
-    "(0,10〉", "(10,20〉", "(20,30〉", 
-    "(30,40〉", "(40,50〉", "(50,60〉", 
-    "(60,70〉", "(70,80〉", "(80,90〉", 
-    "(90,100)", "100")
+get_function_strictness_rate <- function(histogram, n.functions) {
+  classification_table <- tibble(
+      strictness_rate=c("0", 
+      "(0,10〉", "(10,20〉", "(20,30〉", 
+      "(30,40〉", "(40,50〉", "(50,60〉", 
+      "(60,70〉", "(70,80〉", "(80,90〉", 
+      "(90,100)", "100"))
   
   classify <- function(percentage)
     ifelse(percentage == 0, 
-           classification_table[1], 
+           classification_table$strictness_rate[1], 
            ifelse(percentage == 100, 
-                classification_table[12],        
-                classification_table[((percentage - 1) %/% 10 + 2)]))
-  
-  histogram <- 
-    calls %>% 
-    left_join(promise_associations, by="call_id") %>% 
-    filter(!is.na(promise_id)) %>%
-    left_join(promise.forces, by="promise_id") %>% 
-    # XXX don't have to store here yet (see XXX above)
-    group_by(call_id, function_id) %>% 
-    summarise(
-      evaluated=sum(as.integer(!is.na(event_type) && (lifestyle != 3))), 
-      count=n()) %>%
-    collect %>% 
-    mutate(strict=(evaluated==count)) %>%
-    # TODO select only important fields: function_id, strict
-    # TODO have to store by here
-    group_by(function_id) %>%
-    summarise(
-      strict_calls=sum(as.integer(strict)),
-      nonstrict_calls=sum(as.integer(!strict)),
-      count=length(strict)) %>%
-    mutate(strict=strict_calls==count) %>%
-    mutate(percentage=100*strict_calls/count) %>%
-    mutate(strictness_rate=classify(percentage)) %>%
+                  classification_table$strictness_rate[12],        
+                  classification_table$strictness_rate[((percentage - 1) %/% 10 + 2)]))
+
+  histogram <-
+    histogram %>%
+    filter(type==0) %>%
+    group_by(function_id) %>% summarise(evaluated=sum(evaluated), count=sum(count)) %>%
+    mutate(strictness_rate=classify((100*evaluated/count))) %>%
     group_by(strictness_rate) %>%
-    summarise(
-      number=n(), 
-      percent=100*n()/n.functions)
-  
-  complete_histogram <-
-    data.frame(strictness_rate=classification_table) %>% 
+    summarise(number=n(), percent=100*n()/n.functions)
+
+  histogram <-
+    classification_table %>%
     left_join(histogram, by="strictness_rate") %>% 
       mutate(
         number=ifelse(is.na(number), 0, number), 
         percent=ifelse(is.na(percent), 0, percent)) %>% 
-    select(number, strictness_rate, percent) %>%
+    select(strictness_rate, number, percent) %>%
     as.data.frame
-  
-  nas <-
-    calls %>% left_join(promise_associations, by="call_id") %>% 
-    filter(is.na(promise_id)) %>% 
-    group_by(function_id) %>%
-    summarise() %>% count() %>% rename(number=n) %>%
-    mutate(strictness_rate=NA, percent=100*number/n.functions) %>% 
-    select(number, strictness_rate, percent) %>%
-    as.data.frame
-  
-  rbind(complete_histogram, nas)
+
+  histogram
 }
 
 make_labels = function(x) ifelse(is.na(x), "NA", x)
@@ -847,19 +737,10 @@ get_call_strictness_by_type <- function(calls, functions, promise_associations, 
   complete_histogram
 }
 
-get_function_strictness_by_type <- function(calls, functions, promise_associations, promise.forces, n.functions) {
+get_function_strictness_by_type <- function(histogram, n.functions) {
   histogram <- 
-    calls %>% 
-    left_join(functions, by="function_id") %>% 
-    left_join(promise_associations, by="call_id") %>% 
-    filter(!is.na(promise_id)) %>%
-    left_join(promise.forces, by="promise_id") %>% 
-    group_by(call_id, function_id, type) %>% 
-    summarise(
-      unevaluated=sum(as.integer(is.na(event_type))), 
-      escaped=sum(as.integer(!is.na(event_type) && (lifestyle == 3))), 
-      evaluated=sum(as.integer(!is.na(event_type) && (lifestyle != 3))), 
-      count=n()) %>%
+    histogram %>%
+    group_by(function_id) %>% summarise(type=unique(type), evaluated=sum(evaluated), count=sum(count)) %>%
     collect %>% ungroup %>%
     mutate(strict=(evaluated==count)) %>%
     group_by(function_id, type, strict) %>% summarise() %>%
@@ -867,34 +748,16 @@ get_function_strictness_by_type <- function(calls, functions, promise_associatio
     summarise(
       number=n(), 
       percent=100*n()/n.functions)
-
-  nas <-
-    calls %>% 
-    left_join(promise_associations, by="call_id") %>% 
-    left_join(functions, by="function_id") %>% 
-    filter(is.na(promise_id)) %>% 
-    group_by(function_id,type) %>%
-    summarise() %>% 
-    group_by(type) %>%
-    count() %>% rename(number=n) %>%
-    ungroup %>% collect %>%
-    mutate(strict=NA, percent=100*number/n.functions) 
   
-  intermediate <- 
-       rbind(histogram %>% data.frame, nas %>% data.frame)
-  
-  complete_histogram <-
-    merge( # cartesian product
-       data.frame(type=intermediate$type %>% unique), 
-       data.frame(strict=intermediate$strict %>% unique), 
-       by=NULL) %>%
-    left_join(intermediate, by=c("type", "strict")) %>%
-    mutate(
-      number=ifelse(is.na(number), 0, number),
-      percent=ifelse(is.na(percent), 0, percent)) %>%
-    mutate(type=humanize_function_type(type))
-  
-  complete_histogram
+  merge( # cartesian product
+     data.frame(type=unique(histogram$type)), 
+     data.frame(strict=unique(histogram$strict)), 
+     by=NULL) %>%
+  left_join(histogram, by=c("type", "strict")) %>%
+  mutate(
+    number=ifelse(is.na(number), 0, number),
+    percent=ifelse(is.na(percent), 0, percent)) %>%
+  mutate(type=humanize_function_type(type))
 }
 
 get_call_promise_evaluation_order <- function(calls, promise_associations, promises, arguments, promise_evaluations) {
@@ -917,24 +780,25 @@ get_call_promise_evaluation_order <- function(calls, promise_associations, promi
     left_join(force_signatures, by = "call_id")
 }
 
-get_function_promise_evaluation_order <- function(functions, calls, call_promise_evaluation_order) {
-  function_list <- functions %>% select(function_id) %>% collect# %>% 
-  unique_signatures <-  
-    function_list %>%
-    left_join(call_promise_evaluation_order %>% 
-              left_join(calls %>% 
-                        select(call_id, function_id) %>% 
-                        collect, 
-                        by="call_id"), 
-              by="function_id") %>% 
-    filter(!is.na(force_order)) %>%
-    group_by(function_id) %>% 
-    summarise(
-      force_orders=length(unique(force_order)),
-      calls=n()) %>%
-    right_join(function_list, by ="function_id")
+get_function_promise_evaluation_signatures <- function(functions, calls, call_promise_evaluation_order) {
+  functions %>% select(function_id) %>% collect %>%
+  left_join(call_promise_evaluation_order %>% 
+            left_join(calls %>% 
+                      select(call_id, function_id) %>% 
+                      collect, 
+                      by="call_id"), 
+            by="function_id") %>% 
+  filter(!is.na(force_order))
+}
+
+get_function_promise_evaluation_order_summary <- function(functions, unique_signatures) {    
+  function_list <- functions %>% select(function_id) %>% collect
   
-  unique_signatures %>% collect
+  unique_signatures %>%
+    group_by(function_id) %>% 
+    summarise(force_orders=length(unique(force_order)), calls=n()) %>%
+    right_join(function_list, by ="function_id") %>%
+    collect
 }
 
 # FIXME returns NA for calls and percent.calls for no.of.force.orders==0
@@ -983,9 +847,3 @@ get_function_calls <- function(functions, calls, n.calls, ...) {
   data
 }
 
-for (arg in commandArgs(trailingOnly=TRUE)) {
-  #arg <- "/home/kondziu/workspace/R-dyntrace/data/rivr.sqlite"
-  name <- gsub("\\..*$", "", basename(arg))
-  if (length(commandArgs(trailingOnly=TRUE) > 1)) write(name, stderr())
-  main(name, arg, Sys.getenv("CSV_DIR"), debug=TRUE)
-}

@@ -150,6 +150,8 @@ make_graphs_by_range <- function(data, range_column, max_columns=10, graphing_fu
 ```
 
 ``` {r, "basic info", include=FALSE}
+aggregated_functions <- load_local_csv("aggregated_functions.csv") #
+
 basic_info <- 
   load_local_csv("basic_info.csv") %>%
   group_by(name) %>%
@@ -174,7 +176,7 @@ aggregate_basic_info <-
     name="*",
     datasets=paste(name, collapse=", "),
     n.datasets=n(),
-    n.functions=sum(n.functions),
+    n.functions=(aggregated_functions %>% count %>% pull(n)),
     n.calls=sum(n.calls),
     n.promises=sum(n.promises),
     n.promise.forces=sum(n.promise.forces),
@@ -761,7 +763,7 @@ ggplot(data, aes(x=type, y=number)) +
 </div>
 
 ```{r, "functions by type", echo=FALSE, fig.width=5, fig.height=4}
-function_types <- load_local_csv("function_types.csv") #FIXME use the concatenated data
+function_types <- load_local_csv("aggregated_function_types.csv")
   
 data <- function_types %>%
   group_by(type) %>% 
@@ -899,7 +901,7 @@ ggplot(data, aes(x=compiled, y=number)) +
 </div>
 
 ```{r, "byte-code compilation, functions", echo=FALSE, fig.width=5, fig.height=3.5, warning=FALSE}
-closure_function_compilation <- load_local_csv("compiled_functions.csv")
+closure_function_compilation <- load_local_csv("aggregated_compiled_functions.csv")
 
 data <- 
   closure_function_compilation %>% 
@@ -912,6 +914,10 @@ ggplot(data, aes(x=compiled, y=number)) +
   ylab("No. of calls") + 
   scale_y_continuous(labels=pp_trunc) +
   theme(axis.title.x=element_blank())
+```
+
+```{r, "byte-code compilation, functions loading", echo=FALSE, warning=FALSE}
+closure_function_compilation <- load_local_csv("compiled_functions.csv")
 ```
 
 </div>
@@ -1231,7 +1237,7 @@ ggplot(strict_closure_calls_aggregate, aes(x=label, y=number)) +
 
 ```{r, "function strictnes", echo=FALSE, fig.width=10, fig.height=4.5}
 strict_closure_functions <-
-  load_local_csv("function_strictness_by_type.csv") %>%
+  load_local_csv("aggregated_function_strictness_by_type.csv") %>%
   strictness_labeller
 
 strict_closure_functions_aggregate <-
@@ -1247,6 +1253,13 @@ ggplot(strict_closure_functions_aggregate, aes(x=label, y=number)) +
   theme(legend.position="none", axis.title.x=element_blank()) +
   xlab("Function strictness (closures)")
 ```
+
+```{r, "function strictnes load", echo=FALSE}
+strict_closure_functions <-
+  load_local_csv("function_strictness_by_type.csv") %>% 
+  strictness_labeller
+```
+
 
 <div style="font-size: 50%">
 A call is **strict** if all of its arguments are **evaluated** and none of the arguments is **escaped**. (This means that a function may pass unevaluated promises to a child call and still be strict, but it cannot leak the promise).  
@@ -1356,6 +1369,7 @@ ggplot(strict_calls_ratio_other_top20, aes(x=strictness_ratio, y=number)) +
 ```{r, "call strictness ratios, top 20", echo=FALSE, fig.width=10, fig.height=4.5}
 strict_calls_ratio_labelled %>% 
   arrange(desc(number)) %>%
+  mutate(number=pp_trunc(number), percent=pp_perc(percent)) %>%
   select(strictness_ratio, number, percent) %>%
   kable(col.names=c( "strictness ratio", "number", "percent"), align="lll")
 ```
@@ -1369,7 +1383,7 @@ strict_calls_ratio_labelled %>%
 ## Aggregate
 
 ```{r, "function strictness rate", echo=FALSE, fig.width=10, fig.height=4.5}
-strict_functions_rate <- load_local_csv("function_strictness_rate.csv")
+strict_functions_rate <- load_local_csv("aggregated_function_strictness_rate.csv")
   
 ggplot(strict_functions_rate %>%
          group_by(strictness_rate) %>% 
@@ -1384,6 +1398,10 @@ ggplot(strict_functions_rate %>%
   theme(legend.position="none") + #, axis.text.x=element_text(angle=90, vjust=.5)) +
   ylab("No. of functions") +
   xlab("Ratio of evaluated promises [%]")
+```
+
+```{r, "function strictness rate load", echo=FALSE}
+strict_functions_rate <- load_local_csv("function_strictness_rate.csv")
 ```
 
 <div style="font-size: 50%">
@@ -1409,11 +1427,15 @@ make_graphs_by_split(strict_functions_rate, key="strictness_rate", max_columns=p
 ## Aggregate
 
 ```{r, "evaluation order", echo=FALSE, fig.width=10, fig.height=4.5}
-promise_force_orders <- load_local_csv("evaluation_order.csv")
+promise_force_orders <- load_local_csv("aggregated_evaluation_order.csv")
 
+all_possible_force_orders <- 
+  tibble(no.of.force.orders=c(0:10,">10")) %>% 
+  left_join(promise_force_orders %>% mutate(no.of.force.orders=as.character(no.of.force.orders)), by="no.of.force.orders") %>%
+  mutate(number=ifelse(is.na(number), 0, number),
+         percent=ifelse(is.na(percent), 0, percent))
 
-
-ggplot(promise_force_orders %>%
+ggplot(all_possible_force_orders %>%
       group_by(no.of.force.orders) %>% 
       summarise(number=sum(number)) %>% 
       mutate(percent=100*number/sum(number)), 
@@ -1424,6 +1446,10 @@ ggplot(promise_force_orders %>%
   theme(legend.position="none") + 
   ylab("No. of functions") +
   xlab("No. of force orders")
+```
+
+```{r, "evaluation order load", echo=FALSE}
+promise_force_orders <- load_local_csv("evaluation_order.csv")
 ```
 
 ## Evaluation order, distribution per package/vignette
@@ -1443,7 +1469,7 @@ make_graphs_by_split(promise_force_orders, key="no.of.force.orders", max_columns
 ## Environment access 
 ## Default and non-default promise arguments-->
 
-## Calls to specific functions
+# Calls to specific functions
 
 ```{r function-calls-selected-counts, echo=FALSE, comment="", fig.width=10, fig.height=4.5}
 #specific_calls <- 
