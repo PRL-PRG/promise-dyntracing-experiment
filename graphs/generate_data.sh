@@ -1,16 +1,19 @@
 #!/bin/bash
 
-for f in "$@" #/home/kondziu/workspace/R-dyntrace/data/ELE-2/*.sqlite
-do
-    export CSV_DIR="`dirname $f`/../csv"/`basename $f .sqlite`	
-    CSV_ROOT_DIR="`dirname $f`/../csv"
-    echo Extracting aggregate CSVs from $f to $CSV_DIR
-    mkdir -p $CSV_DIR
-    Rscript graphs/generate_data.R "$f" \
-        && echo ` basename "$f"`";TRUE" >> "$CSV_ROOT_DIR/health.csv" \
-        || echo ` basename "$f"`";FALSE" >> "$CSV_ROOT_DIR/health.csv"
+export CSV_ROOT_DIR="$1/csv"
+export DATA_ROOT_DIR="$1/data"
+mkdir -p "$CSV_ROOT_DIR"
 
-    #R_LIBS=~/R/installed/ ../R-dyntrace/bin/Rscript graphs/generate_data.R "$f"
+for db in "$1"/data/*.sqlite
+do
+    package=$(basename "$db" .sqlite)
+    export CSV_DIR="$CSV_ROOT_DIR/$package"
+    mkdir -p "$CSV_DIR"
+
+    echo Extracting aggregate CSVs from $db to $CSV_DIR
+    Rscript graphs/generate_csvs.R "$db" \
+        && echo "$package;TRUE" >> "$CSV_ROOT_DIR/health.csv" \
+        || echo "$package;FALSE" >> "$CSV_ROOT_DIR/health.csv"    
 done
 
 echo DONE
