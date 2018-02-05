@@ -3,19 +3,45 @@ suppressPackageStartupMessages(library(methods))
 suppressPackageStartupMessages(library(tools))
 suppressWarnings(suppressPackageStartupMessages(library(tidyverse)))
 suppressWarnings(suppressPackageStartupMessages(library(ggthemes)))
+suppressWarnings(suppressPackageStartupMessages(library(scales)))
+suppressWarnings(suppressPackageStartupMessages(library(crayon)))
+suppressWarnings(suppressPackageStartupMessages(library(magrittr)))
+
+info <- function(...) cat(green(bold(paste0(...))))
+
+replace_extension <- function(filename, extension)
+  filename %>%
+    file_path_sans_ext() %>%
+    paste0(".", extension)
 
 find_files <- function(input_dirpath, extension)
-  Filter(function(filename) { file_ext(filename) == extension },
-         list.files(path=input_dirpath,
-                    full.names=TRUE,
-                    recursive=TRUE,
-                    include.dirs=FALSE,
-                    no..=TRUE))
+  list_files_with_exts(input_dirpath, extension) %>%
+    keep(
+      . %>%
+      replace_extension("OK") %>%
+      file.exists())
 
 create_table <- function(input_dir) {
   Reduce(bind_rows, lapply(find_files(input_dir, "sqlite"), analyze_database))
 }
 
+export_as_images <- function(visualizations, graph_dir, format = ".png") {
+  visualizations %>%
+    iwalk(
+      function(graph, graphname)
+        ggsave(plot = graph,
+               filename = file.path(graph_dir,
+                                    paste0(graphname, format))))
+
+}
+
+export_as_tables <- function(analyses, table_dir, format = ".csv") {
+  analyses %>%
+      iwalk(
+        function(table, tablename)
+          table %>%
+          write_csv(file.path(table_dir, paste0(tablename, format))))
+}
 
 parse_program_arguments <- function() {
   usage <- "%prog input-dir table-dir graphs-dir"
@@ -30,7 +56,7 @@ parse_program_arguments <- function() {
     sep = "\n")
 
   option_parser <- OptionParser(usage = usage,
-                                description = description, 
+                                description = description,
                                 add_help_option = TRUE,
                                 option_list = list())
   parse_args(option_parser, positional_arguments = 3)
@@ -38,6 +64,7 @@ parse_program_arguments <- function() {
 
 drive_analysis <- function(analyze_database,
                            combine_analyses,
+                           summarize_analyses,
                            export_analyses,
                            visualize_analyses,
                            export_visualizations) {
@@ -50,16 +77,25 @@ drive_analysis <- function(analyze_database,
 
   analyses <-
     input_dir %>%
-    find_files("sqlite") %>%
-    lapply(analyze_database) %>%
-    Reduce(combine_analyses, .)
+    file.path("data") %T>%
+    info("• Recursively scanning sqlite files in ", ., "\n") %>%
+    find_files("sqlite") %T>%
+    {info("  • Found ", length(.), " files", "\n", "• Analyzing databases", "\n")} %>%
+    lapply(analyze_database) %T>%
+    (function (ignore) info("• Combining analyses", "\n")) %>%
+    Reduce(combine_analyses, .) %T>%
+    (function (ignore) info("• Summarizing analyses", "\n")) %>%
+    summarize_analyses()
 
+  info("• Exporting analyses", "\n")
   export_analyses(analyses, table_dir)
 
+  info("• Visualizing analyses", "\n")
   visualizations <- visualize_analyses(analyses)
 
+  info("• Exporting visualizations", "\n")
   export_visualizations(visualizations, graph_dir)
 
-  Sys.time() - start_time
+  info("• Finished in ", (Sys.time() - start_time) , " minutes", "\n")
 
 }

@@ -9,7 +9,7 @@ source("analysis/analysis.R")
 library(scales)
 
 analyze_database <- function(database_filepath) {
-  cat(database_filepath, "\n")
+    info("  • Analyzing ", database_filepath, "\n")
     script = basename(file_path_sans_ext(database_filepath))
     db <- src_sqlite(database_filepath)
 
@@ -143,12 +143,40 @@ export_analyses <- function(datatable, table_dir) {
 }
 
 combine_analyses <- function(tables_acc, tables) {
-  if(length(tables) == 0) return (tables_acc)
   list(alive = bind_rows(tables_acc$alive, tables$alive),
        indispensable = bind_rows(tables_acc$indispensable, tables$indispensable),
        dispensable = bind_rows(tables_acc$dispensable, tables$dispensable),
        counts = bind_rows(tables_acc$counts, tables$counts),
        unforced = bind_rows(tables_acc$unforced, tables$unforced))
+}
+
+summarize_analyses <- function(analyses) {
+  analyses[["alive-summarized"]] <-
+    analyses$alive %>%
+    group_by(`GC CYCLES`) %>%
+    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`))
+
+  analyses[["indispensable-summarized"]] <-
+    analyses$indispensable %>%
+    group_by(`GC CYCLES`) %>%
+    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`))
+
+  analyses[["dispensable-summarized"]] <-
+    analyses$dispensable %>%
+    group_by(`GC CYCLES`) %>%
+    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`))
+
+  analyses[["unforced-summarized"]] <-
+    analyses$unforced %>%
+    group_by(`GC CYCLES`) %>%
+    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`))
+
+  analyses[["counts-summarized"]] <-
+    analyses$counts %>%
+    select(-`SCRIPT`) %>%
+    summarise_each(funs(sum))
+
+  analyses
 }
 
 visualize_analyses <- function(analyses) {
@@ -235,12 +263,13 @@ export_visualizations <- function(visualizations, graph_dir) {
 }
 
 main <- function() {
+  info("Promise Lifespan Analysis", "\n")
   drive_analysis(analyze_database,
                  combine_analyses,
-                 export_analyses,
+                 summarize_analyses,
+                 export_as_tables,
                  visualize_analyses,
-                 export_visualizations)
+                 export_as_images)
 }
-
 
 main()
