@@ -6,10 +6,8 @@
 source("analysis/utils.R")
 source("analysis/analysis.R")
 
-library(scales)
-
 analyze_database <- function(database_filepath) {
-    info("  • Analyzing ", database_filepath, "\n")
+
     script = basename(file_path_sans_ext(database_filepath))
     db <- src_sqlite(database_filepath)
 

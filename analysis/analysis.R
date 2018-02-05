@@ -1,13 +1,20 @@
-suppressPackageStartupMessages(library(optparse))
-suppressPackageStartupMessages(library(methods))
-suppressPackageStartupMessages(library(tools))
-suppressWarnings(suppressPackageStartupMessages(library(tidyverse)))
-suppressWarnings(suppressPackageStartupMessages(library(ggthemes)))
-suppressWarnings(suppressPackageStartupMessages(library(scales)))
-suppressWarnings(suppressPackageStartupMessages(library(crayon)))
-suppressWarnings(suppressPackageStartupMessages(library(magrittr)))
+library(methods)
+library(tools)
+library(gdata)
+library(optparse)
+library(tidyverse)
+library(ggthemes)
+library(scales)
+library(crayon)
+library(magrittr)
 
 info <- function(...) cat(green(bold(paste0(...))))
+
+file_size <- function(filepath, digits = 2)
+  humanReadable(file.info(filepath)$size)
+
+time_difference <- function(time_begin, time_end, units="mins")
+  round(unclass(difftime(time_end, time_begin, units=units))[[1]], 2)
 
 replace_extension <- function(filename, extension)
   filename %>%
@@ -77,10 +84,15 @@ drive_analysis <- function(analyze_database,
 
   analyses <-
     input_dir %T>%
-    info("• Recursively scanning sqlite files in ", ., "\n") %>%
+    info("• Sanning for sqlite files in ", ., "\n") %>%
     find_files("sqlite") %T>%
     {info("  • Found ", length(.), " files", "\n", "• Analyzing databases", "\n")} %>%
-    lapply(analyze_database) %T>%
+    lapply(
+      function(database_filepath) {
+        info("  • Analyzing ", database_filepath,
+             " (", file_size(database_filepath), ")", "\n")
+        analyze_database(database_filepath)
+      }) %T>%
     (function (ignore) info("• Combining analyses", "\n")) %>%
     Reduce(combine_analyses, .) %T>%
     (function (ignore) info("• Summarizing analyses", "\n")) %>%
@@ -95,6 +107,5 @@ drive_analysis <- function(analyze_database,
   info("• Exporting visualizations", "\n")
   export_visualizations(visualizations, graph_dir)
 
-  info("• Finished in ", (Sys.time() - start_time) , " seconds", "\n")
-
+  info("• Finished in ", time_difference(start_time, Sys.time()) , " minutes", "\n")
 }
