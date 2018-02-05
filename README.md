@@ -14,7 +14,9 @@ Installation script:
 install.packages(c("optparse", "stringr", "hashmap", 
                    "tidyr", "dplyr", "gridExtra", 
                     "kableExtra", "png", "scales", 
-                    "ggplot2", "knitr"),
+                    "ggplot2", "knitr", "RSQLite", 
+                    "dbplyr", "tidyverse", "ggthemes",
+                    "DT"),
                  #repos='http://cran.us.r-project.org',
                  #Ncpus=20,                            # run in parallel using 20 cores
                  #keep_outputs=T,                      # keeps outputs in ".out" files in current directory
