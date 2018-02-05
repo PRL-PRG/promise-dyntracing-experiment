@@ -1,7 +1,6 @@
 source("graphs/generate_data.R")
 
 main <- function(package, database_path, output_path, debug = TRUE) {
-  
   # The database
   db <- src_sqlite(database_path)
   store <- store(name=package, output_path=output_path)
@@ -117,16 +116,17 @@ if (length(args) > 2 || length(args) == 0) {
   quit(status=1)
 }
 
-if (length(args) == 1) 
-  args <- strsplit(args[1], split=":", fixed=TRUE)
+if (length(args) == 1) { write(args[1],stderr())
+  args <- strsplit(args[1], split=":", fixed=TRUE)[[1]]}
 
 database <- args[1]
 csv_dir <- args[2]
-name <- gsub("\\..*$", "", basename(database))
+write(paste0("Extracting CSVs from ", database, "\n",
+             "                  to ", csv_dir), stderr())
 
 if(!dir.exists(csv_dir)) 
   suppressWarnings(dir.create(csv_dir, recursive=TRUE))
 
-write(paste0("Extracting CSVs from ", database, "\n",
-             "                  to ", csv_dir), stderr())
+name <- gsub("\\..*$", "", basename(database))
+
 main(name, database, csv_dir, debug=TRUE)
