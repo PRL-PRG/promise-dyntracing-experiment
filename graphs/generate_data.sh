@@ -10,8 +10,7 @@ do
     export CSV_DIR="$CSV_ROOT_DIR/$package"
     mkdir -p "$CSV_DIR"
 
-    echo Extracting aggregate CSVs from $db to $CSV_DIR
-    Rscript graphs/generate_csvs.R "$db" \
+    Rscript graphs/generate_csvs.R "$db" "$CSV_DIR" \
         && echo "$package;TRUE" >> "$CSV_ROOT_DIR/health.csv" \
         || echo "$package;FALSE" >> "$CSV_ROOT_DIR/health.csv"    
 done

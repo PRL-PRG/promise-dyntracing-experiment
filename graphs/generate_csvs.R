@@ -1,4 +1,3 @@
-#suppressPackageStartupMessages(library("optparse"))
 source("graphs/generate_data.R")
 
 main <- function(package, database_path, output_path, debug = TRUE) {
@@ -110,11 +109,21 @@ main <- function(package, database_path, output_path, debug = TRUE) {
       select(function_name, number, percent))
 }
 
-for (arg in commandArgs(trailingOnly=TRUE)) {
- #arg <- "/home/kondziu/workspace/R-dyntrace/data/rivr.sqlite"
- name <- gsub("\\..*$", "", basename(arg))
- if (length(commandArgs(trailingOnly=TRUE) > 1)) write(name, stderr())
- main(name, arg, Sys.getenv("CSV_DIR"), debug=TRUE)
+args <-commandArgs(trailingOnly=TRUE)
+if (length(args) > 2 || length(args) == 0) {
+  write(paste0("invalid number of arguments, usage:\n",
+               "    generate_csvs.R [PACKAGE] [OUTPUT_DIR]\n", 
+               "    generate_csvs.R [PACKAGE:OUTPUT_DIR]"), stderr())
+  quit(status=1)
 }
 
-#preaggregated("/media/kondziu/b7a9548c-13a0-4fe6-8a28-de8d491a209b/R/traces/lucoa/2018-01-19-18-30-19/data/_all/functions.sqlite", Sys.getenv("CSV_DIR"), debug=TRUE)
+if (length(args) == 1) 
+  args <- strsplit(args[1], split=":", fixed=TRUE)
+
+database <- args[1]
+csv_dir <- args[2]
+name <- gsub("\\..*$", "", basename(database))
+
+write(paste0("Extracting CSVs from ", database, "\n",
+             "                  to ", csv_dir), stderr())
+main(name, database, csv_dir, debug=TRUE)
