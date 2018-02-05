@@ -124,7 +124,8 @@ database <- args[1]
 csv_dir <- args[2]
 name <- gsub("\\..*$", "", basename(database))
 
-if(!dir.exists(csv_dir)) suppressWarnings(dir.create(csv_dir))
+if(!dir.exists(csv_dir)) 
+  suppressWarnings(dir.create(csv_dir, recursive=TRUE))
 
 write(paste0("Extracting CSVs from ", database, "\n",
              "                  to ", csv_dir), stderr())
