@@ -2,8 +2,6 @@ suppressPackageStartupMessages(library("dplyr"))
 suppressPackageStartupMessages(library("stringr"))
 suppressPackageStartupMessages(library("hashmap"))
 
-# FIXME TODO If table is empty, don't fail.
-
 pp <- function(number) 
   format(number, big.mark=",", scientific=FALSE, trim=FALSE, digits=2)
 
@@ -32,53 +30,30 @@ humanize_full_promise_type = function(full_type) {
     paste(collapse = "→")
 }
 
-humanize_function_type = function(type) 
-  ifelse(is.na(type), "NA",
-    ifelse(type == 0, "closure",
-      ifelse(type == 1, "built-in",
-        ifelse(type == 2, "special",
-          ifelse(type == 3, "true built-in", NA)))))
+make_labels = function(x) ifelse(is.na(x), "NA", x)
+guard_against_na <- function(key, map) ifelse(is.na(key), "NA", map[[key]])
 
-dehumanize_function_type = function(type) 
-  ifelse(is.na(type), "NA",
-    ifelse(type == "closure", 0,
-      ifelse(type == "built-in", 1,
-        ifelse(type == "special", 2,
-          ifelse(type == "true built-in", 3, NA)))))
+FUNCTION_TYPE_NAMES <- c("closure", "built-in", "special", "true built-in")
+FUNCTION_TYPE_CODES <- 0:3
+FUNCTION_TYPES <- hashmap(keys=FUNCTION_TYPE_CODES, values=FUNCTION_TYPE_NAMES)
+FUNCTION_TYPES_REV <- hashmap(keys=FUNCTION_TYPE_NAMES, values=FUNCTION_TYPE_CODES)
 
-SEXP_TYPE_NAMES = c(
-    "NIL", "SYM", "LIST", "CLOS", "ENV",  "PROM", # 0-5
-    "LANG", "SPECIAL", "BUILTIN", "CHAR",  "LGL", # 6-10
-    "INT", "REAL", "CPLX", "STR", "DOT", "ANY",   # 13-18
-    "VEC", "EXPR", "BCODE", "EXTPTR", "WEAKREF",  # 19-23
-    "RAW", "S4",                                  # 24-25, 
-    "actbind", "...")                             # 42, 69
+humanize_function_type <- function(type) guard_against_na(type, FUNCTION_TYPES)
+dehumanize_function_type <- function(type) guard_against_na(type, FUNCTION_TYPES_REV)
 
-SEXP_TYPES <- hashmap(
-  keys=c(0:10,13:25,42,69), 
-  values=c(
+SEXP_TYPE_NAMES <- c(
     "NIL", "SYM", "LIST", "CLOS", "ENV",  "PROM", # 0-5
     "LANG", "SPECIAL", "BUILTIN", "CHAR",  "LGL", # 6-10
     "INT", "REAL", "CPLX", "STR", "DOT", "ANY",   # 13-18
     "VEC", "EXPR", "BCODE", "EXTPTR", "WEAKREF",  # 19-23
     "RAW", "S4",                                  # 24-25
-    "actbind", "..."))                            # 42, 69
+    "actbind", "...")                             # 42, 69 
+SEXP_TYPE_CODES <- c(0:10,13:25,42,69) 
+SEXP_TYPES <- hashmap(keys=SEXP_TYPE_CODES, values=SEXP_TYPE_NAMES)
+SEXP_TYPES_REV <- hashmap(keys=SEXP_TYPE_NAMES, values=SEXP_TYPE_CODES)
 
-SEXP_TYPES_REV <- hashmap(
-  values=c(0:10,13:25,42,69), 
-  keys=c(
-    "NIL", "SYM", "LIST", "CLOS", "ENV",  "PROM", # 0-5
-    "LANG", "SPECIAL", "BUILTIN", "CHAR",  "LGL", # 6-10
-    "INT", "REAL", "CPLX", "STR", "DOT", "ANY",   # 13-18
-    "VEC", "EXPR", "BCODE", "EXTPTR", "WEAKREF",  # 19-23
-    "RAW", "S4",                                  # 24-25
-    "actbind", "..."))                            # 42, 69
-
-humanize_promise_type = function(type) 
-  ifelse(is.na(type), "NA", SEXP_TYPES[[type]])
-
-dehumanize_promise_type = function(type) 
-  ifelse(is.na(type), "NA", SEXP_TYPES_REV[[type]])
+humanize_promise_type <- function(type) guard_against_na(type, SEXP_TYPES) 
+dehumanize_promise_type <- function(type) guard_against_na(type, SEXP_TYPES_REV)
 
 get_forces <- function(promises, promise.forces, n.promises, cutoff=NA) {
   data <- promises %>% rename(promise_id=id) %>% 
@@ -692,7 +667,6 @@ get_function_strictness_rate <- function(histogram, n.functions) {
   histogram
 }
 
-make_labels = function(x) ifelse(is.na(x), "NA", x)
 
 get_call_strictness_by_type <- function(calls, functions, promise_associations, promise.forces, n.calls) {
   histogram <- 
