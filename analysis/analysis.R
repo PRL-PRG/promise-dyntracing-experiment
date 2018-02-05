@@ -76,8 +76,7 @@ drive_analysis <- function(analyze_database,
   graph_dir = arguments$args[3]
 
   analyses <-
-    input_dir %>%
-    file.path("data") %T>%
+    input_dir %T>%
     info("• Recursively scanning sqlite files in ", ., "\n") %>%
     find_files("sqlite") %T>%
     {info("  • Found ", length(.), " files", "\n", "• Analyzing databases", "\n")} %>%
@@ -96,6 +95,6 @@ drive_analysis <- function(analyze_database,
   info("• Exporting visualizations", "\n")
   export_visualizations(visualizations, graph_dir)
 
-  info("• Finished in ", (Sys.time() - start_time) , " minutes", "\n")
+  info("• Finished in ", (Sys.time() - start_time) , " seconds", "\n")
 
 }
