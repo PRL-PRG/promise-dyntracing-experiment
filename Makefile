@@ -39,32 +39,32 @@ report:
 analyze-argument-promise-mode:
 	mkdir -p $(DATA_DIR)/output/argument-promise-mode/table
 	mkdir -p $(DATA_DIR)/output/argument-promise-mode/graph
-	analysis/argument-promise-mode.R $(DATA_DIR) $(DATA_DIR)/output/argument-promise-mode/table $(DATA_DIR)/output/argument-promise-mode/graph
+	analysis/argument-promise-mode.R $(DATA_DIR)/data $(DATA_DIR)/output/argument-promise-mode/table $(DATA_DIR)/output/argument-promise-mode/graph
 
 analyze-environment:
 	mkdir -p $(DATA_DIR)/output/environment/table
 	mkdir -p $(DATA_DIR)/output/environment/graph
-	analysis/environment.R $(DATA_DIR) $(DATA_DIR)/output/environment/table $(DATA_DIR)/output/environment/graph
+	analysis/environment.R $(DATA_DIR)/data $(DATA_DIR)/output/environment/table $(DATA_DIR)/output/environment/graph
 
 analyze-argument-position-laziness:
 	mkdir -p $(DATA_DIR)/output/argument-position-laziness/table
 	mkdir -p $(DATA_DIR)/output/argument-position-laziness/graph
-	analysis/argument-position-laziness $(DATA_DIR) $(DATA_DIR)/output/argument-position-laziness/table $(DATA_DIR)/output/argument-position-laziness/graph
+	analysis/argument-position-laziness $(DATA_DIR)/data $(DATA_DIR)/output/argument-position-laziness/table $(DATA_DIR)/output/argument-position-laziness/graph
 
 analyze-side-effects:
 	mkdir -p $(DATA_DIR)/output/side-effects/table
 	mkdir -p $(DATA_DIR)/output/side-effects/graph
-	analysis/side-effects $(DATA_DIR) $(DATA_DIR)/output/side-effects/table $(DATA_DIR)/output/side-effects/graph
+	analysis/side-effects $(DATA_DIR)/data $(DATA_DIR)/output/side-effects/table $(DATA_DIR)/output/side-effects/graph
 
 analyze-promise-memory-usage:
 	mkdir -p $(DATA_DIR)/output/promise-memory-usage/table
 	mkdir -p $(DATA_DIR)/output/promise-memory-usage/graph
-	analysis/promise-memory-usage.R $(DATA_DIR) $(DATA_DIR)/output/promise-memory-usage/table $(DATA_DIR)/output/promise-memory-usage/graph
+	analysis/promise-memory-usage.R $(DATA_DIR)/data $(DATA_DIR)/output/promise-memory-usage/table $(DATA_DIR)/output/promise-memory-usage/graph
 
 analyze-promise-lifespan:
 	mkdir -p $(DATA_DIR)/output/promise-lifespan/table
 	mkdir -p $(DATA_DIR)/output/promise-lifespan/graph
-	analysis/promise-lifespan.R $(DATA_DIR) $(DATA_DIR)/output/promise-lifespan/table $(DATA_DIR)/output/promise-lifespan/graph
+	analysis/promise-lifespan.R $(DATA_DIR)/data $(DATA_DIR)/output/promise-lifespan/table $(DATA_DIR)/output/promise-lifespan/graph
 
 analyze: analyze-environment analyze-argument-promise-mode analyze-argument-position-laziness analyze-promise-memory-usage analyze-promise-lifespan
 
