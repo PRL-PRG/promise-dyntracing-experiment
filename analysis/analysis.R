@@ -8,7 +8,7 @@ find_files <- function(input_dirpath, extension)
   Filter(function(filename) { file_ext(filename) == extension },
          list.files(path=input_dirpath,
                     full.names=TRUE,
-                    recursive=TRUE,
+                    recursive=FALSE,
                     include.dirs=FALSE,
                     no..=TRUE))
 
