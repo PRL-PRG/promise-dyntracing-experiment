@@ -25,10 +25,10 @@ option_list <- list(
 cfg <- parse_args(OptionParser(option_list=option_list), positional_arguments=TRUE)
 
 instrumented.code.dir <- paste(cfg$options$`output-dir`, "vignettes", sep="/")
-dir.create(instrumented.code.dir, recursive = TRUE, showWarnings = FALSE)
+suppressWarnings(dir.create(instrumented.code.dir, recursive = TRUE, showWarnings = FALSE))
 
 log.dir <- paste(cfg$options$`output-dir`, "logs", sep="/")
-dir.create(log.dir, recursive = TRUE, showWarnings = FALSE)
+suppressWarnings(dir.create(log.dir, recursive = TRUE, showWarnings = FALSE))
 
 rdt.cmd.head <- function()
   paste(

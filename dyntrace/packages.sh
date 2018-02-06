@@ -10,49 +10,43 @@ then
     N_PROCESSES="$3"
 fi
 
-echo $0 $@
-
 SCRIPT_DIR=$(cd $(dirname "$0"); pwd)
-FILE=$SCRIPT_DIR/vignettes.R
 OUTPUT_DIR=$(cd $2; pwd)/`date +"%Y-%m-%d-%H-%M-%S"`
-DATA_DIR=$OUTPUT_DIR/data/
-LOGS_DIR=$OUTPUT_DIR/logs/
-PACKAGE_FILE=$SCRIPT_DIR/packages.csv
-DYNTRACED_PACKAGE_FILE=$OUTPUT_DIR/packages.txt
 
-if [ -n "$PACKAGE_LIST" ] 
+export STOP_TRACING=STOP
+export ALREADY_TRACED_PACKAGES_LIST=$OUTPUT_DIR/packages.txt
+export LOGS_DIR=$OUTPUT_DIR/logs/
+
+# Prepare files and directories
+mkdir -p $OUTPUT_DIR/data
+mkdir -p $LOGS_DIR
+echo > $ALREADY_TRACED_PACKAGES_LIST
+[ -e $STOP_TRACING ] && rm $STOP_TRACING
+
+#  Prepare R commandline  magic spell
+export CMD="$1 --slave --no-restore --file=${SCRIPT_DIR}/vignettes.R --args --output-dir=${OUTPUT_DIR}"
+if $RDT_COMPILE_VIGNETTE
+then 
+    export CMD="$CMD --compile"        
+fi    
+
+# Package list
+shift 3
+if [ $# -gt 0 ]
 then
-    PACKAGE_LIST=dyntrace/packages.csv
+    PACKAGES="$@"
+else
+    PACKAGES=$(cat "$SCRIPT_DIR/packages.csv" | grep -v '^#' | grep -v '^$' | cut -f 1 -d';' | xargs echo)
 fi
 
-
-mkdir -p $DATA_DIR
-mkdir -p $LOGS_DIR
-echo > $DYNTRACED_PACKAGE_FILE 
-
-CMD="$1 --slave --no-restore --file=$FILE --args --output-dir=${OUTPUT_DIR}"
-
+# R environmental variables
 export R_COMPILE_PKGS=1
 export R_DISABLE_BYTECODE=0
 export R_ENABLE_JIT=3
 export R_KEEP_PKG_SOURCE=yes
 export RDT_COMPILE_VIGNETTE=false
 
-PACKAGES=
-
-if $RDT_COMPILE_VIGNETTE
-then 
-    CMD="$CMD --compile"        
-fi    
-
-shift 3
-if [ $# -gt 0 ]
-then
-    PACKAGES="$@"
-else
-    PACKAGES=$(cat "$PACKAGE_FILE" | grep -v '^#' | grep -v '^$' | cut -f 1 -d';' | xargs echo)
-fi
-
+# Debug info
 echo R_COMPILE_PKGS=$R_COMPILE_PKGS
 echo R_DISABLE_BYTECODE=$R_DISABLE_BYTECODE
 echo R_ENABLE_JIT=$R_ENABLE_JIT
@@ -62,33 +56,5 @@ echo N_PROCESSES=$N_PROCESSES
 echo R_LIBS=$R_LIBS
 echo Tracing packages: $PACKAGES
 
-n_packages=`echo $PACKAGES | tr ' ' '\n' | wc -l`
-slice_size=$(($n_packages / $N_PROCESSES + 1))
-
-function trace {
-    process=$1; shift
-    echo "[$process] Slice: $@"
-    for package in $@
-    do 
-        echo "[$process] Tracing $package ($CMD)"
-        time $CMD $package 2>&1 | tee -a "${LOGS_DIR}/${package}.log" 
-        echo "$package" >> $DYNTRACED_PACKAGE_FILE
-        echo "[$process] Done tracing $package ($CMD)"
-    done
-}
-
-for process in `seq 1 $N_PROCESSES`
-do    
-    slice=`echo $PACKAGES | tr ' ' '\n' | \
-           tail -n +$((($process - 1)* $slice_size + 1)) | \
-           head -n $slice_size`
-
-    if [ $N_PROCESSES -le 1 ]
-    then
-        trace $process $slice
-    else
-        trace $process $slice &
-        PIDS
-    fi
-    
-done
+# Run everything potentially in parallel
+echo $PACKAGES | tr ' ' '\n' | xargs -I{} -P${N_PROCESSES} dyntrace/trace.sh {}
