@@ -33,11 +33,11 @@ analyze_database <- function(database_filepath) {
       promise_lifecycle_table %>%
       filter(!is.na(`2`) & !is.na(`0`))
 
-    unforced_promise_table <-
+    unforced_mortal_promise_table <-
       mortal_promise_table %>%
       filter(is.na(`1`))
 
-    mortal_promise_table <-
+    forced_mortal_promise_table <-
       mortal_promise_table %>%
       filter(!is.na(`1`))
 
@@ -58,11 +58,14 @@ analyze_database <- function(database_filepath) {
         "MORTAL PROMISE" =
           mortal_promise_table %>%
           nrow(),
-        "UNFORCED PROMISE" =
-          unforced_promise_table %>%
+        "UNFORCED MORTAL PROMISE" =
+          unforced_mortal_promise_table %>%
+          nrow(),
+        "FORCED MORTAL PROMISE" =
+          forced_mortal_promise_table %>%
           nrow())
 
-   alive_table <-
+   lifespan_table <-
      mortal_promise_table %>%
      mutate(`GC CYCLES` = `2` - `0`) %>%
      group_by(`GC CYCLES`) %>%
@@ -70,44 +73,35 @@ analyze_database <- function(database_filepath) {
      mutate(`SCRIPT`=script)
 
    indispensable_table <-
-     mortal_promise_table %>%
+     forced_mortal_promise_table %>%
      mutate(`GC CYCLES` = `1` - `0`) %>%
      group_by(`GC CYCLES`) %>%
      summarize(`PROMISE COUNT` = n()) %>%
      mutate(`SCRIPT`=script)
 
    dispensable_table <-
-     mortal_promise_table %>%
+     forced_mortal_promise_table %>%
      mutate(`GC CYCLES` = `2` - `1` - 1) %>%
      group_by(`GC CYCLES`) %>%
      summarize(`PROMISE COUNT` = n()) %>%
      mutate(`SCRIPT`=script)
 
-  unforced_table <-
-    unforced_promise_table %>%
-    mutate(`GC CYCLES` = `2` - `0`) %>%
-    group_by(`GC CYCLES`) %>%
-    summarize(`PROMISE COUNT` = n()) %>%
-    mutate(`SCRIPT` = script)
-
-  list(alive = alive_table,
+  list(lifespan = lifespan_table,
        indispensable = indispensable_table,
        dispensable = dispensable_table,
-       counts = counts_table,
-       unforced = unforced_table)
+       counts = counts_table)
 }
 
 combine_analyses <- function(tables_acc, tables) {
-  list(alive = bind_rows(tables_acc$alive, tables$alive),
+  list(lifespan = bind_rows(tables_acc$lifespan, tables$lifespan),
        indispensable = bind_rows(tables_acc$indispensable, tables$indispensable),
        dispensable = bind_rows(tables_acc$dispensable, tables$dispensable),
-       counts = bind_rows(tables_acc$counts, tables$counts),
-       unforced = bind_rows(tables_acc$unforced, tables$unforced))
+       counts = bind_rows(tables_acc$counts, tables$counts))
 }
 
 summarize_analyses <- function(analyses) {
-  analyses[["alive-summarized"]] <-
-    analyses$alive %>%
+  analyses[["lifespan-summarized"]] <-
+    analyses$lifespan %>%
     group_by(`GC CYCLES`) %>%
     summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`))
 
@@ -121,10 +115,9 @@ summarize_analyses <- function(analyses) {
     group_by(`GC CYCLES`) %>%
     summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`))
 
-  analyses[["unforced-summarized"]] <-
-    analyses$unforced %>%
-    group_by(`GC CYCLES`) %>%
-    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`))
+  analyses[["lifespan-comparison"]] <-
+    (analyses[["lifespan-summarized"]] %>% mutate(`PROMISE TYPE` = "ACTUAL")) %>%
+    bind_rows((analyses[["indispensable-summarized"]] %>% mutate(`PROMISE TYPE` = "INDISPENSABLE")))
 
   analyses[["counts-summarized"]] <-
     analyses$counts %>%
@@ -136,8 +129,8 @@ summarize_analyses <- function(analyses) {
 
 visualize_analyses <- function(analyses) {
   visualizations = list(
-    alive =
-      analyses$alive %>%
+    lifespan =
+      analyses$lifespan %>%
       group_by(`GC CYCLES`) %>%
       ## WARN: I do `+ 1` below because log(0) will result in
       ##       incorrect plot. The minimum value should be 1
@@ -150,7 +143,7 @@ visualize_analyses <- function(analyses) {
       scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
                     labels = trans_format("log10", math_format(10^.x))) +
       labs(x = "GC CYCLES", y = "PROMISE COUNT (log10 scale)",
-           title = "Alive Promise Distribution"),
+           title = "Promise Lifespan Distribution"),
 
     indispensable =
       analyses$indispensable %>%
@@ -184,21 +177,20 @@ visualize_analyses <- function(analyses) {
       labs(x = "GC CYCLES", y = "PROMISE COUNT (log10 scale)",
            title = "Dispensable Promise Distribution"),
 
-    unforced =
-      analyses$unforced %>%
-      group_by(`GC CYCLES`) %>%
+    `lifespan-comparison` =
+      analyses[["lifespan-comparison"]] %>%
       ## WARN: I do `+ 1` below because log(0) will result in
       ##       incorrect plot. The minimum value should be 1
       ##       for log plot to have any meaning.
-      summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`) + 1) %>%
-      ggplot(data = ., aes(`GC CYCLES`)) +
+      mutate(`PROMISE COUNT` = `PROMISE COUNT` + 1) %>%
+      ggplot(data = ., aes(`GC CYCLES`, fill=`PROMISE TYPE`)) +
       geom_bar(aes(weight=`PROMISE COUNT`)) +
       scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                     labels = trans_format("log10", math_format(10^.x))) +
       scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
                     labels = trans_format("log10", math_format(10^.x))) +
       labs(x = "GC CYCLES", y = "PROMISE COUNT (log10 scale)",
-           title = "Unforced Promise Distribution"),
+           title = "Promise Lifespan Comparison"),
 
     counts =
       analyses[["counts-summarized"]] %>%
