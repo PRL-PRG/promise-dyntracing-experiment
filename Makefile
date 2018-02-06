@@ -3,12 +3,13 @@ OUTPUT_DIR=$(DATA_DIR)/output
 TRACER=../R-dyntrace/bin/R
 PROCESSES=1
 PACKAGES=
+MINIMUM_DISK_SIZE=50000000 # ~50GB
 
 VANILLA_R=R
 VANILLA_RSCRIPT=Rscript
 
 trace:
-	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(PACKAGES)
+	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(MINIMUM_DISK_SIZE) $(PACKAGES)
 
 check:
 	dyntrace/check_results.sh $(DATA_DIR)

@@ -3,7 +3,8 @@
 # $1 is the R executable used for dyntracing
 # $2 is the directory in which the dyntraces will be serialized.
 # $3 is the number of separate parallel R processes that will be used to trace.
-# $4-... packages to run tracing on, if not present then read from $PACKAGES_FILE
+# $4 is the mminimum disk size below which the tracer will stop
+# $5-... packages to run tracing on, if not present then read from $PACKAGES_FILE
 N_PROCESSES=1
 if [ -n "$3" ]
 then
@@ -11,11 +12,12 @@ then
 fi
 
 SCRIPT_DIR=$(cd $(dirname "$0"); pwd)
-OUTPUT_DIR=$(cd $2; pwd)/`date +"%Y-%m-%d-%H-%M-%S"`
 
+export OUTPUT_DIR=$(cd $2; pwd)/`date +"%Y-%m-%d-%H-%M-%S"`
 export STOP_TRACING=STOP
 export ALREADY_TRACED_PACKAGES_LIST=$OUTPUT_DIR/packages.txt
 export LOGS_DIR=$OUTPUT_DIR/logs/
+export MINIMUM_DISK_SIZE=$4
 
 # Prepare files and directories
 mkdir -p $OUTPUT_DIR/data
@@ -31,7 +33,7 @@ then
 fi    
 
 # Package list
-shift 3
+shift 4
 if [ $# -gt 0 ]
 then
     PACKAGES="$@"
