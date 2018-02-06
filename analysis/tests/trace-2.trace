@@ -1,0 +1,22 @@
+# REORDERING INTERFERING PROMISES
+# function(a = {y}, b = {y <- 1}) {
+#    b
+#    a
+# }
+# {y} -> 1
+# a -> 2
+# {y <- 1} -> 3
+# b -> 4
+# y -> 5
+cre 1
+def 2
+cre 3
+def 4
+rea 4
+ent 3
+def 5
+ext 3
+rea 2
+ent 1
+rea 5
+ext 1
