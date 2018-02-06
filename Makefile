@@ -4,7 +4,7 @@ TRACER=../R-dyntrace/bin/R
 PROCESSES=1
 PACKAGES=
 MINIMUM_DISK_SIZE=50000000 # ~50GB
-
+PART=all
 VANILLA_R=R
 VANILLA_RSCRIPT=Rscript
 
@@ -42,7 +42,7 @@ analyze-argument-promise-mode:
 analyze-environment:
 	mkdir -p $(OUTPUT_DIR)/environment/table
 	mkdir -p $(OUTPUT_DIR)/environment/graph
-	analysis/environment.R $(DATA_DIR)/data $(OUTPUT_DIR)/environment/table $(OUTPUT_DIR)/environment/graph
+	analysis/environment.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/environment/table $(OUTPUT_DIR)/environment/graph
 
 analyze-argument-position-laziness:
 	mkdir -p $(OUTPUT_DIR)/argument-position-laziness/table
@@ -62,7 +62,7 @@ analyze-promise-memory-usage:
 analyze-promise-lifespan:
 	mkdir -p $(OUTPUT_DIR)/promise-lifespan/table
 	mkdir -p $(OUTPUT_DIR)/promise-lifespan/graph
-	analysis/promise-lifespan.R $(DATA_DIR)/data $(OUTPUT_DIR)/promise-lifespan/table $(OUTPUT_DIR)/promise-lifespan/graph
+	analysis/promise-lifespan.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-lifespan/table $(OUTPUT_DIR)/promise-lifespan/graph
 
 analyze: analyze-environment analyze-argument-promise-mode analyze-argument-position-laziness analyze-promise-memory-usage analyze-promise-lifespan
 
