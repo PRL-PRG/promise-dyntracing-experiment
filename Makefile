@@ -24,14 +24,10 @@ csvs:
 	graphs/generate_data.sh $(PROCESSES) $(DATA_DIR)
 
 aggregate-csvs:
+	graphs/concat_functions.sh $(DATA_DIR)
 	if [ -e $(DATA_DIR)/csv/_all ]; then rm -ri $(DATA_DIR)/csv/_all; fi
 	graphs/aggregate_csvs.sh $(DATA_DIR)/csv/_all $(DATA_DIR)/csv/*
 	graphs/generate_aggregated_data.sh $(DATA_DIR)
-
-concatenate-functions:
-	graphs/concat_functions.sh $(DATA_DIR)
-
-conglomerate-csvs:
 	Rscript graphs/conglomerate_csvs.R $(DATA_DIR)/csv/_all
 
 report:

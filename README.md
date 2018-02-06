@@ -46,9 +46,7 @@ make trace PROCESSES=1    DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME"              
 NEW_RESULT_DIR=`ls $DATA_ROOT/R/traces/$HOSTNAME -t | grep ....-..-..-..-..-.. | head -1`
 
 make check                 DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"
-make get-todo-packages     DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"
 make clean                 DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"
-make concatenate-functions DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"       # LONG
 make csvs                  DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"       # VERY LONG
 make aggregate-csvs        DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"
 make report                DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/$NEW_RESULT_DIR"       # LONG
@@ -237,7 +235,7 @@ make analyze-environment
 
 ## Generating a report
 
-(WIP)
+Generates a report for the batched together analyses from aggregate-csvs and saves it in `DATA_DIR` as functions.csv
 
 ```r
 make report DATA_DIR="$DATA_ROOT/R/traces/$HOSTNAME/2017-12-15-01-42"
