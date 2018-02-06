@@ -36,6 +36,7 @@ conglomerate-csvs:
 
 report:
 	$(VANILLA_RSCRIPT) -e "rmarkdown::render('graphs/report.Rmd', params=list(CSV_DIR='$(DATA_DIR)/csv/_all', PRINT_DATA=TRUE))"
+	mv graphs/report.html $(DATA_DIR)
 
 analyze-argument-promise-mode:
 	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/table
