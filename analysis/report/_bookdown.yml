@@ -1,0 +1,7 @@
+site: "bookdown::bookdown_site"
+rmd_files: ["index.Rmd", "01-lifespan.Rmd"]
+output:
+  bookdown::gitbook:
+    includes:
+      in_header: ./custom.html
+delete_merged_file: true

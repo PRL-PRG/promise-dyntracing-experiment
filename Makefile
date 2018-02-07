@@ -7,7 +7,7 @@ MINIMUM_DISK_SIZE=50000000 # ~50GB
 PART=all
 VANILLA_R=R
 VANILLA_RSCRIPT=Rscript
-
+SITE_DIR=~/public_html
 trace:
 	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(MINIMUM_DISK_SIZE) $(PACKAGES)
 
@@ -67,4 +67,4 @@ analyze-promise-lifespan:
 analyze: analyze-environment analyze-argument-promise-mode analyze-argument-position-laziness analyze-promise-memory-usage analyze-promise-lifespan
 
 analysis-report:
-	$(VANILLA_RSCRIPT) -e "rmarkdown::render('analysis/analysis.Rmd', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"
+	cd analysis/report; $(VANILLA_RSCRIPT) -e "bookdown::render_book('_bookdown.yml', 'bookdown::gitbook', output_dir='$(SITE_DIR)', params=list(analysis_output_dir='`readlink -f ../../$(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"

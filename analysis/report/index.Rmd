@@ -1,0 +1,15 @@
+---
+title: "Analyses of Promises in R"
+author: "Aviral Goel & Konrad Siek"
+date: "`r Sys.Date()`"
+output: 
+  bookdown::gitbook:
+    includes:
+      in_header: ./custom.html
+params:
+  analysis_output_dir: TRUE
+---
+
+# Preface {-}
+
+This book discusses the various aspects related to Promises in R.
