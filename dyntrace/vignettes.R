@@ -32,9 +32,9 @@ rdt.cmd.head <- function()
     "dyntrace_promises({\n",
     sep="")
 
-rdt.cmd.tail<- function(database_filepath, verbose=FALSE, path)
+rdt.cmd.tail<- function(database_filepath, verbose=FALSE, ok_file_path)
   paste("\n}\n, '", database_filepath, "'\n, verbose=", verbose, ")\n",
-        sep="")
+        "write('OK', '", ok_file_path, "')\n", sep="")
 
 remove_error_blocks <- function(lines) { 
   error_on_pattern <- "^ *##.*[eE][rR][rR][oO][rR] *= *T(RUE)?"
@@ -145,11 +145,11 @@ instrument.vignettes <- function(packages) {
       i.vignettes <- i.vignettes + 1
       total.vignettes <- total.vignettes + 1
       
-      write(paste("Instrumenting vignette: ", vignette.name, " from ", package, sep=""), stdout())
+      write(paste("[", i.vignettes, "/", n.vignettes, "] Instrumenting vignette: ", vignette.name, " from ", package, sep=""), stdout())
       
       one.vignette <- vignette(vignette.name, package = package)
       vignette.code.path <- paste(one.vignette$Dir, "doc", one.vignette$R, sep="/")
-      instrumented.code.path <- paste(instrumented.code.dir, "/", package, "/", package, "-", vignette.name, ".R", sep="")
+      instrumented.code.path <- paste(instrumented.code.dir, "/", package, "/__instrumented_", vignette.name, ".R", sep="")
       
       write(paste("[", i.vignettes, "/", n.vignettes, "] Writing vignette to: ", instrumented.code.path, sep=""), stdout())
 
