@@ -25,8 +25,9 @@ suppressWarnings(dir.create(instrumented.code.dir, recursive = TRUE, showWarning
 log.dir <- paste(cfg$options$`output-dir`, "logs", sep="/")
 suppressWarnings(dir.create(log.dir, recursive = TRUE, showWarnings = FALSE))
 
-rdt.cmd.head <- function()
+rdt.cmd.head <- function(wd)
   paste(
+    "setwd('", wd, "')\n",
     "library(promisedyntracer)\n",
     "\n",
     "dyntrace_promises({\n",
@@ -154,7 +155,7 @@ instrument.vignettes <- function(packages) {
       write(paste("[", i.vignettes, "/", n.vignettes, "] Writing vignette to: ", instrumented.code.path, sep=""), stdout())
 
       vignette.code <- readLines(vignette.code.path)
-      instrumented.code <- c(rdt.cmd.head(),
+      instrumented.code <- c(rdt.cmd.head(paste0(instrumented.code.dir, "/", package)),
                              paste0("    ", instrument_error_blocks_with_try(vignette.code)),
                              rdt.cmd.tail(tracer.output.path, verbose = FALSE, tracer.ok.path))
                                                 
