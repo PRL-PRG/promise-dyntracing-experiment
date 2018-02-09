@@ -60,8 +60,8 @@ remove_error_blocks <- function(lines) {
 }
 
 instrument_error_blocks_with_try <- function(lines) { 
-  error_on_pattern <- "^ *##.*[eE][rR][rR][oO][rR] *= *T(RUE)?"
-  section_pattern <- "^ *##"
+  error_on_pattern <- "^[ \t]*##.*[eE][rR][rR][oO][rR] *= *T(RUE)?"
+  section_pattern <- "^[ \t]*##"
   prepend <- FALSE
   output <- lines
   i <- 0
@@ -72,11 +72,11 @@ instrument_error_blocks_with_try <- function(lines) {
     if (!prepend && error_on_pattern_found) {
       prepend <- TRUE
       output[i] <- paste0("try({", line)
-    }
-    
-    if (prepend && !error_on_pattern_found && str_detect(line, section_pattern)) {
+    } else if (prepend && error_on_pattern_found) {
+      output[i] <- paste0("}); try({", line)
+    } else if (prepend && !error_on_pattern_found && str_detect(line, section_pattern)) {
       prepend <- FALSE
-      output[i-1] <- paste0(output[i-1], "}, silent=TRUE)")
+      output[i] <- paste0("})", line)
     }
   }
   
