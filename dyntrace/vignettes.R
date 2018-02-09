@@ -149,7 +149,7 @@ instrument.vignettes <- function(packages) {
       
       one.vignette <- vignette(vignette.name, package = package)
       vignette.code.path <- paste(one.vignette$Dir, "doc", one.vignette$R, sep="/")
-      instrumented.code.path <- paste(instrumented.code.dir, "/", package, "/__instrumented_", vignette.name, ".R", sep="")
+      instrumented.code.path <- paste(instrumented.code.dir, "/", package, "/_instrumented_", vignette.name, ".R", sep="")
       
       write(paste("[", i.vignettes, "/", n.vignettes, "] Writing vignette to: ", instrumented.code.path, sep=""), stdout())
 
