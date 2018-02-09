@@ -57,7 +57,7 @@ analyze-side-effects:
 analyze-promise-memory-usage:
 	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/table
 	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/graph
-	analysis/promise-memory-usage.R $(DATA_DIR)/data $(OUTPUT_DIR)/promise-memory-usage/table $(OUTPUT_DIR)/promise-memory-usage/graph
+	analysis/promise-memory-usage.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-memory-usage/table $(OUTPUT_DIR)/promise-memory-usage/graph
 
 analyze-promise-lifespan:
 	mkdir -p $(OUTPUT_DIR)/promise-lifespan/table
@@ -66,5 +66,8 @@ analyze-promise-lifespan:
 
 analyze: analyze-environment analyze-argument-promise-mode analyze-argument-position-laziness analyze-promise-memory-usage analyze-promise-lifespan
 
-analysis-report:
+analysis-book:
 	cd analysis/report; $(VANILLA_RSCRIPT) -e "bookdown::render_book('_bookdown.yml', 'bookdown::gitbook', output_dir='$(SITE_DIR)', params=list(analysis_output_dir='`readlink -f ../../$(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"
+
+analysis-report:
+	$(VANILLA_RSCRIPT) -e "rmarkdown::render('analysis/analysis.Rmd', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"

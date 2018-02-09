@@ -38,56 +38,73 @@ analyze_database <- function(database_filepath) {
     rbind(promise_count) %>%
     mutate(`SCRIPT` = script)
 
+  list("object_size_summary" = object_size_summary)
+
+}
+
+combine_analyses <- function(acc, element) {
+
+  for(name in names(acc)) {
+    acc[[name]] = bind_rows(acc[[name]], element[[name]])
+  }
+  acc
+}
+
+summarize_analyses <- function(analyses) {
+
   lower_count_quantile <-
-    object_size_summary %>%
+    analyses$object_size_summary %>%
     group_by(`OBJECT TYPE`) %>%
     do({
-        filter(.data=., `COUNT` <= unname(quantile(`COUNT`, 0.25)))
-    })
+      filter(.data=., `COUNT` <= unname(quantile(`COUNT`, 0.25)))
+    }) %>%
+    mutate_if(is.numeric, funs(round(., 3)))
 
   upper_count_quantile <-
-    object_size_summary %>%
+    analyses$object_size_summary %>%
+    select(-`SIZE`) %>%
     group_by(`OBJECT TYPE`) %>%
     do({
-        filter(.data=., `COUNT` >= unname(quantile(`COUNT`, 0.75)))
-    })
+      filter(.data=., `COUNT` >= unname(quantile(`COUNT`, 0.75))) %>%
+        select(-`OBJECT TYPE`)
+    }) %>%
+    mutate_if(is.numeric, funs(round(., 3)))
 
   lower_size_quantile <-
-    object_size_summary %>%
+    analyses$object_size_summary %>%
     group_by(`OBJECT TYPE`) %>%
     do({
-        filter(.data=., `SIZE` <= unname(quantile(`SIZE`, 0.25)))
-    })
+      filter(.data=., `SIZE` <= unname(quantile(`SIZE`, 0.25)))
+    }) %>%
+    mutate_if(is.numeric, funs(round(., 3)))
 
   upper_size_quantile <-
-    object_size_summary %>%
+    analyses$object_size_summary %>%
     group_by(`OBJECT TYPE`) %>%
     do({
-        filter(.data=., `SIZE` >= unname(quantile(`SIZE`, 0.75)))
-    })
+      filter(.data=., `SIZE` >= unname(quantile(`SIZE`, 0.75)))
+    }) %>%
+    mutate_if(is.numeric, funs(round(., 3)))
 
-  list("object_size_summary" = object_size_summary,
-       "lower_count_quantile" = lower_count_quantile,
-       "upper_count_quantile" = upper_count_quantile,
-       "lower_size_quantile" = lower_size_quantile,
-       "upper_size_quantile" = upper_size_quantile)
-
+  append(analyses,
+         list("lower_count_quantile" = lower_count_quantile,
+              "upper_count_quantile" = upper_count_quantile,
+              "lower_size_quantile" = lower_size_quantile,
+              "upper_size_quantile" = upper_size_quantile))
 }
 
-export_analyses <- function(analyses, table_dir) {
-  for(name in names(analyses)) {
-    analyses[[name]] %>%
-      write_csv(file.path(table_dir, paste0(name, ".csv")))
-  }
-}
 
 visualize_analyses <- function(analyses) {
   promise_count_visualization <-
     analyses$object_size_summary %>%
-    ggplot(aes(`OBJECT TYPE`, `COUNT`)) +
+    #filter(!`OBJECT TYPE` %in% c("CHAR", "CPLX", "INT", "LGL", "RAW", "REAL", "STR", "VEC")) %>%
+    ggplot(aes(`OBJECT TYPE`, `COUNT` + 1)) +
     geom_boxplot() +
     geom_jitter(width = 0.2) +
     labs(title = "COUNT of R OBJECTS") +
+    scale_y_continuous(trans = "log10") +
+    #scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+    #               labels = trans_format("log10", math_format(10^.x))) +
     scale_fill_gdocs()
 
   promise_size_visualization <-
@@ -96,6 +113,8 @@ visualize_analyses <- function(analyses) {
     geom_boxplot() +
     geom_jitter(width = 0.2) +
     labs(title = "SIZE of R OBJECTS",y = "SIZE (MB)") +
+    scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                  labels = trans_format("log10", math_format(10^.x))) +
     scale_fill_gdocs()
 
   list("promise_count" = promise_count_visualization,
@@ -103,26 +122,16 @@ visualize_analyses <- function(analyses) {
 
 }
 
-combine_analyses <- function(acc, element) {
-  for(name in names(acc)) {
-    acc[[name]] = bind_rows(acc[[name]], element[[name]])
-  }
-  acc
-}
-
-export_visualizations <- function(visualizations, graph_dir) {
-  ggsave(plot=visualizations$promise_count,
-         filename=file.path(graph_dir, "promise-count.png"))
-  ggsave(plot=visualizations$promise_size,
-         filename=file.path(graph_dir, "promise-size.png"))
-}
 
 main <- function() {
-  drive_analysis(analyze_database,
+  drive_analysis( "Promise Memory Usage Analysis",
+                 analyze_database,
                  combine_analyses,
-                 export_analyses,
+                 summarize_analyses,
+                 export_as_tables,
+                 import_as_tables,
                  visualize_analyses,
-                 export_visualizations)
+                 export_as_images)
 }
 
 main()
