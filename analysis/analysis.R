@@ -8,14 +8,26 @@ library(ggthemes)
 library(scales)
 library(crayon)
 library(magrittr)
+library(lubridate)
 
 info <- function(...) cat(green(bold(paste0(...))))
 
 file_size <- function(filepath, digits = 2)
   humanReadable(file.info(filepath)$size)
 
-time_difference <- function(time_begin, time_end, units="mins")
-  round(unclass(difftime(time_end, time_begin, units=units))[[1]], 2)
+time_difference <- function(time_begin, time_end, units="mins") {
+  seconds <- interval(time_begin, time_end) %>% int_length()
+  milliseconds <- round(1000 * (seconds %% 1), 0)
+  seconds <- seconds %/% 1
+  hours <- seconds %/% 3600
+  remaining <- seconds %% 3600
+  minutes <- remaining %/% 60
+  seconds <- remaining %% 60
+  paste0(if(hours != 0) paste0(hours, " hours, ") else "",
+         if(minutes != 0) paste0(minutes, " minutes, ") else "",
+         seconds, " seconds and ",
+         milliseconds, " milliseconds")
+}
 
 replace_extension <- function(filename, extension)
   filename %>%
@@ -98,7 +110,7 @@ drive_analysis <- function(analysis_name,
                            export_visualizations) {
   info(analysis_name, "\n")
 
-  start_time <- Sys.time()
+  start_time <- now()
 
   arguments <- parse_program_arguments()
   part <- arguments$args[1]
@@ -138,5 +150,5 @@ drive_analysis <- function(analysis_name,
     export_visualizations(visualizations, graph_dir)
   }
 
-  info("• Finished in ", time_difference(start_time, Sys.time()) , " minutes", "\n")
+  info("• Finished in ", time_difference(start_time, now()), "\n")
 }
