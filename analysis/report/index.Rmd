@@ -6,10 +6,12 @@ output:
   bookdown::gitbook:
     includes:
       in_header: ./custom.html
+    self_contained: false
+    pandoc_args: --self-contained
 params:
   analysis_output_dir: TRUE
 ---
 
 # Preface {-}
 
-This book discusses the various aspects related to Promises in R.
+This book analyzes and visualizes various aspects related to Promises in R.
