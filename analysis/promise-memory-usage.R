@@ -36,7 +36,13 @@ analyze_database <- function(database_filepath) {
     mutate(`OBJECT TYPE` = typename(type)) %>%
     select(-type) %>%
     rbind(promise_count) %>%
-    mutate(`SCRIPT` = script)
+    mutate(`SCRIPT` = script) %>%
+    group_by(`SCRIPT`) %>%
+    mutate(`RELATIVE SIZE` = `SIZE` / sum(`SIZE`),
+           `RELATIVE COUNT` = `COUNT` / sum(`COUNT`)) %>%
+    ungroup() %>%
+    mutate_if(is.numeric, funs(round(., 3))) %>%
+    select(`SCRIPT`, `OBJECT TYPE`, `COUNT`, `RELATIVE COUNT`, `SIZE`, `RELATIVE SIZE`)
 
   list("object_size_summary" = object_size_summary)
 
@@ -52,79 +58,121 @@ combine_analyses <- function(acc, element) {
 
 summarize_analyses <- function(analyses) {
 
-  lower_count_quantile <-
+  quantiles <-
     analyses$object_size_summary %>%
-    group_by(`OBJECT TYPE`) %>%
-    do({
-      filter(.data=., `COUNT` <= unname(quantile(`COUNT`, 0.25)))
-    }) %>%
-    mutate_if(is.numeric, funs(round(., 3)))
+    nest(-`OBJECT TYPE`) %>%
+    mutate(Quantiles = map(data, ~ quantile(.$SIZE, na.rm = TRUE))) %>%
+    unnest(map(Quantiles, tidy)) %>%
+    add_column(QUANTITY = "SIZE")
 
-  upper_count_quantile <-
+  quantiles <-
     analyses$object_size_summary %>%
-    select(-`SIZE`) %>%
-    group_by(`OBJECT TYPE`) %>%
-    do({
-      filter(.data=., `COUNT` >= unname(quantile(`COUNT`, 0.75))) %>%
-        select(-`OBJECT TYPE`)
-    }) %>%
-    mutate_if(is.numeric, funs(round(., 3)))
+    nest(-`OBJECT TYPE`) %>%
+    mutate(Quantiles = map(data, ~ quantile(.$`RELATIVE SIZE`, na.rm = TRUE))) %>%
+    unnest(map(Quantiles, tidy)) %>%
+    add_column(QUANTITY = "RELATIVE SIZE") %>%
+    rbind(quantiles)
 
-  lower_size_quantile <-
+  quantiles <-
     analyses$object_size_summary %>%
-    group_by(`OBJECT TYPE`) %>%
-    do({
-      filter(.data=., `SIZE` <= unname(quantile(`SIZE`, 0.25)))
-    }) %>%
-    mutate_if(is.numeric, funs(round(., 3)))
+    nest(-`OBJECT TYPE`) %>%
+    mutate(Quantiles = map(data, ~ quantile(.$COUNT, na.rm = TRUE))) %>%
+    unnest(map(Quantiles, tidy)) %>%
+    add_column(`QUANTITY` = "COUNT") %>%
+    rbind(quantiles)
 
-  upper_size_quantile <-
+  quantiles <-
+    analyses$object_size_summary %>%
+    nest(-`OBJECT TYPE`) %>%
+    mutate(Quantiles = map(data, ~ quantile(.$`RELATIVE COUNT`, na.rm = TRUE))) %>%
+    unnest(map(Quantiles, tidy)) %>%
+    add_column(`QUANTITY` = "RELATIVE COUNT") %>%
+    rbind(quantiles) %>%
+    rename(QUANTILE = names, VALUE = x)
+
+  outliers <-
     analyses$object_size_summary %>%
     group_by(`OBJECT TYPE`) %>%
     do({
-      filter(.data=., `SIZE` >= unname(quantile(`SIZE`, 0.75)))
+      a <-
+        filter(.data=., `COUNT` >= unname(quantile(`COUNT`, 0.75, na.rm = TRUE))) %>%
+        add_column(QUANTITY = "COUNT")
+
+      b <-
+        filter(.data=., `RELATIVE COUNT` >= unname(quantile(`RELATIVE COUNT`, 0.75, na.rm = TRUE))) %>%
+        add_column(QUANTITY = "RELATIVE COUNT")
+
+      c <-
+        filter(.data=., SIZE >= unname(quantile(SIZE, 0.75, na.rm = TRUE))) %>%
+        add_column(QUANTITY = "SIZE")
+
+      d <-
+        filter(.data=., `RELATIVE SIZE` >= unname(quantile(`RELATIVE SIZE`, 0.75, na.rm = TRUE))) %>%
+        add_column(QUANTITY = "RELATIVE SIZE")
+
+      bind_rows(a, b, c, d)
     }) %>%
-    mutate_if(is.numeric, funs(round(., 3)))
+    select(`OBJECT TYPE`, `QUANTITY`, `COUNT`, `RELATIVE COUNT`, `SIZE`, `RELATIVE SIZE`, `SCRIPT`)
 
   append(analyses,
-         list("lower_count_quantile" = lower_count_quantile,
-              "upper_count_quantile" = upper_count_quantile,
-              "lower_size_quantile" = lower_size_quantile,
-              "upper_size_quantile" = upper_size_quantile))
+         list("quantiles" = quantiles,
+              "outliers" = outliers))
 }
 
 
 visualize_analyses <- function(analyses) {
+
   promise_count_visualization <-
     analyses$object_size_summary %>%
-    #filter(!`OBJECT TYPE` %in% c("CHAR", "CPLX", "INT", "LGL", "RAW", "REAL", "STR", "VEC")) %>%
-    ggplot(aes(`OBJECT TYPE`, `COUNT` + 1)) +
-    geom_boxplot() +
-    geom_jitter(width = 0.2) +
-    labs(title = "COUNT of R OBJECTS") +
-    scale_y_continuous(trans = "log10") +
-    #scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-    #               labels = trans_format("log10", math_format(10^.x))) +
-    scale_fill_gdocs()
+    ggplot(aes(`OBJECT TYPE`, `COUNT` + 1, fill=`OBJECT TYPE`)) +
+    geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), scale = "width") +
+    scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                  labels = trans_format("log10", math_format(10^.x))) +
+    labs(title = "Distribution of object count by type",
+         y ="COUNT + 1 (log10 scale)") +
+    scale_fill_gdocs() +
+    guides(fill=FALSE)
+
+  relative_count_visualization <-
+    analyses$object_size_summary %>%
+    ggplot(aes(`OBJECT TYPE`, `RELATIVE COUNT`, fill=`OBJECT TYPE`)) +
+    geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), scale = "width") +
+    labs(title = "Distribution of relative object count by type") +
+    scale_fill_gdocs() +
+    guides(fill=FALSE)
+
+  ##geom_jitter(width = 0.2) + ##scale = "width", width = 1.0) + ##
+    #scale_y_continuous(trans = "log10") +
 
   promise_size_visualization <-
     analyses$object_size_summary %>%
-    ggplot(aes(`OBJECT TYPE`, `SIZE`)) +
-    geom_boxplot() +
-    geom_jitter(width = 0.2) +
-    labs(title = "SIZE of R OBJECTS",y = "SIZE (MB)") +
-    scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                  labels = trans_format("log10", math_format(10^.x))) +
-    scale_fill_gdocs()
+    ggplot(aes(`OBJECT TYPE`, `SIZE` + 1/(1024 * 1024), fill = `OBJECT TYPE`)) +
+    geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), scale = "width") +
+    labs(title = "Distribution of object size by type",y = "SIZE + 1/(1024 * 1024) (MB) (log2 scale)") +
+    scale_y_continuous(trans="log2",
+                       breaks = trans_breaks("log2", function(x) 2^x),
+                       labels = trans_format("log2", math_format(2^.x))) +
+    scale_fill_gdocs() +
+    guides(fill=FALSE)
+
+  relative_size_visualization <-
+    analyses$object_size_summary %>%
+    ggplot(aes(`OBJECT TYPE`, `RELATIVE SIZE`, fill = `OBJECT TYPE`)) +
+    geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), scale = "width") +
+    labs(title = "Distribution of relative object size by type") +
+    scale_fill_gdocs() +
+    guides(fill=FALSE)
 
   list("promise_count" = promise_count_visualization,
-       "promise_size" = promise_size_visualization)
+       "promise_size" = promise_size_visualization,
+       "relative_count" = relative_count_visualization,
+       "relative_size" = relative_size_visualization)
 
 }
 
 
 main <- function() {
-  drive_analysis( "Promise Memory Usage Analysis",
+  drive_analysis("Promise Memory Usage Analysis",
                  analyze_database,
                  combine_analyses,
                  summarize_analyses,
