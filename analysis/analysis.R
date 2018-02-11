@@ -9,6 +9,7 @@ library(scales)
 library(crayon)
 library(magrittr)
 library(lubridate)
+library(broom)
 
 info <- function(...) cat(green(bold(paste0(...))))
 
@@ -151,4 +152,6 @@ drive_analysis <- function(analysis_name,
   }
 
   info("• Finished in ", time_difference(start_time, now()), "\n")
+
+  warnings()
 }
