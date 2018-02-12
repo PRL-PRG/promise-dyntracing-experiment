@@ -55,3 +55,10 @@ full_type_to_final_type <- function(full_type) {
   #if(is.na(begin)) full_type
   #else str_sub(full_type, begin + 1, -1)
 }
+
+evaluation_modename <- function(strict, lazy) {
+  if(strict == 0 && lazy == 0) "UNKNOWN"
+  else if(lazy == 0) "STRICT"
+  else if(strict == 0) "LAZY"
+  else "MIXED"
+}

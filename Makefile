@@ -44,10 +44,10 @@ analyze-environment:
 	mkdir -p $(OUTPUT_DIR)/environment/graph
 	analysis/environment.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/environment/table $(OUTPUT_DIR)/environment/graph
 
-analyze-argument-position-laziness:
-	mkdir -p $(OUTPUT_DIR)/argument-position-laziness/table
-	mkdir -p $(OUTPUT_DIR)/argument-position-laziness/graph
-	analysis/argument-position-laziness $(DATA_DIR)/data $(OUTPUT_DIR)/argument-position-laziness/table $(OUTPUT_DIR)/argument-position-laziness/graph
+analyze-position-evaluation-mode:
+	mkdir -p $(OUTPUT_DIR)/position-evaluation-mode/table
+	mkdir -p $(OUTPUT_DIR)/position-evaluation-mode/graph
+	analysis/position-evaluation-mode.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/position-evaluation-mode/table $(OUTPUT_DIR)/position-evaluation-mode/graph
 
 analyze-side-effects:
 	mkdir -p $(OUTPUT_DIR)/side-effects/table
