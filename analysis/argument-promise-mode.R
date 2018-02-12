@@ -80,7 +80,8 @@ visualize_analyses <- function(analyses) {
     summarize(COUNT = sum(COUNT)) %>%
     ungroup() %>%
     ggplot(aes(`MODE`, COUNT)) +
-    geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), width=1.0) +
+    geom_violin(na.rm = TRUE, width=1.0) +
+    geom_boxplot() +
     labs(title = "Promise mode distribution")
 
   mode_relative_distribution <-
@@ -123,19 +124,6 @@ visualize_analyses <- function(analyses) {
     labs(title = "Promise mode distribution by value slot type",
          y = "PROMISE COUNT + 1 (log10 scale)")
 
-
-    ## <-
-    ## analyses$promise_mode %>%
-    ## spread(`ARGUMENT TYPE`, `COUNT`) %>%
-    ## mutate(`DEFAULT ARGUMENT` = 100 * `DEFAULT ARGUMENT` / `ALL`,
-    ##        `NON-DEFAULT ARGUMENT` = 100 * `NON-DEFAULT ARGUMENT` / `ALL`) %>%
-    ## gather(`ARGUMENT TYPE`, `PROPORTION (% of PROMISES)`, -`RUNNABLE`, -`ALL`) %>%
-    ## ggplot(aes(`ARGUMENT TYPE`, `PROPORTION (% of PROMISES)`)) +
-    ## geom_violin(draw_quantiles = c(0.25, 0.5, 0.75)) +
-    ## ggtitle("Proportion of Default and Non-Default promise arguments")
-
-
-  ##ggsave(plot = graph, output_file)
   list("mode_total" = mode_total,
        "mode_average" = mode_average,
        "mode_distribution" = mode_distribution,

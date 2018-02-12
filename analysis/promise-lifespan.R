@@ -194,7 +194,8 @@ visualize_analyses <- function(analyses) {
                                               " ", "_")))
       visualizations[[name]] <<-
         ggplot(data=., aes(`GC CYCLE STATISTICS TYPE`, `GC CYCLES`)) +
-        geom_violin(draw_quantiles = c(0.25, 0.5, 0.75),  na.rm = TRUE) +
+        geom_violin(na.rm = TRUE) +
+        geom_boxplot(width = .1) +
         labs(title = paste0("Required Lifespan - ",
                             stri_trans_totitle(.$`GC CYCLE STATISTICS TYPE`[1]),
                             " Distribution"))

@@ -158,7 +158,8 @@ visualize_analyses <- function(analyses) {
   relative_size_visualization <-
     analyses$object_size_summary %>%
     ggplot(aes(`OBJECT TYPE`, `RELATIVE SIZE`, fill = `OBJECT TYPE`)) +
-    geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), scale = "width") +
+    geom_violin(na.rm = TRUE, width = 1.0) +
+    geom_boxplot() +
     labs(title = "Distribution of relative object size by type") +
     scale_fill_gdocs() +
     guides(fill=FALSE)

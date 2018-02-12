@@ -70,7 +70,6 @@ summarize_analyses <- function(analyses) {
 visualize_analyses <- function(analyses) {
   evaluation_mode_distribution <-
     analyses$evaluation_mode %>%
-    print() %>%
     ggplot(aes(`EVALUATION MODE`)) +
     geom_bar() +
     labs(title = "Position Evaluation Mode",
