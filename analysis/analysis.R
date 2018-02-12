@@ -10,6 +10,7 @@ library(crayon)
 library(magrittr)
 library(lubridate)
 library(broom)
+library(stringr)
 
 info <- function(...) cat(green(bold(paste0(...))))
 
@@ -132,6 +133,7 @@ drive_analysis <- function(analysis_name,
           analyze_database(database_filepath)
         }) %T>%
       (function (ignore) info("• Combining analyses", "\n")) %>%
+      compact() %>%
       Reduce(combine_analyses, .) %T>%
       (function (ignore) info("• Summarizing analyses", "\n")) %>%
       summarize_analyses()

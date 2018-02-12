@@ -26,7 +26,9 @@ typename <- function(type) {
            "25" = "S4",
            "30" = "NEW",
            "31" = "FREE",
+           "69" = "OMEGA",
            "99" = "FUN",
+           "NA" = "NA",
            "?")
 }
 
@@ -36,4 +38,20 @@ eventname <- function(event) {
            "1" = "LOOKED UP",
            "2" = "GARBAGE COLLECTED",
            "?")
+}
+
+modename <- function(numeric_mode) {
+  if(is.na(numeric_mode)) "UNACCOUNTED"
+  else if (numeric_mode == 0) "CUSTOM"
+  else "DEFAULT"
+}
+
+full_type_to_final_type <- function(full_type) {
+  locs <- stri_locate_last(full_type, regex=",")
+  locs[is.na(locs)] <- 0
+  locs[, "start"] <- locs[, "start"] + 1
+  locs[, "end"] <- -1
+  str_sub(full_type, locs)
+  #if(is.na(begin)) full_type
+  #else str_sub(full_type, begin + 1, -1)
 }

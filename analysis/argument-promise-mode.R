@@ -1,99 +1,159 @@
 #!/usr/bin/env Rscript
 
-suppressPackageStartupMessages(library(methods))
-suppressPackageStartupMessages(library(tools))
-suppressPackageStartupMessages(library(optparse))
-suppressWarnings(suppressPackageStartupMessages(library(tidyverse)))
+## TODO - no good way in R to find path of current script
+##        perhaps the only good solution is to create a
+##        package for the analysis ?
+source("analysis/utils.R")
+source("analysis/analysis.R")
 
-databases <- function(input_dirpath)
-  Filter(function(filename) { file_ext(filename) == "sqlite" &&
-                              file_test("-f", paste0(file_path_sans_ext(filename), ".OK")) },
-         list.files(path=input_dirpath,
-                    full.names=TRUE,
-                    recursive=TRUE,
-                    include.dirs=FALSE,
-                    no..=TRUE))
+analyze_database <- function(database_filepath) {
 
-create_table <- function(input_dir) {
-  Reduce(bind_rows, lapply(databases(input_dir), analyze))
-}
-
-analyze <- function(database_filepath) {
   db <- src_sqlite(database_filepath)
-  promises_tbl <- tbl(db, "promises")
-  promise_argument_types_tbl <- tbl(db, "promise_argument_types")
+  promises <- tbl(db, "promises")
+  promise_returns <- tbl(db, "promise_returns")
+  promise_argument_types <- tbl(db, "promise_argument_types")
 
-  total_promises <-
-    promises_tbl %>%
-    summarize(`COUNT` = n()) %>%
+  ## if no promises exist, then this script should
+  ## be ignored as the analysis cannot be attempted
+  if(nrow(collect(promises)) == 0) return(NULL)
+
+  promises <-
+    promises %>%
     collect() %>%
-    mutate(`ARGUMENT TYPE` = "ALL")
+    filter(id >= 0) %>%
+    mutate(full_type = full_type_to_final_type(full_type)) #tail(str_split(full_type, ",")[[1]], n = 1))
 
-  promise_argument_types_tbl %>%
+  promise_mode <-
+    promises %>%
+    select(id, full_type) %>%
+    rename(EXPRESSION = full_type) %>%
+    left_join(promise_returns, by = c("id" = "promise_id"), copy = TRUE) %>%
+    rename(VALUE = type) %>%
+    left_join(promise_argument_types, by = c("id" = "promise_id"), copy = TRUE) %>%
+    select(`PROMISE ID` = id, `EXPRESSION`, `VALUE`, MODE = default_argument) %>%
     collect() %>%
-    distinct(promise_id, .keep_all=TRUE) %>%
-    select(`ARGUMENT TYPE`=default_argument) %>%
-    group_by(`ARGUMENT TYPE`) %>%
-    summarize(`COUNT`=n()) %>%
-    mutate(`ARGUMENT TYPE`=replace(`ARGUMENT TYPE`, `ARGUMENT TYPE`==0, "NON-DEFAULT ARGUMENT")) %>%
-    mutate(`ARGUMENT TYPE`=replace(`ARGUMENT TYPE`, `ARGUMENT TYPE`==1, "DEFAULT ARGUMENT")) %>%    
-    bind_rows(total_promises) %>%
-    mutate(`RUNNABLE`=basename(file_path_sans_ext(database_filepath)))
+    gather(SLOT, TYPE, -MODE, -`PROMISE ID`) %>%
+    group_by(MODE, SLOT, TYPE) %>%
+    summarize(COUNT = n()) %>%
+    ungroup() %>%
+    rowwise() %>%
+    mutate(MODE = modename(MODE), TYPE = typename(TYPE)) %>%
+    add_column(SCRIPT = basename(file_path_sans_ext(database_filepath)), .before = 1)
+
+  list("promise_mode" = promise_mode)
 }
 
-export_table <- function(datatable, output_file) {
-  datatable %>%
-    spread(`ARGUMENT TYPE`, `COUNT`) %>%
-    mutate(`UNACCOUNTED` = `ALL` - (`NON-DEFAULT ARGUMENT` + `DEFAULT ARGUMENT`)) %>%
-    replace(., is.na(.), 0) %>%
-    write_csv(output_file)
+combine_analyses <- function(acc, element) {
+  for(name in names(acc)) {
+    acc[[name]] = bind_rows(acc[[name]], element[[name]])
+  }
+  acc
 }
 
-create_graph <- function(datatable, output_file) {
-  graph <-
-    datatable %>%
-    spread(`ARGUMENT TYPE`, `COUNT`) %>%
-    mutate(`DEFAULT ARGUMENT` = 100 * `DEFAULT ARGUMENT` / `ALL`,
-           `NON-DEFAULT ARGUMENT` = 100 * `NON-DEFAULT ARGUMENT` / `ALL`) %>%
-    gather(`ARGUMENT TYPE`, `PROPORTION (% of PROMISES)`, -`RUNNABLE`, -`ALL`) %>%
-    ggplot(aes(`ARGUMENT TYPE`, `PROPORTION (% of PROMISES)`)) +
-    geom_violin(draw_quantiles = c(0.25, 0.5, 0.75)) +
-    ggtitle("Proportion of Default and Non-Default promise arguments")
+summarize_analyses <- function(analyses) analyses
 
-  ggsave(plot = graph, output_file)
+visualize_analyses <- function(analyses) {
+
+  mode_total <-
+    analyses$promise_mode %>%
+    group_by(MODE) %>%
+    summarize(COUNT = sum(COUNT)) %>%
+    ggplot(aes(`MODE`, weight = COUNT)) +
+    geom_bar() +
+    labs(title = "Promise mode count",
+         y = "PROMISE COUNT")
+
+  script_count <- length(unique(analyses$promise_mode[["SCRIPT"]]))
+
+  mode_average <-
+    analyses$promise_mode %>%
+    group_by(MODE) %>%
+    summarize(COUNT = sum(COUNT) / script_count) %>%
+    ggplot(aes(`MODE`, weight = COUNT)) +
+    geom_bar() +
+    labs(title = "Promise mode average per script",
+         y = "AVERAGE PROMISE COUNT")
+
+  mode_distribution <-
+    analyses$promise_mode %>%
+    group_by(SCRIPT, MODE) %>%
+    summarize(COUNT = sum(COUNT)) %>%
+    ungroup() %>%
+    ggplot(aes(`MODE`, COUNT)) +
+    geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), width=1.0) +
+    labs(title = "Promise mode distribution")
+
+  mode_relative_distribution <-
+    analyses$promise_mode %>%
+    group_by(SCRIPT, MODE) %>%
+    summarize(COUNT = sum(COUNT)) %>%
+    mutate(COUNT = COUNT/sum(COUNT)) %>%
+    ungroup() %>%
+    ggplot(aes(MODE, COUNT)) +
+    geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), width=1.0) +
+    ggtitle("Promise mode distribution (relative)")
+
+  mode_expression_type <-
+    analyses$promise_mode %>%
+    filter(SLOT == "EXPRESSION") %>%
+    group_by(TYPE, MODE) %>%
+    ## added +1 below as it is log scale and
+    ## log10(0) = -Inf
+    summarize(COUNT = sum(COUNT) + 1) %>%
+    ggplot(aes(TYPE, weight = COUNT, fill=MODE)) +
+    geom_bar(position="dodge") +
+    scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                  labels = trans_format("log10", math_format(10^.x))) +
+    theme(axis.text.x=element_text(angle = 90, vjust=0.5)) +
+    labs(title = "Promise mode distribution by expression slot type",
+         y = "PROMISE COUNT + 1 (log10 scale)")
+
+  mode_value_type <-
+    analyses$promise_mode %>%
+    filter(SLOT == "VALUE") %>%
+    group_by(TYPE, MODE) %>%
+    ## added +1 below as it is log scale and
+    ## log10(0) = -Inf
+    summarize(COUNT = sum(COUNT) + 1) %>%
+    ggplot(aes(TYPE, weight = COUNT, fill=MODE)) +
+    geom_bar(position="dodge") +
+    scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                  labels = trans_format("log10", math_format(10^.x))) +
+    theme(axis.text.x=element_text(angle = 90, vjust=0.5)) +
+    labs(title = "Promise mode distribution by value slot type",
+         y = "PROMISE COUNT + 1 (log10 scale)")
+
+
+    ## <-
+    ## analyses$promise_mode %>%
+    ## spread(`ARGUMENT TYPE`, `COUNT`) %>%
+    ## mutate(`DEFAULT ARGUMENT` = 100 * `DEFAULT ARGUMENT` / `ALL`,
+    ##        `NON-DEFAULT ARGUMENT` = 100 * `NON-DEFAULT ARGUMENT` / `ALL`) %>%
+    ## gather(`ARGUMENT TYPE`, `PROPORTION (% of PROMISES)`, -`RUNNABLE`, -`ALL`) %>%
+    ## ggplot(aes(`ARGUMENT TYPE`, `PROPORTION (% of PROMISES)`)) +
+    ## geom_violin(draw_quantiles = c(0.25, 0.5, 0.75)) +
+    ## ggtitle("Proportion of Default and Non-Default promise arguments")
+
+
+  ##ggsave(plot = graph, output_file)
+  list("mode_total" = mode_total,
+       "mode_average" = mode_average,
+       "mode_distribution" = mode_distribution,
+       "mode_relative_distribution" = mode_relative_distribution,
+       "mode_expression_type" = mode_expression_type,
+       "mode_value_type" = mode_value_type)
 }
 
-parse_program_arguments <- function() {
-  usage <- "%prog input-dir table-dir graphs-dir"
-  description <- paste(
-    "",
-    "",
-    "input-dir    directory containing sqlite databases (scanned recursively)",
-    "table-dir    directory to which tables will be exported",
-    "graph-dir    directory to which graphs will be exported",
-    "",
-    "",
-    sep = "\n")
-
-  option_parser <- OptionParser(usage = usage,
-                                description = description, 
-                                add_help_option = TRUE,
-                                option_list = list())
-  parse_args(option_parser, positional_arguments = 3)
-}
 
 main <- function() {
-  arguments <- parse_program_arguments()
-  input_dir = arguments$args[1]
-  table_dir = arguments$args[2]
-  graph_dir = arguments$args[3]
-  datatable <- create_table(input_dir)
-  export_table(datatable, file.path(table_dir, "argument-promise-mode.csv"))
-
-  ## analyze_table(datatable,
-  ##               file.path(table_dir, "environment-usage-lower-quartile.tsv"),
-  ##               file.path(table_dir, "environment-usage-upper-quartile.tsv"))
-  create_graph(datatable, file.path(graph_dir, "argument-promise-mode.png"))
+  drive_analysis("Argument Mode Analysis",
+                 analyze_database,
+                 combine_analyses,
+                 summarize_analyses,
+                 export_as_tables,
+                 import_as_tables,
+                 visualize_analyses,
+                 export_as_images)
 }
 
 main()
