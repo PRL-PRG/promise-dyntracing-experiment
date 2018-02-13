@@ -1,5 +1,5 @@
 site: "bookdown::bookdown_site"
-rmd_files: ["index.Rmd", "01-lifespan.Rmd", "02-memory.Rmd", "04-argument-promise-mode.Rmd", "05-position-evaluation-mode.Rmd", "06-side-effects.Rmd"]
+rmd_files: ["index.Rmd", "01-lifespan.Rmd", "02-memory.Rmd", "03-environment.Rmd", "04-argument-promise-mode.Rmd", "05-position-evaluation-mode.Rmd", "06-side-effects.Rmd"]
 output:
   bookdown::gitbook:
     includes:

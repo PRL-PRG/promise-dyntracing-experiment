@@ -43,7 +43,7 @@ analyze_database <- function(database_filepath) {
       bind_rows(total_calls, total_new_environments) %>%
       mutate(`SCRIPT`=basename(file_path_sans_ext(database_filepath)))
 
-  list("environment-function-usage" = environment_function_usage)
+  list("environment_function_usage" = environment_function_usage)
 }
 
 combine_analyses <- function(acc, element) {
@@ -55,10 +55,10 @@ combine_analyses <- function(acc, element) {
 
 summarize_analyses <- function(analyses) {
 
+  environment_function_usage <- analyses[["environment_function_usage"]]
+
   ## Filter scripts which fall in the lower quartile for each environment
   ## function call
-  environment_function_usage <- analyses[["environment-function-usage"]]
-
   lower_quartile <-
     environment_function_usage %>%
     group_by(`FUNCTION NAME`) %>%
@@ -82,39 +82,28 @@ summarize_analyses <- function(analyses) {
     spread(`FUNCTION NAME`, `COUNT`) %>%
     replace(., is.na(.), 0)
 
-  list("environment-function-usage" = environment_function_usage,
-       "environment-function-usage-spread" = environment_function_usage_spread,
-       "lower-quartile" = lower_quartile,
-       "upper-quartile" = upper_quartile)
-}
-
-export_analyses <- function(analyses, table_dir) {
-  analyses %>%
-    iwalk(
-      function(table, tablename)
-        table %>%
-        write_csv(file.path(table_dir, paste0(tablename,".csv"))))
+  list("environment_function_usage" = environment_function_usage,
+       "environment_function_usage_spread" = environment_function_usage_spread,
+       "lower_quartile" = lower_quartile,
+       "upper_quartile" = upper_quartile)
 }
 
 visualize_analyses <- function(analyses) {
 
   visualizations <- list()
 
-  analyses$`environment-function-usage` %>%
+  analyses$environment_function_usage %>%
     group_by(`FUNCTION NAME`) %>%
     do({
       name <- paste0(.$`FUNCTION NAME`[1])
       visualizations[[name]] <<-
-        ggplot(data=., aes(`FUNCTION NAME`, `COUNT` + 1)) +
-        geom_violin() +
-        geom_boxplot(width = 0.2) +
-        #geom_boxplot() +
-        scale_y_continuous(trans = "log10")
+        ggplot(data=., aes(`FUNCTION NAME`, `COUNT`)) +
+        geom_violin(draw_quantiles = c(0.25, 0.5, 0.75))
 
       data.frame()
     })
 
-  analyses$`environment-function-usage` %>%
+  analyses$environment_function_usage %>%
     spread(`FUNCTION NAME`, `COUNT`) %>%
     gather(`FUNCTION NAME`, `COUNT`, -`TOTAL CALLS`, -`SCRIPT`) %>%
     mutate(`COUNT` = 100 * `COUNT` / `TOTAL CALLS`) %>%
@@ -131,15 +120,6 @@ visualize_analyses <- function(analyses) {
   visualizations
 }
 
-export_visualizations <- function(visualizations, graph_dir) {
-  visualizations %>%
-    iwalk(
-      function(graph, graphname)
-        ggsave(plot = graph,
-               filename = file.path(graph_dir,
-                                    paste0(graphname,".png"))))
-}
-
 main <- function() {
   drive_analysis("Environment Manipulation Analysis",
                  analyze_database,
@@ -152,47 +132,3 @@ main <- function() {
 }
 
 main()
-
-
-## main <- function() {
-##   arguments <- parse_program_arguments()
-##   input_dir = arguments$args[1]
-##   table_dir = arguments$args[2]
-##   graph_dir = arguments$args[3]
-##   datatable <- create_table(input_dir)
-##   export_table(datatable, file.path(table_dir, "environment-usage.tsv"))
-##   analyze_table(datatable,
-##                 file.path(table_dir, "environment-usage-lower-quartile.tsv"),
-##                 file.path(table_dir, "environment-usage-upper-quartile.tsv"))
-##   create_graph(datatable, file.path(graph_dir, "fun-"))
-## }
-
-## create_graph <- function(datatable, output_file) {
-##   #https://stackoverflow.com/questions/29034863/apply-a-ggplot-function-per-group-with-dplyr-and-set-title-per-group
-##   datatable %>%
-##     group_by(`FUNCTION NAME`) %>%
-##     do({
-##       plot <-
-##         ggplot(data=., aes(`FUNCTION NAME`, `COUNT`)) +
-##         geom_violin() +
-##         geom_boxplot(width = 0.2)
-##       filename <- paste0(output_file,.$`FUNCTION NAME`[1],".png")
-##       ggsave(plot=plot, filename=filename)
-##       data.frame(filename=filename)
-##     })
-
-
-##   datatable %>%
-##     spread(`FUNCTION NAME`, `COUNT`) %>%
-##     gather(`FUNCTION NAME`, `COUNT`, -`TOTAL CALLS`, -`RUNNABLE`) %>%
-##     mutate(`COUNT` = 100 * `COUNT` / `TOTAL CALLS`) %>%
-##     group_by(`FUNCTION NAME`) %>%
-##     do({
-##       p <-
-##         ggplot(data=., aes(`FUNCTION NAME`, `COUNT`)) +
-##         geom_violin(draw_quantiles = c(0.25, 0.5, 0.75))
-##       filename <- paste0(output_file,.$`FUNCTION NAME`[1],"-relative.png")
-##       ggsave(plot=p, filename=filename)
-##       data.frame(filename=filename)
-##     })
-## }
