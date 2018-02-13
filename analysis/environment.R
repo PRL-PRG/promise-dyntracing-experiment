@@ -98,7 +98,8 @@ visualize_analyses <- function(analyses) {
       name <- paste0(.$`FUNCTION NAME`[1])
       visualizations[[name]] <<-
         ggplot(data=., aes(`FUNCTION NAME`, `COUNT`)) +
-        geom_violin(draw_quantiles = c(0.25, 0.5, 0.75))
+        geom_boxplot() +
+        geom_jitter()
 
       data.frame()
     })
@@ -113,7 +114,9 @@ visualize_analyses <- function(analyses) {
       name <- paste0(.$`FUNCTION NAME`[1], "-relative")
       visualizations[[name]] <<-
         ggplot(data=., aes(`FUNCTION NAME`, `PROPORTION of CALLS (%)`)) +
-        geom_violin(draw_quantiles = c(0.25, 0.5, 0.75))
+        geom_boxplot() +
+        geom_jitter()
+
       data.frame()
     })
 
