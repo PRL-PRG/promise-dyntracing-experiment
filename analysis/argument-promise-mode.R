@@ -10,6 +10,7 @@ analyze_database <- function(database_filepath) {
 
   db <- src_sqlite(database_filepath)
   promises <- tbl(db, "promises")
+  promise_associations <- tbl(db, "promise_associations")
   promise_returns <- tbl(db, "promise_returns")
   promise_argument_types <- tbl(db, "promise_argument_types")
 
@@ -18,9 +19,11 @@ analyze_database <- function(database_filepath) {
   if(nrow(collect(promises)) == 0) return(NULL)
 
   promises <-
-    promises %>%
+    promise_associations %>%
+    filter(promise_id >= 0) %>%
+    left_join(promises, by = c("promise_id" = "id")) %>%
+    select(id = promise_id, full_type) %>%
     collect() %>%
-    filter(id >= 0) %>%
     mutate(full_type = full_type_to_final_type(full_type)) #tail(str_split(full_type, ",")[[1]], n = 1))
 
   promise_mode <-

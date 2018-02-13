@@ -12,6 +12,8 @@ library(knitr)
 library(png)
 library(grid)
 library(gridExtra)
+library(broom)
+library(tidyr)
 ```
 
 ```{r echo=FALSE, message=FALSE}
