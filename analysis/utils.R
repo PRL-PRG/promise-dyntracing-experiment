@@ -62,3 +62,7 @@ evaluation_modename <- function(strict, lazy) {
   else if(strict == 0) "LAZY"
   else "MIXED"
 }
+
+purityname <- function(purity) {
+  if(purity) "PURE" else "SIDE-EFFECTING"
+}

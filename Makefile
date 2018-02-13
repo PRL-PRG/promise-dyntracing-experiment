@@ -52,7 +52,7 @@ analyze-position-evaluation-mode:
 analyze-side-effects:
 	mkdir -p $(OUTPUT_DIR)/side-effects/table
 	mkdir -p $(OUTPUT_DIR)/side-effects/graph
-	analysis/side-effects $(DATA_DIR)/data $(OUTPUT_DIR)/side-effects/table $(OUTPUT_DIR)/side-effects/graph
+	analysis/side-effects.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/side-effects/table $(OUTPUT_DIR)/side-effects/graph
 
 analyze-promise-memory-usage:
 	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/table
