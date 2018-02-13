@@ -63,7 +63,13 @@ summarize_analyses <- function(analyses) {
     rowwise() %>%
     mutate(`EVALUATION MODE` = evaluation_modename(STRICT, LAZY))
 
-  list("evaluation_mode" = evaluation_mode)
+  evaluation_mode_summarized <-
+    evaluation_mode %>%
+    group_by(`EVALUATION MODE`) %>%
+    summarize(`POSITION COUNT` = n())
+
+  list("evaluation_mode" = evaluation_mode,
+       "evaluation_mode_summarized" = evaluation_mode_summarized)
 }
 
 
