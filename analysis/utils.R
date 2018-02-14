@@ -56,11 +56,11 @@ full_type_to_final_type <- function(full_type) {
   #else str_sub(full_type, begin + 1, -1)
 }
 
-evaluation_modename <- function(strict, lazy) {
-  if(strict == 0 && lazy == 0) "UNKNOWN"
-  else if(lazy == 0) "STRICT"
-  else if(strict == 0) "LAZY"
-  else "MIXED"
+evaluation_modename <- function(always_forced, never_forced) {
+  if(always_forced == 0 && never_forced == 0) "UNKNOWN"
+  else if(never_forced == 0) "ALWAYS FORCED"
+  else if(always_forced == 0) "NEVER FORCED"
+  else "SOMETIMES FORCED"
 }
 
 purityname <- function(purity) {
