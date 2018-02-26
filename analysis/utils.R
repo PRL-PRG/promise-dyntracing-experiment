@@ -66,3 +66,41 @@ evaluation_modename <- function(always_forced, never_forced) {
 purityname <- function(purity) {
   if(purity) "PURE" else "SIDE-EFFECTING"
 }
+
+
+update_argument_name <- function(name) {
+  new_name <- if(str_detect(name, "\\.\\.\\..\\d+."))
+                "..."
+              else name
+  new_name
+}
+
+memory_size_labels <-
+  function(x) {
+    y = log2(x)
+    units <- c("B", "KB", "MB", "GB", "TB", "PB")
+    unit <- units[y %/% 10 + 1]
+    value <- 2 ^ (y %% 10)
+    paste(value, unit, sep = " ")
+  }
+
+count_labels <-
+  Vectorize(function(x) {
+    if(is.na(x)) {
+      "NA"
+    } else if(x < 10^3) {
+      paste0(x)
+    } else if(x < 10^6) {
+      paste(x/1000, "THOUSAND", sep=" ")
+    } else if(x < 10^9) {
+      paste(x/(10^6), "MILLION", sep=" ")
+    } else {
+      paste(x/(10^9), "BILLION", sep=" ")
+    }
+  },
+  "x")
+
+relative_labels <-
+  function(x) {
+    paste0(x * 100, "%", sep=" ")
+  }
