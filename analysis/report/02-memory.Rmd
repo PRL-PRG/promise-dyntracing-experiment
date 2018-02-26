@@ -5,87 +5,23 @@ This section compares the number and size of objects allocated by R.
 ## Object Count Distribution
 
 ```{r echo=FALSE, message=FALSE, out.width="575px"}
-show_graph("promise-memory-usage", "promise_count.png")
-show_graph("promise-memory-usage", "relative_count.png")
-```
-
-### Absolute Count Quantiles 
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "quantiles.csv") %>%
-filter(`QUANTITY` == "COUNT") %>%
-spread(QUANTILE, VALUE) %>%
-select(`OBJECT TYPE`, `0%`, `25%`, `50%`, `75%`, `100%`) %>%
-datatable(rownames = FALSE)
-```
-
-### Absolute Count Outliers 
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "outliers.csv") %>%
-filter(`QUANTITY` == "COUNT") %>%
-select(`OBJECT TYPE`, `SCRIPT`, `COUNT`) %>%
-datatable(rownames = FALSE)
-```
-
-
-### Relative Count Quantiles 
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "quantiles.csv") %>%
-filter(`QUANTITY` == "RELATIVE COUNT") %>%
-spread(QUANTILE, VALUE) %>%
-select(`OBJECT TYPE`, `0%`, `25%`, `50%`, `75%`, `100%`) %>%
-datatable(rownames = FALSE)
-```
-
-### Relative Count Outliers 
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "outliers.csv") %>%
-filter(`QUANTITY` == "RELATIVE COUNT") %>%
-select(`OBJECT TYPE`, `SCRIPT`, `RELATIVE COUNT`) %>%
-datatable(rownames = FALSE)
+show_graph("promise-memory-usage", "object_count.png")
+show_graph("promise-memory-usage", "relative_object_count.png")
 ```
 
 ## Object Size Distribution
 
 ```{r echo=FALSE, message=FALSE, out.width="575px"}
-show_graph("promise-memory-usage", "promise_size.png")
-show_graph("promise-memory-usage", "relative_size.png")
+show_graph("promise-memory-usage", "object_size.png")
+show_graph("promise-memory-usage", "relative_object_size.png")
 ```
 
-### Absolute Size Quantiles 
+## Summarized Data
 ```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "quantiles.csv") %>%
-filter(`QUANTITY` == "SIZE") %>%
-spread(QUANTILE, VALUE) %>%
-select(`OBJECT TYPE`, `0%`, `25%`, `50%`, `75%`, `100%`) %>%
-datatable(rownames = FALSE)
-```
-
-### Absolute Size Outliers 
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "outliers.csv") %>%
-filter(`QUANTITY` == "SIZE") %>%
-select(`OBJECT TYPE`, `SCRIPT`, `SIZE`) %>%
-datatable(rownames = FALSE)
-```
-
-### Relative Size Quantiles 
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "quantiles.csv") %>%
-filter(`QUANTITY` == "RELATIVE SIZE") %>%
-spread(QUANTILE, VALUE) %>%
-select(`OBJECT TYPE`, `0%`, `25%`, `50%`, `75%`, `100%`) %>%
-datatable(rownames = FALSE)
-```
-
-### Relative Size Outliers 
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "outliers.csv") %>%
-filter(`QUANTITY` == "RELATIVE SIZE") %>%
-select(`OBJECT TYPE`, `SCRIPT`, `RELATIVE SIZE`) %>%
-datatable(rownames = FALSE)
+show_table("promise-memory-usage", "summary.csv")
 ```
 
 ## Raw Data
 ```{r echo=FALSE, message=FALSE}
-show_table("promise-memory-usage", "object_size_summary.csv")
+show_table("promise-memory-usage", "raw.csv")
 ```
