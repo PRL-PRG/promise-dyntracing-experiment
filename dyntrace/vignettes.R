@@ -33,8 +33,8 @@ rdt.cmd.head <- function(wd)
     "dyntrace_promises({\n",
     sep="")
 
-rdt.cmd.tail<- function(database_filepath, verbose=FALSE, ok_file_path)
-  paste("\n}\n, '", database_filepath, "'\n, verbose=", verbose, ")\n",
+rdt.cmd.tail<- function(database_filepath, verbose=0, ok_file_path)
+  paste("\n}\n, '", database_filepath, "'\n, verbose=", verbose, ", truncate=TRUE)\n",
         "write('OK', '", ok_file_path, "')\n", sep="")
 
 remove_error_blocks <- function(lines) { 
@@ -138,6 +138,12 @@ instrument.vignettes <- function(packages) {
         write(paste0("  * ", source, " -> ", destination), stdout())
         file.copy(from=source, to=destination, recursive=TRUE, overwrite=TRUE)
       }
+      for (file in list.files(paste0(vignette.dir, "/data"), all.files=TRUE, include.dirs=TRUE, no..=TRUE)) {
+        destination <- paste0(instrumented.code.dir.for.package, "/", file)
+        source <- paste0(vignette.dir, "/data/", file)
+        write(paste0("  * ", source, " -> ", destination), stdout())
+        file.copy(from=source, to=destination, recursive=TRUE, overwrite=TRUE)
+      }
     }
     
     for (vignette.name in vignettes.in.package) {
@@ -157,7 +163,7 @@ instrument.vignettes <- function(packages) {
       vignette.code <- readLines(vignette.code.path)
       instrumented.code <- c(rdt.cmd.head(paste0(instrumented.code.dir, "/", package)),
                              paste0("    ", instrument_error_blocks_with_try(vignette.code)),
-                             rdt.cmd.tail(tracer.output.path, verbose = FALSE, tracer.ok.path))
+                             rdt.cmd.tail(tracer.output.path, verbose = 0, tracer.ok.path))
                                                 
       write(instrumented.code, instrumented.code.path)
       
