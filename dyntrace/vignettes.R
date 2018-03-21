@@ -37,7 +37,7 @@ rdt.cmd.head <- function()
     "dyntrace_promises({\n",
     sep="")
 
-rdt.cmd.tail<- function(database_filepath, verbose=FALSE, path)
+rdt.cmd.tail<- function(database_filepath, verbose=0, path)
   paste("\n}\n, '", database_filepath, "'\n, verbose=", verbose, ")\n",
         sep="")
 
@@ -97,7 +97,7 @@ instrument.vignettes <- function(packages) {
       vignette.code <- readLines(vignette.code.path)
       instrumented.code <- c(rdt.cmd.head(),
                              paste0("    ", vignette.code),
-                             rdt.cmd.tail(tracer.output.path, verbose = FALSE, tracer.ok.path))
+                             rdt.cmd.tail(tracer.output.path, verbose = 0, tracer.ok.path))
                                                 
       write(instrumented.code, instrumented.code.path)
       
