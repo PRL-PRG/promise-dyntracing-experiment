@@ -38,7 +38,7 @@ rdt.cmd.head <- function()
     sep="")
 
 rdt.cmd.tail<- function(database_filepath, verbose=0, path)
-  paste("\n}\n, '", database_filepath, "'\n, verbose=", verbose, ")\n",
+  paste("\n}\n, '", database_filepath, "'\n, verbose=", verbose, ", truncate=TRUE)\n",
         sep="")
 
 instrument.vignettes <- function(packages) {
