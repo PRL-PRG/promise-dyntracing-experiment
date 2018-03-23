@@ -25,104 +25,110 @@ analyze_database <- function(database_filepath) {
     filter(event_type == 0) %>%
     summarize(`COUNT` = n()) %>%
     collect() %>%
-    mutate(`OBJECT TYPE` = "PROMISE", `SIZE` = `COUNT` * 52 / (1024 * 1024))
+    mutate(`OBJECT TYPE` = "PROMISE", `SIZE` = `COUNT` * 52)
 
-  object_size_summary <-
+  raw <-
     type_distribution_table %>%
     group_by(type) %>%
-    summarize(`COUNT` = n(), `SIZE` = n() * length / (1024 * 1024)) %>%
+    summarize(`COUNT` = n(), `SIZE` = n() * length) %>%
     collect() %>%
     rowwise() %>%
     mutate(`OBJECT TYPE` = typename(type)) %>%
     select(-type) %>%
     rbind(promise_count) %>%
-    mutate(`SCRIPT` = script)
+    mutate(`SCRIPT` = script) %>%
+    group_by(`SCRIPT`) %>%
+    mutate(`RELATIVE SIZE` = `SIZE` / sum(`SIZE`),
+           `RELATIVE COUNT` = `COUNT` / sum(`COUNT`)) %>%
+    ungroup() %>%
+    mutate_if(is.numeric, funs(round(., 3))) %>%
+    select(`SCRIPT`, `OBJECT TYPE`, `COUNT`, `RELATIVE COUNT`, `SIZE`, `RELATIVE SIZE`)
 
-  lower_count_quantile <-
-    object_size_summary %>%
-    group_by(`OBJECT TYPE`) %>%
-    do({
-        filter(.data=., `COUNT` <= unname(quantile(`COUNT`, 0.25)))
-    })
-
-  upper_count_quantile <-
-    object_size_summary %>%
-    group_by(`OBJECT TYPE`) %>%
-    do({
-        filter(.data=., `COUNT` >= unname(quantile(`COUNT`, 0.75)))
-    })
-
-  lower_size_quantile <-
-    object_size_summary %>%
-    group_by(`OBJECT TYPE`) %>%
-    do({
-        filter(.data=., `SIZE` <= unname(quantile(`SIZE`, 0.25)))
-    })
-
-  upper_size_quantile <-
-    object_size_summary %>%
-    group_by(`OBJECT TYPE`) %>%
-    do({
-        filter(.data=., `SIZE` >= unname(quantile(`SIZE`, 0.75)))
-    })
-
-  list("object_size_summary" = object_size_summary,
-       "lower_count_quantile" = lower_count_quantile,
-       "upper_count_quantile" = upper_count_quantile,
-       "lower_size_quantile" = lower_size_quantile,
-       "upper_size_quantile" = upper_size_quantile)
-
-}
-
-export_analyses <- function(analyses, table_dir) {
-  for(name in names(analyses)) {
-    analyses[[name]] %>%
-      write_csv(file.path(table_dir, paste0(name, ".csv")))
-  }
-}
-
-visualize_analyses <- function(analyses) {
-  promise_count_visualization <-
-    analyses$object_size_summary %>%
-    ggplot(aes(`OBJECT TYPE`, `COUNT`)) +
-    geom_boxplot() +
-    geom_jitter(width = 0.2) +
-    labs(title = "COUNT of R OBJECTS") +
-    scale_fill_gdocs()
-
-  promise_size_visualization <-
-    analyses$object_size_summary %>%
-    ggplot(aes(`OBJECT TYPE`, `SIZE`)) +
-    geom_boxplot() +
-    geom_jitter(width = 0.2) +
-    labs(title = "SIZE of R OBJECTS",y = "SIZE (MB)") +
-    scale_fill_gdocs()
-
-  list("promise_count" = promise_count_visualization,
-       "promise_size" = promise_size_visualization)
+  list("raw" = raw)
 
 }
 
 combine_analyses <- function(acc, element) {
+
   for(name in names(acc)) {
     acc[[name]] = bind_rows(acc[[name]], element[[name]])
   }
   acc
 }
 
-export_visualizations <- function(visualizations, graph_dir) {
-  ggsave(plot=visualizations$promise_count,
-         filename=file.path(graph_dir, "promise-count.png"))
-  ggsave(plot=visualizations$promise_size,
-         filename=file.path(graph_dir, "promise-size.png"))
+summarize_analyses <- function(analyses) {
+  summary <-
+    analyses$raw %>%
+    group_by(`OBJECT TYPE`) %>%
+    summarize(COUNT = sum(COUNT), SIZE = sum(SIZE)) %>%
+    mutate(`RELATIVE SIZE` = round(SIZE / sum(SIZE), 2),
+           `RELATIVE COUNT` = round(COUNT / sum(COUNT), 2))
+
+  append(analyses,
+         list("summary" = summary))
 }
 
+
+visualize_analyses <- function(analyses) {
+
+  object_count_visualization <-
+    analyses$summary %>%
+    ggplot(aes(`OBJECT TYPE`, weight = `COUNT`, fill=`OBJECT TYPE`)) +
+    geom_bar() +
+    scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                  labels = count_labels) + #trans_format("log10", math_format(10^.x))) +
+    labs(title = "Distribution of object count by type",
+         y ="TOTAL COUNT (log10 scale)") +
+    scale_fill_gdocs() +
+    guides(fill=FALSE)
+
+  relative_object_count_visualization <-
+    analyses$summary %>%
+    ggplot(aes(`OBJECT TYPE`, weight=`RELATIVE COUNT`, fill=`OBJECT TYPE`)) +
+    geom_bar() +
+    scale_y_continuous(labels=relative_labels) +
+    labs(title = "Distribution of relative object count by type",
+         y = "RELATIVE COUNT") +
+    scale_fill_gdocs() +
+    guides(fill=FALSE)
+
+  object_size_visualization <-
+    analyses$summary %>%
+    ggplot(aes(`OBJECT TYPE`, weight=`SIZE`, fill = `OBJECT TYPE`)) +
+    geom_bar() +
+    labs(title = "Distribution of object size by type", y = "SIZE (log2 scale)") +
+    scale_y_continuous(trans="log2",
+                       breaks = trans_breaks("log2", function(x) 2^x),
+                       labels = memory_size_labels) + #trans_format("log2", math_format(2^.x))) +
+    scale_fill_gdocs() +
+    guides(fill=FALSE)
+
+  relative_object_size_visualization <-
+    analyses$summary %>%
+    ggplot(aes(`OBJECT TYPE`, weight=`RELATIVE SIZE`, fill = `OBJECT TYPE`)) +
+    geom_bar() +
+    scale_y_continuous(labels=relative_labels) +
+    labs(title = "Distribution of relative object size by type",
+         y = "RELATIVE SIZE") +
+    scale_fill_gdocs() +
+    guides(fill=FALSE)
+
+  list("object_count" = object_count_visualization,
+       "relative_object_count" = relative_object_count_visualization,
+       "object_size" = object_size_visualization,
+       "relative_object_size" = relative_object_size_visualization)
+}
+
+
 main <- function() {
-  drive_analysis(analyze_database,
+  drive_analysis("Promise Memory Usage Analysis",
+                 analyze_database,
                  combine_analyses,
-                 export_analyses,
+                 summarize_analyses,
+                 export_as_tables,
+                 import_as_tables,
                  visualize_analyses,
-                 export_visualizations)
+                 export_as_images)
 }
 
 main()

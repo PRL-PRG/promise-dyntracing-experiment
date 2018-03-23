@@ -1,0 +1,111 @@
+# Argument Promise Mode
+
+This section studies the mode of argument promises.
+There are two types of argument promise modes:
+
+1. **Default** are the default arguments to functions
+2. **Custom** are user defined arguments to functions
+
+## Promise mode count
+
+The graphs below show the number of promises for each mode.
+The second graph shows the average number of promises per mode.
+
+```{r echo=FALSE, message=FALSE, out.width="575px"}
+show_graph("argument-promise-mode", "mode_total.png")
+show_graph("argument-promise-mode", "mode_average.png")
+```
+
+### Data (Total)
+```{r echo=FALSE, message=FALSE}
+get_table("argument-promise-mode", "promise_mode.csv") %>%
+group_by(MODE) %>%
+summarize(COUNT = sum(COUNT)) %>%
+datatable(rownames = FALSE)
+```
+
+### Data (Average)
+
+```{r echo=FALSE, message=FALSE}
+table <- get_table("argument-promise-mode", "promise_mode.csv")
+script_count <- length(unique(table[["SCRIPT"]]))
+
+table %>%
+group_by(MODE) %>%
+summarize(COUNT = sum(COUNT) / script_count) %>%
+datatable(rownames = FALSE)
+```
+
+## Promise mode distribution
+
+The graphs below show the distribution of promises across
+scripts for each mode. The first one shows the absolute count
+and the second one shows the relative count.
+
+```{r echo=FALSE, message=FALSE, out.width="575px"}
+show_graph("argument-promise-mode", "mode_distribution.png")
+show_graph("argument-promise-mode", "mode_relative_distribution.png")
+```
+
+### Data (Absolute)
+
+```{r echo=FALSE, message=FALSE}
+get_table("argument-promise-mode", "promise_mode.csv") %>%
+group_by(SCRIPT, MODE) %>%
+summarize(COUNT = sum(COUNT)) %>%
+datatable(rownames = FALSE)
+```
+
+### Data (Quantiles)
+
+```{r echo=FALSE, message=FALSE}
+get_table("argument-promise-mode", "promise_mode.csv") %>%
+group_by(SCRIPT, MODE) %>%
+summarize(COUNT = sum(COUNT)) %>%
+ungroup() %>%
+nest(-`MODE`) %>%
+mutate(Quantiles = map(data, ~ quantile(.$COUNT, na.rm = TRUE))) %>%
+unnest(map(Quantiles, tidy)) %>%
+rename(QUANTILE = names, VALUE = x) %>%
+datatable(rownames = FALSE)
+```
+    
+### Data (Relative)
+
+```{r echo=FALSE, message=FALSE}
+get_table("argument-promise-mode", "promise_mode.csv") %>%
+group_by(SCRIPT, MODE) %>%
+summarize(COUNT = sum(COUNT)) %>%
+mutate(COUNT = COUNT/sum(COUNT)) %>%
+datatable(rownames = FALSE)
+```
+
+## Promise mode type
+
+The graphs below break down the promise modes further into the types
+of their expression and value slots.
+
+```{r echo=FALSE, message=FALSE, out.width="575px"}
+show_graph("argument-promise-mode", "mode_expression_type.png")
+show_graph("argument-promise-mode", "mode_value_type.png")
+```
+
+### Data (Expression Type)
+
+```{r echo=FALSE, message=FALSE}
+get_table("argument-promise-mode", "promise_mode.csv") %>%
+filter(SLOT == "EXPRESSION") %>%
+group_by(TYPE, MODE) %>%
+summarize(COUNT = sum(COUNT)) %>%
+datatable(rownames = FALSE)
+```
+
+### Data (Value Type)
+
+```{r echo=FALSE, message=FALSE}
+get_table("argument-promise-mode", "promise_mode.csv") %>%
+filter(SLOT == "VALUE") %>%
+group_by(TYPE, MODE) %>%
+summarize(COUNT = sum(COUNT)) %>%
+datatable(rownames = FALSE)
+```

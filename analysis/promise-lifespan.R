@@ -33,143 +33,124 @@ analyze_database <- function(database_filepath) {
       promise_lifecycle_table %>%
       filter(!is.na(`2`) & !is.na(`0`))
 
-    unforced_promise_table <-
+    unforced_mortal_promise_table <-
       mortal_promise_table %>%
       filter(is.na(`1`))
 
-    mortal_promise_table <-
+    forced_mortal_promise_table <-
       mortal_promise_table %>%
       filter(!is.na(`1`))
 
   counts_table <-
       tibble(
         "SCRIPT" = script,
-        "TOTAL PROMISE COUNT" =
+        "TOTAL PROMISE" =
           promise_lifecycle_table %>%
           nrow(),
-        "FOREIGN PROMISE COUNT" =
+        "FOREIGN PROMISE" =
           promise_lifecycle_table %>%
           filter(is.na(`0`)) %>%
           nrow(),
-        "IMMORTAL PROMISE COUNT" =
+        "IMMORTAL PROMISE" =
           promise_lifecycle_table %>%
           filter(!is.na(`0`) & is.na(`2`)) %>%
           nrow(),
-        "MORTAL PROMISE COUNT" =
+        "MORTAL PROMISE" =
           mortal_promise_table %>%
           nrow(),
-        "UNFORCED PROMISE COUNT" =
-          unforced_promise_table %>%
+        "UNFORCED MORTAL PROMISE" =
+          unforced_mortal_promise_table %>%
+          nrow(),
+        "FORCED MORTAL PROMISE" =
+          forced_mortal_promise_table %>%
           nrow())
 
-   alive_table <-
+   lifespan_table <-
      mortal_promise_table %>%
      mutate(`GC CYCLES` = `2` - `0`) %>%
      group_by(`GC CYCLES`) %>%
      summarize(`PROMISE COUNT` = n()) %>%
+     ungroup() %>%
      mutate(`SCRIPT`=script)
 
-   indispensable_table <-
-     mortal_promise_table %>%
-     mutate(`GC CYCLES` = `1` - `0`) %>%
+   required_lifespan_table <-
+     forced_mortal_promise_table %>%
+     ## the promise can only get garbage collected at the GC
+     ## cycle after its last lookup, so we add 1 below
+     mutate(`GC CYCLES` = `1` - `0` + 1) %>%
      group_by(`GC CYCLES`) %>%
      summarize(`PROMISE COUNT` = n()) %>%
+     ungroup() %>%
+     add_row(`GC CYCLES` = 0, `PROMISE COUNT` = nrow(unforced_mortal_promise_table)) %>%
      mutate(`SCRIPT`=script)
 
-   dispensable_table <-
-     mortal_promise_table %>%
+  unforced_promise_extra_lifespan <-
+    unforced_mortal_promise_table %>%
+    mutate(`GC CYCLES` = `2` - `0` - 1)
+
+  extra_lifespan_table <-
+     forced_mortal_promise_table %>%
+     ## the promise can only get garbage collected at the GC
+     ## cycle after its last lookup, so we subtract 1 below
      mutate(`GC CYCLES` = `2` - `1` - 1) %>%
+     bind_rows(unforced_promise_extra_lifespan) %>%
      group_by(`GC CYCLES`) %>%
      summarize(`PROMISE COUNT` = n()) %>%
+     ungroup() %>%
+     filter(`GC CYCLES` != 0) %>%
      mutate(`SCRIPT`=script)
 
-  unforced_table <-
-    unforced_promise_table %>%
-    mutate(`GC CYCLES` = `2` - `0`) %>%
-    group_by(`GC CYCLES`) %>%
-    summarize(`PROMISE COUNT` = n()) %>%
-    mutate(`SCRIPT` = script)
-
-  list(alive = alive_table,
-       indispensable = indispensable_table,
-       dispensable = dispensable_table,
-       counts = counts_table,
-       unforced = unforced_table)
-}
-
-export_analyses <- function(datatable, table_dir) {
-  datatable$alive %>%
-    write_csv(file.path(table_dir, "alive.csv"))
-
-  datatable$alive %>%
-    group_by(`GC CYCLES`) %>%
-    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
-    write_csv(file.path(table_dir, "alive-summarized.csv"))
-
-  datatable$indispensable %>%
-    write_csv(file.path(table_dir, "indispensable.csv"))
-
-  datatable$indispensable %>%
-    group_by(`GC CYCLES`) %>%
-    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
-    write_csv(file.path(table_dir, "indispensable-summarized.csv"))
-
-  datatable$dispensable %>%
-    write_csv(file.path(table_dir, "dispensable.csv"))
-
-  datatable$dispensable %>%
-    group_by(`GC CYCLES`) %>%
-    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
-    write_csv(file.path(table_dir, "dispensable-summarized.csv"))
-
-  datatable$unforced %>%
-    write_csv(file.path(table_dir, "unforced.csv"))
-
-  datatable$unforced %>%
-    group_by(`GC CYCLES`) %>%
-    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
-    write_csv(file.path(table_dir, "unforced-summarized.csv"))
-
-  datatable$counts %>%
-    write_csv(file.path(table_dir, "counts.csv"))
-
-  datatable$counts %>%
-    select(-`SCRIPT`) %>%
-    summarise_each(funs(sum)) %>%
-    write_csv(file.path(table_dir, "counts-summarized.csv"))
-
+  list(lifespan = lifespan_table,
+       required_lifespan = required_lifespan_table,
+       extra_lifespan = extra_lifespan_table,
+       counts = counts_table)
 }
 
 combine_analyses <- function(tables_acc, tables) {
-  list(alive = bind_rows(tables_acc$alive, tables$alive),
-       indispensable = bind_rows(tables_acc$indispensable, tables$indispensable),
-       dispensable = bind_rows(tables_acc$dispensable, tables$dispensable),
-       counts = bind_rows(tables_acc$counts, tables$counts),
-       unforced = bind_rows(tables_acc$unforced, tables$unforced))
+  list(lifespan = bind_rows(tables_acc$lifespan, tables$lifespan),
+       required_lifespan = bind_rows(tables_acc$required_lifespan,
+                                     tables$required_lifespan),
+       extra_lifespan = bind_rows(tables_acc$extra_lifespan,
+                                  tables$extra_lifespan),
+       counts = bind_rows(tables_acc$counts, tables$counts))
 }
 
 summarize_analyses <- function(analyses) {
-  analyses[["alive-summarized"]] <-
-    analyses$alive %>%
-    group_by(`GC CYCLES`) %>%
-    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`))
+  analyses$lifespan_summary <-
+    analyses$lifespan %>%
+    mutate(WEIGHT = `GC CYCLES` * `PROMISE COUNT`) %>%
+    group_by(`SCRIPT`) %>%
+    summarize(`MEAN GC CYCLES` = sum(WEIGHT)/sum(`PROMISE COUNT`),
+              `MEDIAN GC CYCLES` = median(`GC CYCLES`),
+              `MIN GC CYCLES` = min(`GC CYCLES`),
+              `MAX GC CYCLES` = max(`GC CYCLES`),
+              `PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
+    ungroup()
 
-  analyses[["indispensable-summarized"]] <-
-    analyses$indispensable %>%
-    group_by(`GC CYCLES`) %>%
-    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`))
 
-  analyses[["dispensable-summarized"]] <-
-    analyses$dispensable %>%
-    group_by(`GC CYCLES`) %>%
-    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`))
+  analyses$required_lifespan_summary <-
+    analyses$required_lifespan %>%
+    mutate(WEIGHT = `GC CYCLES` * `PROMISE COUNT`) %>%
+    group_by(`SCRIPT`) %>%
+    summarize(`MEAN GC CYCLES` = sum(WEIGHT)/sum(`PROMISE COUNT`),
+              `MEDIAN GC CYCLES` = median(`GC CYCLES`),
+              `MIN GC CYCLES` = min(`GC CYCLES`),
+              `MAX GC CYCLES` = max(`GC CYCLES`),
+              `PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
+    ungroup()
 
-  analyses[["unforced-summarized"]] <-
-    analyses$unforced %>%
-    group_by(`GC CYCLES`) %>%
-    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`))
+  analyses$extra_lifespan_summary <-
+    analyses$extra_lifespan %>%
+    mutate(WEIGHT = `GC CYCLES` * `PROMISE COUNT`) %>%
+    group_by(`SCRIPT`) %>%
+    summarize(`MEAN GC CYCLES` = sum(WEIGHT)/sum(`PROMISE COUNT`),
+              `MEDIAN GC CYCLES` = median(`GC CYCLES`),
+              `MIN GC CYCLES` = min(`GC CYCLES`),
+              `MAX GC CYCLES` = max(`GC CYCLES`),
+              `PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
+    ungroup()
 
-  analyses[["counts-summarized"]] <-
+  analyses$count_summary <-
     analyses$counts %>%
     select(-`SCRIPT`) %>%
     summarise_each(funs(sum))
@@ -178,94 +159,91 @@ summarize_analyses <- function(analyses) {
 }
 
 visualize_analyses <- function(analyses) {
-  visualizations = list(
-    alive =
-      analyses$alive %>%
-      group_by(`GC CYCLES`) %>%
-      summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
-      ggplot(data = ., aes(`GC CYCLES`)) +
-      geom_bar(aes(weight=`PROMISE COUNT`)) +
-      scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                    labels = trans_format("log10", math_format(10^.x))) +
-      labs(x = "GC CYCLES", y = "PROMISE COUNT",
-           title = "Alive Promise Count"),
 
-    indispensable =
-      analyses$indispensable %>%
-      group_by(`GC CYCLES`) %>%
-      summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
-      ggplot(data = ., aes(`GC CYCLES`)) +
-      geom_bar(aes(weight=`PROMISE COUNT`)) +
-      scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                    labels = trans_format("log10", math_format(10^.x))) +
-      labs(x = "GC CYCLES", y = "PROMISE COUNT",
-           title = "Indispensable Promise Count"),
+  visualizations <- list()
 
-    dispensable =
-      analyses$dispensable %>%
-      group_by(`GC CYCLES`) %>%
-      summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
-      ggplot(data = ., aes(`GC CYCLES`)) +
-      geom_bar(aes(weight=`PROMISE COUNT`)) +
-      scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                    labels = trans_format("log10", math_format(10^.x))) +
-      labs(x = "GC CYCLES", y = "PROMISE COUNT",
-           title = "Dispensable Promise Count"),
+  analyses$lifespan_summary %>%
+    select(-`SCRIPT`, -`PROMISE COUNT`) %>%
+    gather(`GC CYCLE STATISTICS TYPE`, `GC CYCLES`) %>%
+    group_by(`GC CYCLE STATISTICS TYPE`) %>%
+    do({
 
-    unforced =
-      analyses$unforced %>%
-      group_by(`GC CYCLES`) %>%
-      summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`)) %>%
-      ggplot(data = ., aes(`GC CYCLES`)) +
-      geom_bar(aes(weight=`PROMISE COUNT`)) +
-      scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
-                    labels = trans_format("log10", math_format(10^.x))) +
-      labs(x = "GC CYCLES", y = "PROMISE COUNT",
-           title = "Unforced Promise Count"),
+      name <- paste0("lifespan_",
+                     stri_trans_tolower(
+                       stri_replace_all_fixed(.$`GC CYCLE STATISTICS TYPE`[1],
+                                              " ", "_")))
+      visualizations[[name]] <<-
+        ggplot(data=., aes(`GC CYCLE STATISTICS TYPE`, `GC CYCLES`)) +
+        geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), na.rm = TRUE) +
+        labs(title = paste0("Lifespan - ",
+                            stri_trans_totitle(.$`GC CYCLE STATISTICS TYPE`[1]),
+                            " Distribution"))
 
-    counts =
-      analyses$counts %>%
-      mutate(`TOTAL PROMISE` = sum(`TOTAL PROMISE COUNT`),
-             `FOREIGN PROMISE` = sum(`FOREIGN PROMISE COUNT`),
-             `MORTAL PROMISE` = sum(`MORTAL PROMISE COUNT`),
-             `IMMORTAL PROMISE` = sum(`IMMORTAL PROMISE COUNT`)) %>%
-      select(-`SCRIPT`, -`TOTAL PROMISE COUNT`, -`FOREIGN PROMISE COUNT`,
-             - `MORTAL PROMISE COUNT`, - `IMMORTAL PROMISE COUNT`) %>%
+      data.frame()
+    })
+
+  analyses$required_lifespan_summary %>%
+    select(-`SCRIPT`, -`PROMISE COUNT`) %>%
+    gather(`GC CYCLE STATISTICS TYPE`, `GC CYCLES`) %>%
+    group_by(`GC CYCLE STATISTICS TYPE`) %>%
+    do({
+
+      name <- paste0("required_lifespan_",
+                     stri_trans_tolower(
+                       stri_replace_all_fixed(.$`GC CYCLE STATISTICS TYPE`[1],
+                                              " ", "_")))
+      visualizations[[name]] <<-
+        ggplot(data=., aes(`GC CYCLE STATISTICS TYPE`, `GC CYCLES`)) +
+        geom_violin(na.rm = TRUE) +
+        geom_boxplot(width = .1) +
+        labs(title = paste0("Required Lifespan - ",
+                            stri_trans_totitle(.$`GC CYCLE STATISTICS TYPE`[1]),
+                            " Distribution"))
+      data.frame()
+    })
+
+  analyses$extra_lifespan_summary %>%
+    select(-`SCRIPT`, -`PROMISE COUNT`) %>%
+    gather(`GC CYCLE STATISTICS TYPE`, `GC CYCLES`) %>%
+    group_by(`GC CYCLE STATISTICS TYPE`) %>%
+    do({
+
+      name <- paste0("extra_lifespan_",
+                     stri_trans_tolower(
+                       stri_replace_all_fixed(.$`GC CYCLE STATISTICS TYPE`[1],
+                                              " ", "_")))
+      visualizations[[name]] <<-
+        ggplot(data=., aes(`GC CYCLE STATISTICS TYPE`, `GC CYCLES`)) +
+        geom_violin(draw_quantiles = c(0.25, 0.5, 0.75), na.rm = TRUE) +
+        labs(title = paste0("Extra Lifespan - ",
+                            stri_trans_totitle(.$`GC CYCLE STATISTICS TYPE`[1]),
+                            " Distribution"))
+      data.frame()
+    })
+
+    visualizations$category_counts =
+      analyses$count_summary %>%
       gather(`PROMISE TYPE`, `PROMISE COUNT`) %>%
       ggplot(data = ., aes(`PROMISE TYPE`)) +
       geom_bar(aes(weight = `PROMISE COUNT`)) +
       scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
                     labels = trans_format("log10", math_format(10^.x))) +
-      labs(x = "PROMISE TYPE", y = "PROMISE COUNT",
-           title = "Promise Category Count")
-    )
+      labs(x = "PROMISE TYPE", y = "PROMISE COUNT (log10 scale)",
+           title = "Promise Categories") +
+      theme(axis.text.x=element_text(angle = 90, vjust=0.5))
+
 
   visualizations
 }
 
-export_visualizations <- function(visualizations, graph_dir) {
-  visualizations$alive %>%
-    ggsave(plot = ., filename=file.path(graph_dir, "alive.png"))
-
-  visualizations$indispensable %>%
-      ggsave(plot = ., filename=file.path(graph_dir, "indispensable.png"))
-
-  visualizations$dispensable %>%
-    ggsave(plot = ., filename=file.path(graph_dir, "dispensable.png"))
-
-  visualizations$count %>%
-    ggsave(plot = ., filename=file.path(graph_dir, "count.png"))
-
-  visualizations$unforced %>%
-    ggsave(plot = ., filename=file.path(graph_dir, "unforced.png"))
-}
 
 main <- function() {
-  info("Promise Lifespan Analysis", "\n")
-  drive_analysis(analyze_database,
+  drive_analysis("Promise Lifespan Analysis",
+                 analyze_database,
                  combine_analyses,
                  summarize_analyses,
                  export_as_tables,
+                 import_as_tables,
                  visualize_analyses,
                  export_as_images)
 }

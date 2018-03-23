@@ -12,18 +12,29 @@ output:
 params:
   analysis_output_dir: TRUE
 ---
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 1200)
+```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(methods) ## including this prevents a warning - "executing load actions ..."
 library(DT)
 library(tidyverse)
 library(knitr)
+library(png)
+library(grid)
+library(gridExtra)
 ```
 
 ```{r echo=FALSE, message=FALSE}
 # https://www.rdocumentation.org/packages/knitr/versions/1.17/topics/include_graphics
+
+get_graph <- function(analysis_name, graph_filename) {
+    file.path(params$analysis_output_dir, analysis_name, "graph", graph_filename)
+}
+
 show_graph <- function(analysis_name, graph_filename) {
-    file.path(params$analysis_output_dir, analysis_name, "graph", graph_filename) %>%
+    get_graph(analysis_name, graph_filename) %>%
     include_graphics()
 }
 
@@ -44,7 +55,7 @@ Essentially, we study how long promises are alive in terms of GC cycles, the min
 number of GC cycles for which they are required to be alive and the number of GC
 cycles for which they are alive above and beyond the minimum.
 
-## Categorization
+## Promise Categories
 
 We categorize the promises observed while tracing as follows:
 
@@ -54,88 +65,65 @@ We categorize the promises observed while tracing as follows:
    **excluded from the analysis** because we can't compute their lifespan.
 3. **Mortal Promises** are created and garbage collected while tracing.
    They are the only promises that are **included in the analysis**.
-
-### Graph
+   They are further classified as follows:
+   i. **Forced Promises** are the mortal promises that are looked up at least once.
+   ii. **Unforced Promises** are mortal promises that are never looked up.
 
 ```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
-show_graph("promise-lifespan", "count.png")
+show_graph("promise-lifespan", "counts.png")
 ```
 
-**TOTAL PROMISE COUNT** = **FOREIGN PROMISE COUNT** + **IMMORTAL PROMISE COUNT** + **MORTAL PROMISE COUNT**
+**TOTAL PROMISE COUNT** = **FOREIGN PROMISE COUNT** + **IMMORTAL PROMISE COUNT** + **MORTAL PROMISE COUNT** + **UNFORCED PROMISE COUNT**
 
-### Table
-
-#### Summarized
+### Summarized Data
 
 ```{r echo=FALSE, message=FALSE}
 show_table("promise-lifespan", "counts-summarized.csv")
 ```
 
-#### Raw
+### Raw Data
 
 ```{r echo=FALSE, message=FALSE}
 show_table("promise-lifespan", "counts.csv")
 ```
 
-### Insights
+## Promise Lifespan Distribution
 
-This categorization sheds light on how many promises are excluded from the analysis.
-Clearly, the number of **Immortal Promises** and **Foreign Promises** is quite low.
-Any analysis done on **Mortal Promises** should be statistically relevant.
-
-
-## Alive Promise Count
-
-The following graph shows the number of mortal promises that are alive for a given number of GC cycles.
-
-### Graph
+The following graph shows the lifespan of mortal promises in terms of GC cycles. 
+The lifespan of a promise is defined as the number of GC cycles for which the 
+promise is alive.
 
 ```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
 show_graph("promise-lifespan", "alive.png")
 ```
 
-### Table
-
-#### Summarized
+### Summarized Data
 
 ```{r echo=FALSE, message=FALSE}
 show_table("promise-lifespan", "alive-summarized.csv")
 ```
 
-#### Raw
+### Raw Data
 
 ```{r echo=FALSE, message=FALSE}
 show_table("promise-lifespan", "alive.csv")
 ```
 
-### Insights
-
-We see that most promises are alive for the shortest possible duration, i.e. - one GC cycle.
-The remaining promises are a fraction of the number of promises that are alive for this duration.
-We also observe a decreasing trend in the number of promise that are alive for a given number of
-GC cycles, as the number of GC cycles increase. This means that most promises are used immediately
-and have little need of being alive for longer durations.
-
-
-## Indispensable Promise Count
+## Indispensable Promises
 
 The following graph shows the number of mortal promises that need to be alive for a given number of GC cycles.
-
-### Graph
 
 ```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
 show_graph("promise-lifespan", "indispensable.png")
 ```
 
-### Table
-
-#### Summarized
+### Summarized Data
 
 ```{r echo=FALSE, message=FALSE}
 show_table("promise-lifespan", "indispensable-summarized.csv")
 ```
 
-#### Raw
+### Raw Data
 
 ```{r echo=FALSE, message=FALSE}
 show_table("promise-lifespan", "indispensable.csv")
@@ -146,21 +134,17 @@ show_table("promise-lifespan", "indispensable.csv")
 
 The following graph shows the number of promises that extend their required lifespan by a given number of GC cycles.
 
-### Graph
-
 ```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
 show_graph("promise-lifespan", "dispensable.png")
 ```
 
-### Table
-
-#### Summarized
+### Summarized Data
 
 ```{r echo=FALSE, message=FALSE}
 show_table("promise-lifespan", "dispensable-summarized.csv")
 ```
 
-#### Raw
+### Raw Data
 
 ```{r echo=FALSE, message=FALSE}
 show_table("promise-lifespan", "dispensable.csv")
@@ -171,21 +155,17 @@ show_table("promise-lifespan", "dispensable.csv")
 
 The following graph shows the number of promises that are never forced.
 
-### Graph
-
 ```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
 show_graph("promise-lifespan", "unforced.png")
 ```
 
-### Table
-
-#### Summarized
+### Summarized Data
 
 ```{r echo=FALSE, message=FALSE}
 show_table("promise-lifespan", "unforced-summarized.csv")
 ```
 
-#### Raw
+### Raw Data
 
 ```{r echo=FALSE, message=FALSE}
 show_table("promise-lifespan", "unforced.csv")
@@ -193,7 +173,6 @@ show_table("promise-lifespan", "unforced.csv")
 
 
 ## Comparison
-
 
 ```{r echo=FALSE, message=FALSE}
 
@@ -214,3 +193,263 @@ full_join(indispensable, by = c("GC CYCLES" = "GC CYCLES")) %>%
 full_join(dispensable, by = c("GC CYCLES" = "GC CYCLES")) %>%
 datatable(rownames = FALSE)
 ```
+<!--
+# Promise Space Usage
+
+This section compares the number and size of objects allocated by R.
+
+## R Object Count
+
+Count of R objects.
+
+### Graph
+
+```{r echo=FALSE, message=FALSE}
+show_graph("promise-memory-usage", "promise-count.png")
+```
+
+### Table
+
+#### Summarized
+
+```{r echo=FALSE, message=FALSE}
+get_table("promise-memory-usage", "object_size_summary.csv") %>%
+select(-`SIZE`, -`SCRIPT`) %>%
+group_by(`OBJECT TYPE`) %>%
+summarize(`MEAN` = mean(`COUNT`),
+          `MEDIAN` = median(`COUNT`),
+          `LOWER QUANTILE (25%)` = unname(stats::quantile(sort(`COUNT`), 0.25)),
+          `UPPER QUANTILE (75%)` = unname(stats::quantile(sort(`COUNT`), 0.75))) %>%
+datatable(rownames=FALSE)
+```
+
+#### Raw
+
+```{r echo=FALSE, message=FALSE}
+get_table("promise-memory-usage", "object_size_summary.csv") %>%
+select(-`SIZE`) %>%
+datatable(rownames=FALSE)
+```
+
+### Outliers
+
+#### Lower Quantile
+```{r echo=FALSE, message=FALSE}
+get_table("promise-memory-usage", "lower_count_quantile.csv") %>%
+datatable(rownames=FALSE)
+```
+
+#### Upper Quantile
+```{r echo=FALSE, message=FALSE}
+get_table("promise-memory-usage", "lower_count_quantile.csv") %>%
+datatable(rownames=FALSE)
+```
+
+## R Object Size
+
+Size of R objects.
+
+### Graph
+
+```{r echo=FALSE, message=FALSE}
+show_graph("promise-memory-usage", "promise-size.png")
+```
+
+### Table
+
+#### Summarized
+
+```{r echo=FALSE, message=FALSE}
+get_table("promise-memory-usage", "object_size_summary.csv") %>%
+select(-`COUNT`, -`SCRIPT`) %>%
+group_by(`OBJECT TYPE`) %>%
+summarize(`MEAN` = mean(`SIZE`),
+          `MEDIAN` = median(`SIZE`),
+          `LOWER QUANTILE (25%)` = unname(stats::quantile(sort(`SIZE`), 0.75)),
+          `UPPER QUANTILE (75%)` = unname(stats::quantile(sort(`SIZE`), 0.25))) %>%
+datatable(rownames=FALSE)
+```
+
+#### Raw
+
+```{r echo=FALSE, message=FALSE}
+get_table("promise-memory-usage", "object_size_summary.csv") %>%
+select(-`SIZE`) %>%
+datatable(rownames=FALSE)
+```
+
+### Outliers
+
+#### Lower Quantile
+```{r echo=FALSE, message=FALSE}
+get_table("promise-memory-usage", "lower_size_quantile.csv") %>%
+datatable(rownames=FALSE)
+```
+
+#### Upper Quantile
+```{r echo=FALSE, message=FALSE}
+get_table("promise-memory-usage", "upper_size_quantile.csv") %>%
+datatable(rownames=FALSE)
+```
+
+
+## R Object Count
+
+Count of R objects.
+
+### Graph
+
+```{r echo=FALSE, message=FALSE}
+show_graph("promise-memory-usage", "promise-count.png")
+```
+
+### Table
+
+#### Summarized
+
+```{r echo=FALSE, message=FALSE}
+get_table("promise-memory-usage", "object_size_summary.csv") %>%
+select(-`SIZE`, -`SCRIPT`) %>%
+group_by(`OBJECT TYPE`) %>%
+summarize(`MEAN` = mean(`COUNT`),
+          `MEDIAN` = median(`COUNT`),
+          `LOWER QUANTILE (25%)` = unname(stats::quantile(sort(`COUNT`), 0.25)),
+          `UPPER QUANTILE (75%)` = unname(stats::quantile(sort(`COUNT`), 0.75))) %>%
+datatable(rownames=FALSE)
+```
+
+#### Raw
+
+```{r echo=FALSE, message=FALSE}
+get_table("promise-memory-usage", "object_size_summary.csv") %>%
+select(-`SIZE`) %>%
+datatable(rownames=FALSE)
+```
+
+### Outliers
+
+#### Lower Quantile
+```{r echo=FALSE, message=FALSE}
+get_table("promise-memory-usage", "lower_count_quantile.csv") %>%
+datatable(rownames=FALSE)
+```
+
+#### Upper Quantile
+```{r echo=FALSE, message=FALSE}
+get_table("promise-memory-usage", "lower_count_quantile.csv") %>%
+datatable(rownames=FALSE)
+```
+
+# Environment Function Usage
+
+This section discusses the usage of functions which manipulate environments.
+
+## baseenv()
+
+This is the environment of the base package.
+
+```{r echo=FALSE, message=FALSE, out.width = "400px"}
+show_graph("environment", "baseenv.png")
+show_graph("environment", "baseenv-relative.png")
+```
+
+## emptyenv()
+
+This is the empty environment, the topmost environment.
+
+```{r echo=FALSE, message=FALSE, out.width = "400px"}
+show_graph("environment", "emptyenv.png")
+show_graph("environment", "emptyenv-relative.png")
+```
+
+## new.env(hash = TRUE, parent = parent.frame(), size = 29L)
+
+`new.env` returns a new (empty) environment with (by default) enclosure the parent frame.
+
+```{r echo=FALSE, message=FALSE, out.width = "400px"}
+show_graph("environment", "new.env.png")
+show_graph("environment", "new.env-relative.png")
+```
+
+## NewEnvironment
+
+This is the C level function which gets called when a new environment is created.
+
+```{r echo=FALSE, message=FALSE, out.width = "400px"}
+show_graph("environment", "NewEnvironment.png")
+show_graph("environment", "NewEnvironment-relative.png")
+```
+
+## environment(fun = NULL)
+
+If fun is a function or a formula then `environment(fun)` returns the environment associated with that function or formula. If fun is NULL then the current evaluation environment is returned.
+
+```{r echo=FALSE, message=FALSE, out.width = "400px"}
+show_graph("environment", "environment.png")
+show_graph("environment", "environment-relative.png")
+```
+
+## environment(fun) <- value
+
+`environment(fun) <- value` sets the environment of the function or formula fun to the value given.
+
+```{r echo=FALSE, message=FALSE, out.width = "400px"}
+show_graph("environment", "environment<-.png")
+show_graph("environment", "environment<--relative.png")
+```
+
+## parent.env
+
+`parent.env` returns the enclosing environment of its argument.
+
+```{r echo=FALSE, message=FALSE, out.width = "400px"}
+show_graph("environment", "parent.env.png")
+show_graph("environment", "parent.env-relative.png")
+```
+
+## parent.env(env) <- value
+
+`parent.env<-` sets the enclosing environment of its first argument.
+The replacement function parent.env<- is extremely dangerous as it can be used to destructively change environments in ways that violate assumptions made by the internal C code. It may be removed in the near future.
+
+```{r echo=FALSE, message=FALSE, out.width = "400px"}
+show_graph("environment", "parent.env<-.png")
+show_graph("environment", "parent.env<--relative.png")
+```
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+### Table
+
+#### Summarized
+
+```{r echo=FALSE, message=FALSE}
+get_table("environment", "environment-function-usage.csv") %>%
+select(-`SCRIPT`) %>%
+group_by(`FUNCTION NAME`) %>%
+summarize(`MEAN` = mean(`COUNT`),
+          `MEDIAN` = median(`COUNT`),
+          `LOWER QUANTILE (25%)` = unname(stats::quantile(sort(`COUNT`), 0.25)),
+          `UPPER QUANTILE (75%)` = unname(stats::quantile(sort(`COUNT`), 0.75))) %>%
+datatable(rownames=FALSE)
+```
+
+#### Raw
+```{r echo=FALSE, message=FALSE}
+show_table("environment", "environment-function-usage-spread.csv")
+```
+
+### Outliers
+
+#### Lower Quartile
+```{r echo=FALSE, message=FALSE}
+get_table("promise-memory-usage", "lower_size_quantile.csv") %>%
+datatable(rownames=FALSE)
+```
+
+#### Upper Quartile
+```{r echo=FALSE, message=FALSE}
+get_table("promise-memory-usage", "upper_size_quantile.csv") %>%
+datatable(rownames=FALSE)
+```
+-->

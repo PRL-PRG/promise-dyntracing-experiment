@@ -4,10 +4,10 @@ TRACER=../R-dyntrace/bin/R
 PROCESSES=1
 PACKAGES=
 MINIMUM_DISK_SIZE=50000000 # ~50GB
-
+PART=all
 VANILLA_R=R
 VANILLA_RSCRIPT=Rscript
-
+SITE_DIR=~/public_html
 trace:
 	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(MINIMUM_DISK_SIZE) $(PACKAGES)
 
@@ -37,34 +37,40 @@ report:
 analyze-argument-promise-mode:
 	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/table
 	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/graph
-	analysis/argument-promise-mode.R $(DATA_DIR)/data $(OUTPUT_DIR)/argument-promise-mode/table $(OUTPUT_DIR)/argument-promise-mode/graph
+	analysis/argument-promise-mode.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/argument-promise-mode/table $(OUTPUT_DIR)/argument-promise-mode/graph
 
 analyze-environment:
 	mkdir -p $(OUTPUT_DIR)/environment/table
 	mkdir -p $(OUTPUT_DIR)/environment/graph
-	analysis/environment.R $(DATA_DIR)/data $(OUTPUT_DIR)/environment/table $(OUTPUT_DIR)/environment/graph
+	analysis/environment.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/environment/table $(OUTPUT_DIR)/environment/graph
 
-analyze-argument-position-laziness:
-	mkdir -p $(OUTPUT_DIR)/argument-position-laziness/table
-	mkdir -p $(OUTPUT_DIR)/argument-position-laziness/graph
-	analysis/argument-position-laziness $(DATA_DIR)/data $(OUTPUT_DIR)/argument-position-laziness/table $(OUTPUT_DIR)/argument-position-laziness/graph
+analyze-position-evaluation-mode:
+	mkdir -p $(OUTPUT_DIR)/position-evaluation-mode/table
+	mkdir -p $(OUTPUT_DIR)/position-evaluation-mode/graph
+	analysis/position-evaluation-mode.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/position-evaluation-mode/table $(OUTPUT_DIR)/position-evaluation-mode/graph
 
 analyze-side-effects:
 	mkdir -p $(OUTPUT_DIR)/side-effects/table
 	mkdir -p $(OUTPUT_DIR)/side-effects/graph
-	analysis/side-effects $(DATA_DIR)/data $(OUTPUT_DIR)/side-effects/table $(OUTPUT_DIR)/side-effects/graph
+	analysis/side-effects.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/side-effects/table $(OUTPUT_DIR)/side-effects/graph
 
 analyze-promise-memory-usage:
 	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/table
 	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/graph
-	analysis/promise-memory-usage.R $(DATA_DIR)/data $(OUTPUT_DIR)/promise-memory-usage/table $(OUTPUT_DIR)/promise-memory-usage/graph
+	analysis/promise-memory-usage.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-memory-usage/table $(OUTPUT_DIR)/promise-memory-usage/graph
 
 analyze-promise-lifespan:
 	mkdir -p $(OUTPUT_DIR)/promise-lifespan/table
 	mkdir -p $(OUTPUT_DIR)/promise-lifespan/graph
-	analysis/promise-lifespan.R $(DATA_DIR)/data $(OUTPUT_DIR)/promise-lifespan/table $(OUTPUT_DIR)/promise-lifespan/graph
+	analysis/promise-lifespan.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-lifespan/table $(OUTPUT_DIR)/promise-lifespan/graph
 
 analyze: analyze-environment analyze-argument-promise-mode analyze-argument-position-laziness analyze-promise-memory-usage analyze-promise-lifespan
 
+analysis-book:
+	cd analysis/report; $(VANILLA_RSCRIPT) -e "bookdown::render_book(list.files('.'), 'bookdown::gitbook', output_dir='$(SITE_DIR)', config_file='_bookdown.yml', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"
+
 analysis-report:
 	$(VANILLA_RSCRIPT) -e "rmarkdown::render('analysis/analysis.Rmd', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"
+
+install-dependencies:
+	$(VANILLA_RSCRIPT) install_dependencies.R
