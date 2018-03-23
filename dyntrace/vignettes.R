@@ -3,11 +3,6 @@ suppressPackageStartupMessages(library("dplyr"))
 suppressPackageStartupMessages(library("stringr"))
 suppressPackageStartupMessages(library("compiler"))
 
-#packages = commandArgs(trailingOnly = TRUE)
-
-#cmd <- "~/workspace/R-dyntrace/bin/R CMD BATCH" #paste(shQuote(file.path(R.home("bin"), "R")))
-#sys.env <- as.character(c("R_KEEP_PKG_SOURCE=yes", "R_ENABLE_JIT=0"))
-
 root_dir = paste("traces",
                  "promises",
                  format(Sys.time(), "%Y-%m-%d-%H-%M-%S"),
@@ -30,16 +25,67 @@ suppressWarnings(dir.create(instrumented.code.dir, recursive = TRUE, showWarning
 log.dir <- paste(cfg$options$`output-dir`, "logs", sep="/")
 suppressWarnings(dir.create(log.dir, recursive = TRUE, showWarnings = FALSE))
 
-rdt.cmd.head <- function()
+rdt.cmd.head <- function(wd)
   paste(
+    "setwd('", wd, "')\n",
     "library(promisedyntracer)\n",
     "\n",
     "dyntrace_promises({\n",
     sep="")
 
-rdt.cmd.tail<- function(database_filepath, verbose=0, path)
+rdt.cmd.tail<- function(database_filepath, verbose=0, ok_file_path)
   paste("\n}\n, '", database_filepath, "'\n, verbose=", verbose, ", truncate=TRUE)\n",
-        sep="")
+        "write('OK', '", ok_file_path, "')\n", sep="")
+
+remove_error_blocks <- function(lines) { 
+  error_on_pattern <- "^ *##.*[eE][rR][rR][oO][rR] *= *T(RUE)?"
+  section_pattern <- "^ *##"
+  prepend <- FALSE
+  output <- lines
+  i <- 0
+  for (line in lines) {
+    i <- i + 1
+    error_on_pattern_found <- str_detect(line, error_on_pattern)
+    
+    if (!prepend && error_on_pattern_found) 
+      prepend <- TRUE
+    
+    if (prepend && !error_on_pattern_found && str_detect(line, section_pattern)) 
+      prepend <- FALSE
+    
+    if (prepend)
+      output[i] <- paste("#-#  ", line)
+  }
+  
+  output
+}
+
+instrument_error_blocks_with_try <- function(lines) { 
+  error_on_pattern <- "^[ \t]*##.*[eE][rR][rR][oO][rR] *= *T(RUE)?"
+  section_pattern <- "^[ \t]*##"
+  prepend <- FALSE
+  output <- lines
+  i <- 0
+  for (line in lines) {
+    i <- i + 1
+    error_on_pattern_found <- str_detect(line, error_on_pattern)
+    
+    if (!prepend && error_on_pattern_found) {
+      prepend <- TRUE
+      output[i] <- paste0("try({", line)
+    } else if (prepend && error_on_pattern_found) {
+      output[i] <- paste0("}); try({", line)
+    } else if (prepend && !error_on_pattern_found && str_detect(line, section_pattern)) {
+      prepend <- FALSE
+      output[i] <- paste0("})", line)
+    }
+  }
+  
+  if (prepend) 
+    output[length(output)] <- paste0(output[length(output)], "}, silent=TRUE)")
+  
+  output
+}
 
 instrument.vignettes <- function(packages) {
 
@@ -71,7 +117,7 @@ instrument.vignettes <- function(packages) {
   for (package in packages) {
     i.packages <- i.packages + 1
     
-    write(paste("[", i.packages, "/", n.packages, "] Instrumenting vignettes for package: ", package, sep=""), stdout())
+    write(paste("Instrumenting vignettes for package: ", package, sep=""), stdout())
     
     result.set <- vignette(package = package)
     vignettes.in.package <- result.set$results[,3]
@@ -79,29 +125,49 @@ instrument.vignettes <- function(packages) {
     i.vignettes = 0
     n.vignettes = length(vignettes.in.package)
     
+    vignette.dirs <- unique(paste(result.set$results[,2], result.set$results[,1], sep="/"))
+    instrumented.code.dir.for.package <- paste0(instrumented.code.dir, "/", package)
+    
+    print(vignette.dirs)
+    for (vignette.dir in vignette.dirs) {
+      write(paste0("Copying files from ", vignette.dir, " to ", instrumented.code.dir.for.package), stdout())
+      dir.create(instrumented.code.dir.for.package, recursive=TRUE)
+      for (file in list.files(paste0(vignette.dir, "/doc"), all.files=TRUE, include.dirs=TRUE, no..=TRUE)) {
+        destination <- paste0(instrumented.code.dir.for.package, "/", file)
+        source <- paste0(vignette.dir, "/doc/", file)
+        write(paste0("  * ", source, " -> ", destination), stdout())
+        file.copy(from=source, to=destination, recursive=TRUE, overwrite=TRUE)
+      }
+      for (file in list.files(paste0(vignette.dir, "/data"), all.files=TRUE, include.dirs=TRUE, no..=TRUE)) {
+        destination <- paste0(instrumented.code.dir.for.package, "/", file)
+        source <- paste0(vignette.dir, "/data/", file)
+        write(paste0("  * ", source, " -> ", destination), stdout())
+        file.copy(from=source, to=destination, recursive=TRUE, overwrite=TRUE)
+      }
+    }
+    
     for (vignette.name in vignettes.in.package) {
       tracer.output.path <- paste(cfg$options$`output-dir`, "/data/", package, "-", vignette.name, ".sqlite", sep="")
       tracer.ok.path <- paste(cfg$options$`output-dir`, "/data/", package, "-", vignette.name, ".OK", sep="")
       i.vignettes <- i.vignettes + 1
       total.vignettes <- total.vignettes + 1
       
-      write(paste("[", i.packages, "/", n.packages, "::", i.vignettes, "/", n.vignettes, "/", total.vignettes, "] Instrumenting vignette: ", vignette.name, " from ", package, sep=""), stdout())
+      write(paste("[", i.vignettes, "/", n.vignettes, "] Instrumenting vignette: ", vignette.name, " from ", package, sep=""), stdout())
       
       one.vignette <- vignette(vignette.name, package = package)
       vignette.code.path <- paste(one.vignette$Dir, "doc", one.vignette$R, sep="/")
-      dir.create(instrumented.code.dir)
-      instrumented.code.path <- paste(instrumented.code.dir, "/", package, "-", vignette.name, ".R", sep="")
+      instrumented.code.path <- paste(instrumented.code.dir, "/", package, "/_instrumented_", vignette.name, ".R", sep="")
       
-      write(paste("[", i.packages, "/", n.packages, "::", i.vignettes, "/", n.vignettes, "/", total.vignettes, "] Writing vignette to: ", instrumented.code.path, sep=""), stdout())
+      write(paste("[", i.vignettes, "/", n.vignettes, "] Writing vignette to: ", instrumented.code.path, sep=""), stdout())
 
       vignette.code <- readLines(vignette.code.path)
-      instrumented.code <- c(rdt.cmd.head(),
-                             paste0("    ", vignette.code),
+      instrumented.code <- c(rdt.cmd.head(paste0(instrumented.code.dir, "/", package)),
+                             paste0("    ", instrument_error_blocks_with_try(vignette.code)),
                              rdt.cmd.tail(tracer.output.path, verbose = 0, tracer.ok.path))
                                                 
       write(instrumented.code, instrumented.code.path)
       
-      write(paste("[", i.packages, "/", n.packages, "::", i.vignettes, "/", n.vignettes, "/", total.vignettes, "] Done instrumenting vignette: ", vignette.name, " from ", package, sep=""), stdout())
+      write(paste("[", i.vignettes, "/", n.vignettes, "] Done instrumenting vignette: ", vignette.name, " from ", package, sep=""), stdout())
       
       if (cfg$options$compile) {
         instrumented.code.path.compiled <- paste(tools::file_path_sans_ext(instrumented.code.path), "Rc", sep=".")
@@ -116,58 +182,11 @@ instrument.vignettes <- function(packages) {
       }
     }
     
-    write(paste("[", i.packages, "/", n.packages, "] Done vignettes for package: ", package, sep=""), stdout())
+    write(paste("Done vignettes for package: ", package, sep=""), stdout())
   }
   
   instrumented.vignette.paths
 }
-
-# instrument.and.aggregate.vignettes <- function(packages) {
-#   i.packages <- 0
-#   n.packages <- length(packages)
-#   
-#   instrumented.vignette.paths <- list()
-#   
-#   for (package in packages) {
-#     i.packages <- i.packages + 1
-#     
-#     write(paste("[", i.packages, "/", n.packages, "] Instrumenting vignettes for package: ", package, sep=""), stdout())
-#     
-#     result.set <- vignette(package = package)
-#     vignettes.in.package <- result.set$results[,3]
-#     
-#     instrumented.code.path <- paste(instrumented.code.dir, "/", i.packages, "_", package, ".R", sep="")
-#     tracer.output.path <- paste(cfg$options$`output-dir`, "/", package, ".sqlite", sep="")
-#     
-#     i.vignettes = 0
-#     n.vignettes = length(vignettes.in.package)
-#     
-#     write(rdt.cmd.head(i.vignettes == 1, tracer.output.path), instrumented.code.path, append=FALSE)
-# 
-#     for (vignette.name in vignettes.in.package) {
-#       i.vignettes <- i.vignettes + 1
-#       
-#       write(paste("[", i.packages, "/", n.packages, "::", i.vignettes, "/", n.vignettes, "] Appending vignette: ", vignette.name, " from ", package, sep=""), stdout())
-#       
-#       one.vignette <- vignette(vignette.name, package = package)
-#       vignette.code.path <- paste(one.vignette$Dir, "doc", one.vignette$R, sep="/")
-#       
-#       write(paste("[", i.packages, "/", n.packages, "::", i.vignettes, "/", n.vignettes, "] Appending vignette to: ", instrumented.code.path, sep=""), stdout())
-#       
-#       vignette.code <- readLines(vignette.code.path)
-#       write(vignette.code, instrumented.code.path, append=TRUE)
-#       
-#       write(paste("[", i.packages, "/", n.packages, "::", i.vignettes, "/", n.vignettes, "] Done appending vignette: ", vignette.name, " from ", package, sep=""), stdout())
-#     }
-#     
-#     write(rdt.cmd.tail, instrumented.code.path, append=TRUE)
-#     instrumented.vignette.paths[[i.packages]] <- c(package, "all_vignettes", instrumented.code.path)
-#     
-#     write(paste("[", i.packages, "/", n.packages, "] Done vignettes for package: ", package, sep=""), stdout())
-#   }
-#   
-#   instrumented.vignette.paths
-# }
 
 execute.external.programs <- function(program.list, new.process=FALSE) {
   i.programs <- 0
@@ -197,8 +216,5 @@ execute.external.programs <- function(program.list, new.process=FALSE) {
   }
 }
 
-#run <- function(..., separately=TRUE) 
-#  execute.external.programs((if(separately) instrument.vignettes else instrument.and.aggregate.vignettes)(list(...)))
-  
 if (length(cfg$args) > 0)
   execute.external.programs(instrument.vignettes(packages=cfg$args), new.process = FALSE)
