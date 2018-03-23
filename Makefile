@@ -1,4 +1,4 @@
-DATA_DIR=data/2017-11-06-13-41-34
+DATA_DIR=`date +'%y-%m-%d-%H-%M-%S'`
 OUTPUT_DIR=$(DATA_DIR)/output
 TRACER=../R-dyntrace/bin/R
 PROCESSES=1
@@ -64,6 +64,11 @@ analyze-promise-lifespan:
 	mkdir -p $(OUTPUT_DIR)/promise-lifespan/graph
 	analysis/promise-lifespan.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-lifespan/table $(OUTPUT_DIR)/promise-lifespan/graph
 
+analyze-function-force:
+	mkdir -p $(OUTPUT_DIR)/function-force/table
+	mkdir -p $(OUTPUT_DIR)/function-force/graph
+	analysis/function-force.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/function-force/table $(OUTPUT_DIR)/function-force/graph
+
 analyze: analyze-environment analyze-argument-promise-mode analyze-argument-position-laziness analyze-promise-memory-usage analyze-promise-lifespan
 
 analysis-book:
@@ -74,3 +79,94 @@ analysis-report:
 
 install-dependencies:
 	$(VANILLA_RSCRIPT) install_dependencies.R
+
+tests:
+	mkdir -p tests/data
+	mkdir -p tests/output/table
+	mkdir -p tests/output/graph
+
+	export R_KEEP_PKG_SOURCE=yes; \
+	export R_ENABLE_JIT=0; \
+	export R_DISABLE_BYTECODE=1; \
+	export R_COMPILE_PKGS=0; \
+	cd tests/scripts/Shootout/fasta; \
+	$(TRACER) --file=fasta.r; \
+	$(TRACER) --file=fasta-alternative.r; \
+	$(TRACER) --file=fasta-internal-rng.r;
+
+	export R_KEEP_PKG_SOURCE=yes; \
+	export R_ENABLE_JIT=0; \
+	export R_DISABLE_BYTECODE=1; \
+	export R_COMPILE_PKGS=0; \
+	cd tests/scripts/Shootout/knucleotide; \
+	$(TRACER) --file=k-nucleotide-alternative.r;
+
+	export R_KEEP_PKG_SOURCE=yes; \
+	export R_ENABLE_JIT=0; \
+	export R_DISABLE_BYTECODE=1; \
+	export R_COMPILE_PKGS=0; \
+	cd tests/scripts/Shootout/spectralnorm; \
+	$(TRACER) --file=spectral-norm.r;
+
+	export R_KEEP_PKG_SOURCE=yes; \
+	export R_ENABLE_JIT=0; \
+	cd tests/scripts/Misc; \
+	export R_DISABLE_BYTECODE=1; \
+	export R_COMPILE_PKGS=0; \
+	$(TRACER) --file=bin_packing.R; \
+	$(TRACER) --file=io.R; \
+	$(TRACER) --file=moving_average.R; \
+	$(TRACER) --file=rgibbs.R;
+
+	export R_KEEP_PKG_SOURCE=yes; \
+	export R_ENABLE_JIT=0; \
+	export R_DISABLE_BYTECODE=1; \
+	export R_COMPILE_PKGS=0; \
+	cd tests/scripts/MachineLearningAlg/MBO; \
+	$(TRACER) --file=LibSVMMulticore.R;
+
+	export R_KEEP_PKG_SOURCE=yes; \
+	export R_ENABLE_JIT=0; \
+	export R_DISABLE_BYTECODE=1; \
+	export R_COMPILE_PKGS=0; \
+	cd tests/scripts/MachineLearningAlg/learners-in-r; \
+	$(TRACER) --file=naiveBayes.R; \
+	$(TRACER) --file=qda.R;
+
+
+	#$(TRACER) --file=knn.R;
+
+	export R_KEEP_PKG_SOURCE=yes; \
+	export R_ENABLE_JIT=0; \
+	export R_DISABLE_BYTECODE=1; \
+	export R_COMPILE_PKGS=0; \
+	cd tests/scripts/MachineLearningAlg/main_functions; \
+	$(TRACER)script ada.R 10 2; \
+	$(TRACER)script cforest.R 11 2; \
+	$(TRACER)script ctree.R 12 2; \
+	$(TRACER)script glm_logistic.R 13 2; \
+	$(TRACER)script glmnet_classification.R 14 2; \
+	$(TRACER)script glmnet_regression.R 15 2; \
+	$(TRACER)script knn.R 16 2; \
+	$(TRACER)script ksvm.R 17 2; \
+	$(TRACER)script lda.R 18 2; \
+	$(TRACER)script lm.R 19 2; \
+	$(TRACER)script mboost_classification.R 20 2; \
+	$(TRACER)script mboost_regression.R 21 2; \
+	$(TRACER)script pen_l1_classification.R 22 2; \
+	$(TRACER)script pen_l1_regression.R 23 2; \
+	$(TRACER)script problem_generation.R 24 2; \
+	$(TRACER)script qda.R 25 2; \
+	$(TRACER)script randomForest.R 26 2; \
+	$(TRACER)script rda_as_lda.R 27 2; \
+	$(TRACER)script rda_as_qda.R 28 2; \
+	$(TRACER)script rda_regularized.R 29 2; \
+	$(TRACER)script svm.R 30 2; \
+	$(TRACER)script tree.R 31 2;
+
+	find tests/scripts -name '*.sqlite' | xargs -I files mv -f files tests/data
+	find tests/scripts -name '*.OK' | xargs -I files mv -f files tests/data
+	find tests/scripts -name '*.trace' | xargs -I files mv -f files tests/data
+	analysis/position-evaluation-mode.R all tests/data tests/output/table tests/output/graph
+
+.PHONY: tests
