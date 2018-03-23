@@ -11,6 +11,15 @@ analyze_database <- function(database_filepath) {
     script = basename(file_path_sans_ext(database_filepath))
     db <- src_sqlite(database_filepath)
 
+  call_counts_table <-
+    tbl(db, "gc_trigger") %>%
+    select(builtin_calls, special_calls, closure_calls) %>%
+    mutate(total_calls = builtin_calls + special_calls + closure_calls) %>%
+    collect() %>%
+    rename(BUILTIN = builtin_calls, SPECIAL = special_calls, CLOSURE = closure_calls, TOTAL = total_calls) %>%
+    gather(`CALL TYPE`, `CALL COUNT`) %>%
+    mutate(`SCRIPT`=script)
+
     promise_lifecycle_table <-
       tbl(db, "promise_lifecycle") %>%
       group_by(promise_id, event_type) %>%
@@ -103,7 +112,8 @@ analyze_database <- function(database_filepath) {
   list(lifespan = lifespan_table,
        required_lifespan = required_lifespan_table,
        extra_lifespan = extra_lifespan_table,
-       counts = counts_table)
+       counts = counts_table,
+       call_counts = call_counts_table)
 }
 
 combine_analyses <- function(tables_acc, tables) {
@@ -112,7 +122,8 @@ combine_analyses <- function(tables_acc, tables) {
                                      tables$required_lifespan),
        extra_lifespan = bind_rows(tables_acc$extra_lifespan,
                                   tables$extra_lifespan),
-       counts = bind_rows(tables_acc$counts, tables$counts))
+       counts = bind_rows(tables_acc$counts, tables$counts),
+       call_counts = bind_rows(tables_acc$call_counts, tables$call_counts))
 }
 
 summarize_analyses <- function(analyses) {
@@ -221,7 +232,7 @@ visualize_analyses <- function(analyses) {
       data.frame()
     })
 
-    visualizations$category_counts =
+    visualizations$category_counts <-
       analyses$count_summary %>%
       gather(`PROMISE TYPE`, `PROMISE COUNT`) %>%
       ggplot(data = ., aes(`PROMISE TYPE`)) +
@@ -232,6 +243,13 @@ visualize_analyses <- function(analyses) {
            title = "Promise Categories") +
       theme(axis.text.x=element_text(angle = 90, vjust=0.5))
 
+
+  visualizations$call_count_distribution <-
+    analyses$call_counts %>%
+    ggplot(aes(`CALL TYPE`, `CALL COUNT`)) +
+    geom_violin() +
+    scale_y_continuous(labels = count_labels) +
+    labs(title = "Distribution of number of calls to functions per GC trigger")
 
   visualizations
 }

@@ -12,6 +12,9 @@ output:
 params:
   analysis_output_dir: TRUE
 ---
+
+# Lifespan
+
 ```{r set-options, echo=FALSE, cache=FALSE}
 options(width = 1200)
 ```
@@ -48,12 +51,15 @@ show_table <- function(analysis_name, table_filename) {
     datatable(rownames = FALSE)
 }
 ```
-# Promise Lifespan
+
+```{r echo=FALSE, message=FALSE}
+lifespan_summary <- get_table("promise-lifespan", "lifespan_summary.csv")
+required_lifespan_summary <- get_table("promise-lifespan", "required_lifespan_summary.csv")
+```
 
 This section discusses the lifespan of promises in terms of the number of GC Cycles.
-Essentially, we study how long promises are alive in terms of GC cycles, the minimum
-number of GC cycles for which they are required to be alive and the number of GC
-cycles for which they are alive above and beyond the minimum.
+The lifespan of a promise is defined as the number of GC cycles for which the 
+promise is alive.
 
 ## Promise Categories
 
@@ -69,16 +75,18 @@ We categorize the promises observed while tracing as follows:
    i. **Forced Promises** are the mortal promises that are looked up at least once.
    ii. **Unforced Promises** are mortal promises that are never looked up.
 
-```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
-show_graph("promise-lifespan", "counts.png")
-```
+- **TOTAL PROMISE COUNT** = **FOREIGN PROMISE COUNT** + **IMMORTAL PROMISE COUNT** + **MORTAL PROMISE COUNT**
 
-**TOTAL PROMISE COUNT** = **FOREIGN PROMISE COUNT** + **IMMORTAL PROMISE COUNT** + **MORTAL PROMISE COUNT** + **UNFORCED PROMISE COUNT**
+- **IMMORTAL PROMISE COUNT** = **UNFORCED PROMISE COUNT** + **FORCED PROMISE COUNT**
+
+```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
+show_graph("promise-lifespan", "category_counts.png")
+```
 
 ### Summarized Data
 
 ```{r echo=FALSE, message=FALSE}
-show_table("promise-lifespan", "counts-summarized.csv")
+show_table("promise-lifespan", "count_summary.csv")
 ```
 
 ### Raw Data
@@ -87,369 +95,72 @@ show_table("promise-lifespan", "counts-summarized.csv")
 show_table("promise-lifespan", "counts.csv")
 ```
 
-## Promise Lifespan Distribution
+## Mean GC Cycles Distribution
 
-The following graph shows the lifespan of mortal promises in terms of GC cycles. 
-The lifespan of a promise is defined as the number of GC cycles for which the 
-promise is alive.
+Following graph shows the weighted mean of the number GC cycles 
+for which promises are (should be) alive in the scripts.
 
-```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
-show_graph("promise-lifespan", "alive.png")
+```{r echo=FALSE, message=FALSE, out.width="500px"}
+show_graph("promise-lifespan", "lifespan_mean_gc_cycles.png")
+show_graph("promise-lifespan", "required_lifespan_mean_gc_cycles.png")
+show_graph("promise-lifespan", "extra_lifespan_mean_gc_cycles.png")
 ```
 
-### Summarized Data
+## Median GC Cycles Distribution
 
+Following graph shows the median number GC cycles for which 
+promises are (should be) alive in the scripts.
+
+```{r echo=FALSE, message=FALSE, out.width="500px"}
+show_graph("promise-lifespan", "lifespan_median_gc_cycles.png")
+show_graph("promise-lifespan", "required_lifespan_median_gc_cycles.png")
+show_graph("promise-lifespan", "extra_lifespan_median_gc_cycles.png")
+```
+
+## Min GC Cycles Distribution
+
+Following graph shows the minimum number GC cycles for which 
+promises are (should be) alive in the scripts.
+
+```{r echo=FALSE, message=FALSE, out.width="500px"}
+show_graph("promise-lifespan", "lifespan_min_gc_cycles.png")
+show_graph("promise-lifespan", "required_lifespan_min_gc_cycles.png")
+show_graph("promise-lifespan", "extra_lifespan_min_gc_cycles.png")
+```
+
+## Max GC Cycles Distribution
+
+Following graph shows the maximum number GC cycles for which 
+promises are (should be) alive in the scripts.
+
+```{r echo=FALSE, message=FALSE, out.width="500px"}
+show_graph("promise-lifespan", "lifespan_max_gc_cycles.png")
+show_graph("promise-lifespan", "required_lifespan_max_gc_cycles.png")
+show_graph("promise-lifespan", "extra_lifespan_max_gc_cycles.png")
+```
+
+## Lifespan Data (Summarized)
 ```{r echo=FALSE, message=FALSE}
-show_table("promise-lifespan", "alive-summarized.csv")
+show_table("promise-lifespan", "lifespan_summary.csv")
 ```
 
-### Raw Data
-
+## Required Lifespan Data (Summarized)
 ```{r echo=FALSE, message=FALSE}
-show_table("promise-lifespan", "alive.csv")
+show_table("promise-lifespan", "required_lifespan_summary.csv")
 ```
 
-## Indispensable Promises
-
-The following graph shows the number of mortal promises that need to be alive for a given number of GC cycles.
-
-```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
-show_graph("promise-lifespan", "indispensable.png")
-```
-
-### Summarized Data
-
+## Extra Lifespan Data (Summarized)
 ```{r echo=FALSE, message=FALSE}
-show_table("promise-lifespan", "indispensable-summarized.csv")
+show_table("promise-lifespan", "extra_lifespan_summary.csv")
 ```
 
-### Raw Data
 
+## Lifespan Data (Raw)
 ```{r echo=FALSE, message=FALSE}
-show_table("promise-lifespan", "indispensable.csv")
+show_table("promise-lifespan", "lifespan_summary.csv")
 ```
 
-
-## Dispensable Promises
-
-The following graph shows the number of promises that extend their required lifespan by a given number of GC cycles.
-
-```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
-show_graph("promise-lifespan", "dispensable.png")
-```
-
-### Summarized Data
-
+## Required Lifespan Data (Raw)
 ```{r echo=FALSE, message=FALSE}
-show_table("promise-lifespan", "dispensable-summarized.csv")
+show_table("promise-lifespan", "required_lifespan.csv")
 ```
-
-### Raw Data
-
-```{r echo=FALSE, message=FALSE}
-show_table("promise-lifespan", "dispensable.csv")
-```
-
-
-## Unforced Promises
-
-The following graph shows the number of promises that are never forced.
-
-```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
-show_graph("promise-lifespan", "unforced.png")
-```
-
-### Summarized Data
-
-```{r echo=FALSE, message=FALSE}
-show_table("promise-lifespan", "unforced-summarized.csv")
-```
-
-### Raw Data
-
-```{r echo=FALSE, message=FALSE}
-show_table("promise-lifespan", "unforced.csv")
-```
-
-
-## Comparison
-
-```{r echo=FALSE, message=FALSE}
-
-indispensable <- 
-    get_table("promise-lifespan", "indispensable-summarized.csv") %>%
-    rename(`INDISPENSABLE PROMISE COUNT` = `PROMISE COUNT`)
-
-dispensable <- 
-    get_table("promise-lifespan", "dispensable-summarized.csv") %>%
-    rename(`DISPENSABLE PROMISE COUNT` = `PROMISE COUNT`)
-
-alive <- 
-    get_table("promise-lifespan", "alive-summarized.csv") %>%
-    rename(`ALIVE PROMISE COUNT` = `PROMISE COUNT`)
-
-alive %>%
-full_join(indispensable, by = c("GC CYCLES" = "GC CYCLES")) %>%
-full_join(dispensable, by = c("GC CYCLES" = "GC CYCLES")) %>%
-datatable(rownames = FALSE)
-```
-<!--
-# Promise Space Usage
-
-This section compares the number and size of objects allocated by R.
-
-## R Object Count
-
-Count of R objects.
-
-### Graph
-
-```{r echo=FALSE, message=FALSE}
-show_graph("promise-memory-usage", "promise-count.png")
-```
-
-### Table
-
-#### Summarized
-
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "object_size_summary.csv") %>%
-select(-`SIZE`, -`SCRIPT`) %>%
-group_by(`OBJECT TYPE`) %>%
-summarize(`MEAN` = mean(`COUNT`),
-          `MEDIAN` = median(`COUNT`),
-          `LOWER QUANTILE (25%)` = unname(stats::quantile(sort(`COUNT`), 0.25)),
-          `UPPER QUANTILE (75%)` = unname(stats::quantile(sort(`COUNT`), 0.75))) %>%
-datatable(rownames=FALSE)
-```
-
-#### Raw
-
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "object_size_summary.csv") %>%
-select(-`SIZE`) %>%
-datatable(rownames=FALSE)
-```
-
-### Outliers
-
-#### Lower Quantile
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "lower_count_quantile.csv") %>%
-datatable(rownames=FALSE)
-```
-
-#### Upper Quantile
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "lower_count_quantile.csv") %>%
-datatable(rownames=FALSE)
-```
-
-## R Object Size
-
-Size of R objects.
-
-### Graph
-
-```{r echo=FALSE, message=FALSE}
-show_graph("promise-memory-usage", "promise-size.png")
-```
-
-### Table
-
-#### Summarized
-
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "object_size_summary.csv") %>%
-select(-`COUNT`, -`SCRIPT`) %>%
-group_by(`OBJECT TYPE`) %>%
-summarize(`MEAN` = mean(`SIZE`),
-          `MEDIAN` = median(`SIZE`),
-          `LOWER QUANTILE (25%)` = unname(stats::quantile(sort(`SIZE`), 0.75)),
-          `UPPER QUANTILE (75%)` = unname(stats::quantile(sort(`SIZE`), 0.25))) %>%
-datatable(rownames=FALSE)
-```
-
-#### Raw
-
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "object_size_summary.csv") %>%
-select(-`SIZE`) %>%
-datatable(rownames=FALSE)
-```
-
-### Outliers
-
-#### Lower Quantile
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "lower_size_quantile.csv") %>%
-datatable(rownames=FALSE)
-```
-
-#### Upper Quantile
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "upper_size_quantile.csv") %>%
-datatable(rownames=FALSE)
-```
-
-
-## R Object Count
-
-Count of R objects.
-
-### Graph
-
-```{r echo=FALSE, message=FALSE}
-show_graph("promise-memory-usage", "promise-count.png")
-```
-
-### Table
-
-#### Summarized
-
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "object_size_summary.csv") %>%
-select(-`SIZE`, -`SCRIPT`) %>%
-group_by(`OBJECT TYPE`) %>%
-summarize(`MEAN` = mean(`COUNT`),
-          `MEDIAN` = median(`COUNT`),
-          `LOWER QUANTILE (25%)` = unname(stats::quantile(sort(`COUNT`), 0.25)),
-          `UPPER QUANTILE (75%)` = unname(stats::quantile(sort(`COUNT`), 0.75))) %>%
-datatable(rownames=FALSE)
-```
-
-#### Raw
-
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "object_size_summary.csv") %>%
-select(-`SIZE`) %>%
-datatable(rownames=FALSE)
-```
-
-### Outliers
-
-#### Lower Quantile
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "lower_count_quantile.csv") %>%
-datatable(rownames=FALSE)
-```
-
-#### Upper Quantile
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "lower_count_quantile.csv") %>%
-datatable(rownames=FALSE)
-```
-
-# Environment Function Usage
-
-This section discusses the usage of functions which manipulate environments.
-
-## baseenv()
-
-This is the environment of the base package.
-
-```{r echo=FALSE, message=FALSE, out.width = "400px"}
-show_graph("environment", "baseenv.png")
-show_graph("environment", "baseenv-relative.png")
-```
-
-## emptyenv()
-
-This is the empty environment, the topmost environment.
-
-```{r echo=FALSE, message=FALSE, out.width = "400px"}
-show_graph("environment", "emptyenv.png")
-show_graph("environment", "emptyenv-relative.png")
-```
-
-## new.env(hash = TRUE, parent = parent.frame(), size = 29L)
-
-`new.env` returns a new (empty) environment with (by default) enclosure the parent frame.
-
-```{r echo=FALSE, message=FALSE, out.width = "400px"}
-show_graph("environment", "new.env.png")
-show_graph("environment", "new.env-relative.png")
-```
-
-## NewEnvironment
-
-This is the C level function which gets called when a new environment is created.
-
-```{r echo=FALSE, message=FALSE, out.width = "400px"}
-show_graph("environment", "NewEnvironment.png")
-show_graph("environment", "NewEnvironment-relative.png")
-```
-
-## environment(fun = NULL)
-
-If fun is a function or a formula then `environment(fun)` returns the environment associated with that function or formula. If fun is NULL then the current evaluation environment is returned.
-
-```{r echo=FALSE, message=FALSE, out.width = "400px"}
-show_graph("environment", "environment.png")
-show_graph("environment", "environment-relative.png")
-```
-
-## environment(fun) <- value
-
-`environment(fun) <- value` sets the environment of the function or formula fun to the value given.
-
-```{r echo=FALSE, message=FALSE, out.width = "400px"}
-show_graph("environment", "environment<-.png")
-show_graph("environment", "environment<--relative.png")
-```
-
-## parent.env
-
-`parent.env` returns the enclosing environment of its argument.
-
-```{r echo=FALSE, message=FALSE, out.width = "400px"}
-show_graph("environment", "parent.env.png")
-show_graph("environment", "parent.env-relative.png")
-```
-
-## parent.env(env) <- value
-
-`parent.env<-` sets the enclosing environment of its first argument.
-The replacement function parent.env<- is extremely dangerous as it can be used to destructively change environments in ways that violate assumptions made by the internal C code. It may be removed in the near future.
-
-```{r echo=FALSE, message=FALSE, out.width = "400px"}
-show_graph("environment", "parent.env<-.png")
-show_graph("environment", "parent.env<--relative.png")
-```
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-### Table
-
-#### Summarized
-
-```{r echo=FALSE, message=FALSE}
-get_table("environment", "environment-function-usage.csv") %>%
-select(-`SCRIPT`) %>%
-group_by(`FUNCTION NAME`) %>%
-summarize(`MEAN` = mean(`COUNT`),
-          `MEDIAN` = median(`COUNT`),
-          `LOWER QUANTILE (25%)` = unname(stats::quantile(sort(`COUNT`), 0.25)),
-          `UPPER QUANTILE (75%)` = unname(stats::quantile(sort(`COUNT`), 0.75))) %>%
-datatable(rownames=FALSE)
-```
-
-#### Raw
-```{r echo=FALSE, message=FALSE}
-show_table("environment", "environment-function-usage-spread.csv")
-```
-
-### Outliers
-
-#### Lower Quartile
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "lower_size_quantile.csv") %>%
-datatable(rownames=FALSE)
-```
-
-#### Upper Quartile
-```{r echo=FALSE, message=FALSE}
-get_table("promise-memory-usage", "upper_size_quantile.csv") %>%
-datatable(rownames=FALSE)
-```
--->

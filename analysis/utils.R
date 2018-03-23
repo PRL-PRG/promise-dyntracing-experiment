@@ -63,6 +63,13 @@ evaluation_modename <- function(always_forced, never_forced) {
   else "SOMETIMES FORCED"
 }
 
+
+function_evaluation_modename <- function(argument_evaluation_modename) {
+  if("SOMETIMES FORCED" %in% argument_evaluation_modename) "SOMETIMES"
+  else if("NEVER FORCED" %in% argument_evaluation_modename) "PARTIAL"
+  else "STRICT"
+}
+
 purityname <- function(purity) {
   if(purity) "PURE" else "SIDE-EFFECTING"
 }
@@ -103,4 +110,9 @@ count_labels <-
 relative_labels <-
   function(x) {
     paste0(x * 100, "%", sep=" ")
+  }
+
+extract_package_name <-
+  function(name) {
+    str_extract(name, "^.*::")
   }
