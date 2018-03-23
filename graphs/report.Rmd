@@ -152,6 +152,8 @@ make_graphs_by_range <- function(data, range_column, max_columns=10, graphing_fu
 ``` {r, "basic info", include=FALSE}
 aggregated_functions <- load_local_csv("aggregated_functions.csv") #
 
+aggregated_functions %>% filter(!is.na(ERR1) || !is.na(ERR2)) %>% print
+
 basic_info <- 
   load_local_csv("basic_info.csv") %>%
   group_by(name) %>%
@@ -510,14 +512,14 @@ Promise types follow the type designations in ``Rinternals.h``.
 ## Distribution per package/vignette
 
 ``` {r, "promise return types, per package", echo=FALSE, warning=FALSE, fig.width=10, fig.height=7}
-make_graphs_for_range(return_types, "type", max.col=5, f=function(data)
-  ggplot(data, aes(x=type, y=percent)) +
-    geom_violin(draw_quantiles = c(.25, .5, .75)) +
-    scale_y_continuous(labels=pp_perc) +
-    theme(axis.title.x=element_blank(), 
-          axis.title.y=element_blank(), 
-          legend.position="none")
-)
+#make_graphs_for_range(return_types, "type", max.col=5, f=function(data)
+#  ggplot(data, aes(x=type, y=percent)) +
+#    geom_violin(draw_quantiles = c(.25, .5, .75)) +
+#    scale_y_continuous(labels=pp_perc) +
+#    theme(axis.title.x=element_blank(), 
+#          axis.title.y=element_blank(), 
+#          legend.position="none")
+#)
 ```
 
 ## Separate results per package/vignette

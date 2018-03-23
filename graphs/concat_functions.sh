@@ -2,8 +2,9 @@
 
 function generate_sql {
     DATA_FILES=$@
-    union=
-    cleanup=
+    #union=
+    #cleanup=
+    first=true
     
     echo ".echo on"
     echo ".bail on"
@@ -17,28 +18,40 @@ function generate_sql {
         package=$(basename "$file" .sqlite | tr '.-' '__')
 
         echo "attach '$file' as $package;"
-        echo "create table temp_${package}_functions as select * from ${package}.functions;"
+	if $first
+	then	
+	        echo "create temporary table temp_functions as select * from ${package}.functions;"
+		first=false
+	else
+		echo "insert into temp_functions select * from ${package}.functions;"
+	fi	
+	
         echo "detach $package;"
         echo 
 
-        if [ -n "$union" ]
-        then
-            union="$union\n  union"
-        fi
-        union="$union select * from temp_${package}_functions"
+        #if [ -n "$union" ]
+        #then
+	#   union="$union\n  union"
+        #fi
+        #union="$union select * from temp_${package}_functions"
         
-        if [ -n "$cleanup" ]
-        then
-            cleanup="$cleanup\n"
-        fi
-        cleanup="${cleanup}drop table temp_${package}_functions;"
+        #if [ -n "$cleanup" ]
+        #then
+        #    cleanup="$cleanup\n"
+        #fi
+        #cleanup="${cleanup}drop table temp_${package}_functions;"
     done
     
     echo "begin transaction;"
 
-    echo -e "create table functions as select * from (\n       $union);"
+
+    
+
+    #echo -e "create table functions as select * from (\n       $union);"
+    echo -e "create table functions as select distinct id, location, definition, type from temp_functions;" # silently drop column 'compiled'
     echo
-    echo -e "$cleanup"
+    #echo -e "$cleanup"
+    echo -e "drop table temp_functions;"
     
     echo "commit;"
 }
