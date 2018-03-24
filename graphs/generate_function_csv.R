@@ -14,7 +14,7 @@ preaggregated <- function(database_path, output_path, debug = TRUE) {
   dir.create(output_path, recursive=TRUE, showWarnings=FALSE)  
   
   db <- src_sqlite(database_path)
-  functions <- db %>% tbl("functions") %>% rename(function_id = id) %>% collect # TODO rename to unaggregated_
+  functions <- db %>% tbl("functions") %>% rename(function_id = id) %>% mutate(definition=gsub("\n","%\\n ",definition) %>% collect # TODO rename to unaggregated_
   store("aggregated_functions")(functions)
   
   basic_info <- load("basic_info")
