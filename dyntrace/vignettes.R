@@ -34,8 +34,8 @@ rdt.cmd.head <- function(wd)
     sep="")
 
 rdt.cmd.tail<- function(database_filepath, verbose=0, ok_file_path)
-  paste("\n}\n, '", database_filepath, "'\n, verbose=", verbose, ", truncate=TRUE)\n",
-        "write('OK', '", ok_file_path, "')\n", sep="")
+  paste("\n}\n, '", database_filepath, "'\n, verbose=", verbose, ", truncate=TRUE)\n", 
+        sep="")
 
 remove_error_blocks <- function(lines) { 
   error_on_pattern <- "^ *##.*[eE][rR][rR][oO][rR] *= *T(RUE)?"
