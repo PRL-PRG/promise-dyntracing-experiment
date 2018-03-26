@@ -73,7 +73,20 @@ fi
 
 if [ -e $OUTPUT_DB ]; then
     echo "Warning: file $OUTPUT_DB already exists and will be truncated."
-    rm -i "$OUTPUT_DB" || exit 3
+    rm "$OUTPUT_DB" || exit 3
 fi    
 
+good_sqlites=
+for sqlite in $1/data/*.sqlite
+do
+    ok="$1/data/`basename $sqlite .sqlite`.OK"
+    #echo $ok
+    if [ -e $ok ]
+    then 
+        good_sqlites="$good_sqlites$sqlite "
+    else
+        echo "omitting $sqlite" >&2	    
+    fi
+done
+#echo $good_sqlites
 generate_sql "$1/data/*.sqlite" | sqlite3 "$OUTPUT_DB"

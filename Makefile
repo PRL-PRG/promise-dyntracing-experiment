@@ -90,6 +90,17 @@ analysis-report:
 install-dependencies:
 	$(VANILLA_RSCRIPT) install_dependencies.R
 
+analyze-in-screens:
+	screen -S analyze-function-force            -d -m bash -c "make analyze-function-force           DATA_DIR=$(DATA_DIR); read x" 
+	screen -S analyze-promise-lifespan          -d -m bash -c "make analyze-promise-lifespan         DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-argument-promise-mode     -d -m bash -c "make analyze-argument-promise-mode    DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-interference              -d -m bash -c "make analyze-interference             DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-promise-memory-usage      -d -m bash -c "make analyze-promise-memory-usage     DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-environment               -d -m bash -c "make analyze-environment              DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-position-evaluation-mode  -d -m bash -c "make analyze-position-evaluation-mode DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-side-effects              -d -m bash -c "make analyze-side-effects             DATA_DIR=$(DATA_DIR); read x"
+	screen -S compute-interference              -d -m bash -c "make compute-interference 		 DATA_DIR=$(DATA_DIR); read x"
+
 tests:
 	mkdir -p tests/data
 	mkdir -p tests/output/table
