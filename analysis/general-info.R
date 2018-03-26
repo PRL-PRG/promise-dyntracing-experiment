@@ -12,6 +12,11 @@ library(dplyr)
 analyze_database <- function(database_file_path) {
   components<-stringr::str_split(x, "-", 2)[[1]]
   
+  promises <- db %>% tbl("promises")
+  promise_evaluations <- db %>% tbl("promise_evaluations")
+  calls <- db %>% tbl("calls") %>% rename(call_id = id)
+  functions <- db %>% tbl("functions") %>% rename(function_id = id)
+  
   list(general=data.frame(db=database_file_path, 
                           package = components[1],
                           vignette = components[2],
