@@ -10,8 +10,10 @@ library(dplyr)
 # MAP
 # for every DB file
 analyze_database <- function(database_file_path) {
-  components<-stringr::str_split(x, "-", 2)[[1]]
+  components <- stringr::str_split(
+    basename(tools::file_path_sans_ext(database_file_path)), "-", 2)[[1]]
   
+  db <- src_sqlite(database_file_path)
   promises <- db %>% tbl("promises")
   promise_evaluations <- db %>% tbl("promise_evaluations")
   calls <- db %>% tbl("calls") %>% rename(call_id = id)
