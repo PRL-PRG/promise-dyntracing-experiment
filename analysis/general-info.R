@@ -15,9 +15,9 @@ analyze_database <- function(database_file_path) {
   
   db <- src_sqlite(database_file_path)
   promises <- db %>% tbl("promises")
-  promise_evaluations <- db %>% tbl("promise_evaluations")
-  calls <- db %>% tbl("calls") %>% rename(call_id = id)
-  functions <- db %>% tbl("functions") %>% rename(function_id = id)
+  promise_evaluations <- db %>% tbl("promise_evaluations") %>% group_by(event_type) %>% count
+  calls <- db %>% tbl("calls") 
+  functions <- db %>% tbl("functions") 
   
   list(general=data.frame(db=database_file_path, 
                           package = components[1],
@@ -25,8 +25,8 @@ analyze_database <- function(database_file_path) {
                           functions = functions %>% count %>% pull(n),
                           calls = calls %>% count %>% pull(n),
                           promises = promises %>% count %>% pull(n),
-                          promise_forces = promise_evaluations %>% filter(event_type == 15) %>% count %>% pull(n),
-                          promise_lookups = promise_evaluations %>% filter(event_type == 0) %>% count %>% pull(n)))
+                          promise_forces = promise_evaluations %>% filter(event_type == 15) %>% pull(n),
+                          promise_lookups = promise_evaluations %>% filter(event_type == 0) %>% pull(n)))
 }
 
 # combine dataframes from analyzeDatabase
@@ -44,13 +44,13 @@ combine_analyses <- function(acc, element) {
 # analyses is the list form combine analyses
 # returns the summarized data that undergoes visualization
 summarize_analyses <- function(analyses) {
-  list(data.frame(packages = analyses %>% pull(package) %>% unique %>% length,
-                  vignette = analyses %>% pull(vignette) %>% unique %>% length,
-                  functions = analyses %>% pull(functions) %>% sum,
-                  calls = analyses %>% pull(calls) %>% sum,
-                  promises = analyses %>% pull(promises) %>% sum,
-                  promise_forces = analyses %>% pull(promise_forces) %>% sum,
-                  promise_lookups = analyses %>% pull(promise_lookups) %>% sum))
+  list(data.frame(packages = analyses$general %>% pull(package) %>% unique %>% length,
+                  vignette = analyses$general %>% pull(vignette) %>% unique %>% length,
+                  functions = analyses$general %>% pull(functions) %>% sum,
+                  calls = analyses$general %>% pull(calls) %>% sum,
+                  promises = analyses$general %>% pull(promises) %>% sum,
+                  promise_forces = analyses$general %>% pull(promise_forces) %>% sum,
+                  promise_lookups = analyses$general %>% pull(promise_lookups) %>% sum))
 }
 
 #return a list of ggplot2 objects
