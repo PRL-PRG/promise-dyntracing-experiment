@@ -69,7 +69,17 @@ analyze-function-force:
 	mkdir -p $(OUTPUT_DIR)/function-force/graph
 	analysis/function-force.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/function-force/table $(OUTPUT_DIR)/function-force/graph
 
-analyze: analyze-environment analyze-argument-promise-mode analyze-argument-position-laziness analyze-promise-memory-usage analyze-promise-lifespan
+compute-interference:
+	mkdir -p $(OUTPUT_DIR)/interference/table
+	mkdir -p $(OUTPUT_DIR)/interference/graph
+	analysis/interference.py $(DATA_DIR)/data $(OUTPUT_DIR)/interference/table
+
+analyze-interference:
+	mkdir -p $(OUTPUT_DIR)/interference/table
+	mkdir -p $(OUTPUT_DIR)/interference/graph
+	analysis/interference.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/interference/table $(OUTPUT_DIR)/interference/graph
+
+analyze: analyze-environment analyze-argument-promise-mode analyze-position-evaluation-mode analyze-side-effects analyze-promise-memory-usage analyze-promise-lifespan analyze-function-force
 
 analysis-book:
 	cd analysis/report; $(VANILLA_RSCRIPT) -e "bookdown::render_book(list.files('.'), 'bookdown::gitbook', output_dir='$(SITE_DIR)', config_file='_bookdown.yml', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"

@@ -13,7 +13,11 @@ all functions.
 
 
 ```{r echo=FALSE, message=FALSE}
-show_graph("position-evaluation-mode", "evaluation_mode_distribution.png")
+show_graph("position-evaluation-mode", "evaluation_mode_distribution_by_function.png")
+```
+
+```{r echo=FALSE, message=FALSE}
+show_graph("position-evaluation-mode", "evaluation_mode_distribution_by_formal_parameter_position.png")
 ```
 
 ## Data (Summarized)

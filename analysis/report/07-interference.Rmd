@@ -1,0 +1,17 @@
+# Interference Analysis
+
+## Data
+
+```{r echo=FALSE, message=FALSE}
+show_table("interference", "counts.csv")
+```
+
+
+```{r echo=FALSE, message=FALSE}
+show_table("interference", "groups.csv")
+```
+
+```{r echo=FALSE, message=FALSE}
+show_table("interference", "interference.csv")
+```
+

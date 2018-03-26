@@ -53,8 +53,7 @@ analyze_database <- function(database_filepath) {
     variable_actions %>%
     group_by(promise_id, action) %>%
     summarize(count = n()) %>%
-    left_join(promise_id_to_function_id, by = c("promise_id" = "promise_id")) %>%
-    print()
+    left_join(promise_id_to_function_id, by = c("promise_id" = "promise_id"))
 
   action_count_distribution <-
     variable_actions %>%
@@ -83,7 +82,6 @@ analyze_database <- function(database_filepath) {
 
   function_purity_distribution <-
     purity_distribution %>%
-    print() %>%
     group_by(function_id) %>%
     summarize(definition = first(definition), PURITY = all(PURITY))
 
@@ -128,7 +126,6 @@ summarize_analyses <- function(analyses) {
 
   function_purity_distribution_total <-
     analyses$function_purity_distribution %>%
-    print() %>%
     group_by(function_id) %>%
     summarize(definition = first(definition), PURITY = purityname(all(PURITY))) %>%
     group_by(`PURITY`) %>%

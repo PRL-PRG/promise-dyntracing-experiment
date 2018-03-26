@@ -35,7 +35,7 @@ get_table <- function(analysis_name, table_filename) {
 
 show_table <- function(analysis_name, table_filename) {
     get_table(analysis_name, table_filename) %>%
-    datatable(rownames = FALSE)
+    datatable(rownames = FALSE, options = list(scrollX = TRUE))
 }
 ```
 

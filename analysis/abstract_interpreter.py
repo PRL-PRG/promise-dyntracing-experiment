@@ -19,9 +19,10 @@ def promise_create(acc, location, promise_id, environment_id):
     acc["lookups"]["promise"][promise_id] = {}
 
 
-def promise_begin(acc, location, promise_id):
+def promise_begin(acc, location, promise_id, expression_id):
     # push the promise id to the list of promises being forced
-    acc["stack"].append(("promise", promise_id))
+    acc["stack"].append(("promise", promise_id, expression_id))
+    acc["context_ids"]["promise"][promise_id] = expression_id
 
 
 def promise_finish(acc, location, promise_id):
@@ -68,13 +69,17 @@ def environment_create(acc, location, environment_id):
 
 
 def environment_variable_lookup(acc, location, environment_id, variable_id,
-                                value_type):
+                                variable_name, value_type):
     # we look up the value of this variable in the environment.
     # If it is not found, we return a default value.
+
+    acc["names"][variable_id] = variable_name
     if value_type in ["special", "built-in"]:
         return
 
-    value = acc["env"].get(variable_id, "FREE VARIABLE")
+    value = acc["env"].get(variable_id,
+                           ("FREE VARIABLE", "FREE VARIABLE",
+                            "FREE VARIABLE", "FREE VARIABLE"))
     #print(acc["stack"])
     for execution_context in reversed(acc["stack"]):
         context_type = execution_context[0]
@@ -104,7 +109,8 @@ def promise_context_jump(acc, location, promise_id):
         sys.exit(1)
 
 
-def environment_variable_remove(acc, location, environment_id, variable_id, value_type):
+def environment_variable_remove(acc, location, environment_id,
+                                variable_id, variable_name, value_type):
     # we remove the binding from the environment
 
     if variable_id in acc["env"]:
@@ -113,19 +119,24 @@ def environment_variable_remove(acc, location, environment_id, variable_id, valu
         print("variable", variable_id, "not found")
 
 
-def environment_variable_assign(acc, location, environment_id, variable_id, value_type):
+def environment_variable_assign(acc, location, environment_id, variable_id,
+                                variable_name, value_type):
     # we assign the current scope as the value of the variable
     acc["env"][variable_id] = acc["stack"][-1]
+    acc["names"][variable_id] = variable_name
 
 
-def environment_variable_define(acc, location, environment_id, variable_id, value_type):
+def environment_variable_define(acc, location, environment_id, variable_id,
+                                variable_name, value_type):
     # we assign the current scope as the value of the variable
     acc["env"][variable_id] = acc["stack"][-1]
+    acc["names"][variable_id] = variable_name
 
 
 def special_begin(acc, location, function_id, call_id, environment_id):
     acc["stack"].append(("special", call_id, function_id, environment_id))
     acc["lookups"]["special"][call_id] = {}
+    acc["context_ids"]["special"][call_id] = function_id
 
 
 def special_finish(acc, location, function_id, call_id, environment_id):
@@ -134,13 +145,15 @@ def special_finish(acc, location, function_id, call_id, environment_id):
         print(location)
         print("Context mismatch")
         print("Current execution context is " + str(entry))
-        print("Execution context exited from is " + str(("special", call_id, function_id, environment_id)))
+        print("Execution context exited from is " +
+              str(("special", call_id, function_id, environment_id)))
         sys.exit(1)
 
 
 def builtin_begin(acc, location, function_id, call_id, environment_id):
     acc["stack"].append(("builtin", call_id, function_id, environment_id))
     acc["lookups"]["builtin"][call_id] = {}
+    acc["context_ids"]["builtin"][call_id] = function_id
 
 
 def builtin_finish(acc, location, function_id, call_id, environment_id):
@@ -148,13 +161,15 @@ def builtin_finish(acc, location, function_id, call_id, environment_id):
     if not(entry[0] == "builtin" and entry[1] == call_id):
         print("Context mismatch")
         print("Current execution context is " + str(entry))
-        print("Execution context exited from is " + str(("builtin", call_id, function_id, environment_id)))
+        print("Execution context exited from is " +
+              str(("builtin", call_id, function_id, environment_id)))
         sys.exit(1)
 
 
 def closure_begin(acc, location, function_id, call_id, environment_id):
     acc["stack"].append(("closure", call_id, function_id, environment_id))
     acc["lookups"]["closure"][call_id] = {}
+    acc["context_ids"]["closure"][call_id] = function_id
 
 
 def closure_finish(acc, location, function_id, call_id, environment_id):
@@ -206,7 +221,12 @@ def eval_trace(trace_filename):
            "lookups": {"promise": {},# { -1 : {}},
                        "special": {},
                        "builtin": {},
-                       "closure": {}}}
+                       "closure": {}},
+           "names": {},
+           "context_ids": {"promise": {},
+                           "special": {},
+                           "builtin": {},
+                           "closure": {}}}
 
     with open(trace_filename, "r") as trace_file:
         for line in trace_file:
@@ -218,62 +238,46 @@ def eval_trace(trace_filename):
 
 
 def compare_states(state_a, state_b):
+    variable_names = state_a["names"]
+    context_ids = state_a["context_ids"]
     state_a = state_a["lookups"]
     state_b = state_b["lookups"]
 
     difference = {"state": {},
-                  "variables": []}
+                  "variables": [],
+                  "groups": {}}
     for context_type in state_a.keys():
         print(context_type)
         if context_type not in state_b:
             print("Unable to find " + str(context_type) + " in state_b")
-        #difference["state"][context_type] = {}
         context_a = state_a[context_type]
         context_b = state_b[context_type]
         for context_id in context_a.keys():
             if context_id not in context_b:
                 print("Unable to find " + str(context_id) +
                       " in context " + context_type + " in state_b")
-            #print(context_id)
-            #difference["state"][context_type][context_id] = {}
             lookups_a = context_a[context_id]
             lookups_b = context_b[context_id]
             for variable_id in lookups_a:
                 if variable_id not in lookups_b:
                     print("Unable to find " + str(variable_id) + " in context id " +
                           str(context_id) + " in context " + context_type + " in state_b")
+                variable_name = variable_names[variable_id]
                 value_a = lookups_a[variable_id]
                 value_b = lookups_b[variable_id]
                 if value_a != value_b:
                     #difference["state"][context_type][context_id][variable_id] = (value_a, value_b)
-                    difference["variables"].append((context_type, context_id, variable_id, (value_a, value_b)))
-
-    # def compare(lookups_1, lookups_2):
-    #     d = {}
-    #     for key, lookups in lookups_1.items():
-    #         if key not in lookups_2:
-    #             pass
-    #             #d[key] = (lookups, None)
-    #         else:
-    #             t = {}
-    #             for variable_id in lookups.keys():
-    #                 if variable_id not in lookups_2[key]:
-    #                     t[variable_id] = (lookups[variable_id], None)
-    #                 elif lookups[variable_id] != lookups_2[key][variable_id]:
-    #                     t[variable_id] = (lookups[variable_id], lookups_2[key][variable_id])
-    #             if len(t) != 0:
-    #                 d[key] = t
-    #     for key, lookups in lookups_2.items():
-    #         if key not in lookups_1:
-    #             pass
-    #             #d[key] = (None, lookups)
-    #     return d
-
-    # difference = {}
-
-    # for key in state_a["lookups"].keys():
-    #     difference[key] = compare(state_a["lookups"][key],
-    #                               state_b["lookups"][key])
+                    group_key = ((variable_name, context_type,
+                                  context_ids[context_type][context_id]),
+                                 (value_a[0][0], value_a[0][2]),
+                                 (value_b[0][0], value_b[0][2]))
+                    value = (context_type, context_id,
+                             variable_id, variable_name, (value_a, value_b))
+                    difference["variables"].append(value)
+                    if group_key not in difference["groups"]:
+                        difference["groups"][group_key] = [value]
+                    else:
+                        difference["groups"][group_key].append(value)
 
     return difference
 
