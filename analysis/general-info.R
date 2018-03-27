@@ -44,13 +44,13 @@ combine_analyses <- function(acc, element) {
 # analyses is the list form combine analyses
 # returns the summarized data that undergoes visualization
 summarize_analyses <- function(analyses) {
-  list(data.frame(packages = analyses %>% pull(package) %>% unique %>% length,
-                  vignette = analyses %>% pull(vignette) %>% unique %>% length,
-                  functions = analyses %>% pull(functions) %>% sum,
-                  calls = analyses %>% pull(calls) %>% sum,
-                  promises = analyses %>% pull(promises) %>% sum,
-                  promise_forces = analyses %>% pull(promise_forces) %>% sum,
-                  promise_lookups = analyses %>% pull(promise_lookups) %>% sum))
+  list(data.frame(packages = analyses$general %>% pull(package) %>% unique %>% length,
+                  vignette = analyses$general %>% pull(vignette) %>% unique %>% length,
+                  functions = analyses$general %>% pull(functions) %>% sum,
+                  calls = analyses$general %>% pull(calls) %>% sum,
+                  promises = analyses$general %>% pull(promises) %>% sum,
+                  promise_forces = analyses$general %>% pull(promise_forces) %>% sum,
+                  promise_lookups = analyses$general %>% pull(promise_lookups) %>% sum))
 }
 
 #return a list of ggplot2 objects
