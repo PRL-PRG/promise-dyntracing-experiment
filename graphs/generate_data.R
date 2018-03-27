@@ -15,6 +15,7 @@ store <- function(name, output_path) function(table) function(...) {
   path <- file.path(output_path, paste(table, "csv", sep="."))
   write(paste("writing", path), stderr())
   suppressWarnings(log_line_to_csv(path, name=name, ...))
+  write(paste("done writing", path), stderr())
 }
 
 load <- function(input_path) function (csv_file) {
