@@ -79,6 +79,12 @@ analyze-interference:
 	mkdir -p $(OUTPUT_DIR)/interference/graph
 	analysis/interference.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/interference/table $(OUTPUT_DIR)/interference/graph
 
+analyze-general-info:
+	mkdir -p $(OUTPUT_DIR)/general-info/table
+	mkdir -p $(OUTPUT_DIR)/general-info/graph
+	analysis/general-info.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/general-info/table $(OUTPUT_DIR)/general-info/graph
+
+
 analyze: analyze-environment analyze-argument-promise-mode analyze-position-evaluation-mode analyze-side-effects analyze-promise-memory-usage analyze-promise-lifespan analyze-function-force
 
 analysis-book:
