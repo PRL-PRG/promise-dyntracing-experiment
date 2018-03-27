@@ -29,7 +29,7 @@ humanize_full_promise_type = function(full_type) {
     sapply(., as.numeric) %>% 
     sapply(., function(type) humanize_promise_type(type)) %>% 
     #lapply(., function(vec) paste(vec, collapse = "→"))
-    paste(vec, collapse = "→")
+    paste(., collapse = "→")
 }
 
 make_labels = function(x) ifelse(is.na(x), "NA", x)
