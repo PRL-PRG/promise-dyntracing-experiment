@@ -152,7 +152,7 @@ make_graphs_by_range <- function(data, range_column, max_columns=10, graphing_fu
 ``` {r, "basic info", include=FALSE}
 aggregated_functions <- load_local_csv("aggregated_functions.csv") #
 
-aggregated_functions %>% filter(!is.na(ERR1) || !is.na(ERR2)) %>% print
+#aggregated_functions %>% filter(!is.na(ERR1) || !is.na(ERR2)) %>% print
 
 basic_info <- 
   load_local_csv("basic_info.csv") %>%
