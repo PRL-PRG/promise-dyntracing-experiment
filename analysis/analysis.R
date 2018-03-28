@@ -47,7 +47,7 @@ create_table <- function(input_dir) {
   Reduce(bind_rows, lapply(find_files(input_dir, "sqlite"), analyze_database))
 }
 
-export_as_images <- function(visualizations, graph_dir, extension = "png") {
+export_as_images <- function(visualizations, graph_dir, extension = "pdf") {
   visualizations %>%
     iwalk(
       function(graph, graphname) {
