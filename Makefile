@@ -84,6 +84,11 @@ analyze-general-info:
 	mkdir -p $(OUTPUT_DIR)/general-info/graph
 	analysis/general-info.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/general-info/table $(OUTPUT_DIR)/general-info/graph
 
+analyze-jumps:
+	mkdir -p $(OUTPUT_DIR)/jumps/table
+	mkdir -p $(OUTPUT_DIR)/jumps/graph
+	analysis/jumps.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/jumps/table $(OUTPUT_DIR)/jumps/graph
+
 
 analyze: analyze-environment analyze-argument-promise-mode analyze-position-evaluation-mode analyze-side-effects analyze-promise-memory-usage analyze-promise-lifespan analyze-function-force
 
