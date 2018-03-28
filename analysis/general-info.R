@@ -19,6 +19,10 @@ analyze_database <- function(database_file_path) {
   calls <- db %>% tbl("calls") 
   functions <- db %>% tbl("functions") 
   
+  promise_evaluations <- 
+    left_join(data.frame(event_type=c(0,15)), promise_evaluations, by='event_type', copy=TRUE) %>% 
+    mutate(n=ifelse(is.na(n), 0, n))
+  
   list(general=data.frame(db=database_file_path, 
                           package = components[1],
                           vignette = components[2],
@@ -44,7 +48,7 @@ combine_analyses <- function(acc, element) {
 # analyses is the list form combine analyses
 # returns the summarized data that undergoes visualization
 summarize_analyses <- function(analyses) {
-  list(data.frame(packages = analyses$general %>% pull(package) %>% unique %>% length,
+  list(general=data.frame(packages = analyses$general %>% pull(package) %>% unique %>% length,
                   vignette = analyses$general %>% pull(vignette) %>% unique %>% length,
                   functions = analyses$general %>% pull(functions) %>% sum,
                   calls = analyses$general %>% pull(calls) %>% sum,
