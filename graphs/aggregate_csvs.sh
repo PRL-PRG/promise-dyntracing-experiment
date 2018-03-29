@@ -1,4 +1,5 @@
 #!/bin/bash
+LOG=csv-health.log
 
 if (( $# < 2 ))
 then
@@ -34,10 +35,12 @@ function everything_ok {
     $all_files_exist && return 0 || return 1
 }
 
+echo -n > $LOG
 for dir in "$@"
 do
     if (( `ls "$dir" | grep '.csv$' | wc -l` == 0 ))
     then
+        echo $dir BAD >> $LOG
         continue 
     fi
 
@@ -68,7 +71,13 @@ do
     check "$dir/promises_forcing_other_promises.csv"
     check "$dir/return_types.csv"
     check "$dir/specific_calls.csv"
-    everything_ok || continue
+    if everything_ok 
+    then    
+	echo $dir GOOD >> $LOG 
+    else 
+        echo $dir BAD >> $LOG
+	continue
+    fi
 
     for file in "$dir"/*.csv
     do

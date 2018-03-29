@@ -26,14 +26,23 @@ actual_distances <- load_csv("actual_distances")
 call_types <- load_csv("call_types")
 function_types <- load_csv("function_types")
 compiled_calls <- load_csv("compiled_calls")
+print("x")
 compiled_functions <- load_csv("compiled_functions") # FIXME will not work on non-distinct data
+print("y")
 evaluation_order <- load_csv("evaluation_order")
+print("z")
 call_strictness <- load_csv("call_strictness")
+print("1")
 function_strictness <- load_csv("function_strictness")
+print("2")
 call_strictness_by_type <- load_csv("call_strictness_by_type")
+print("3")
 function_strictness_by_type <- load_csv("function_strictness_by_type")
+print("4")
 call_strictness_ratio <- load_csv("call_strictness_ratio")
+print("5")
 function_strictness_rate <- load_csv("function_strictness_rate")
+print("6")
 
 ##############################
 

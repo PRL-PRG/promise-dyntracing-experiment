@@ -15,4 +15,4 @@ end=`date +%s`
 DATA_DIR="$DATA_DIR/`ls $DATA_DIR -t | grep ....-..-..-..-..-..$ | head -1`"
 LOG_FILE="$DATA_DIR/processing.log"
 
-echo "Done tracing in" $((($end - $start)/1000/60/60)) "hours" | tee $LOG_FILE
+echo "Done tracing in" $((($end - $start)/60/60)) "hours" | tee $LOG_FILE
