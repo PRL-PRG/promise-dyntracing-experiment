@@ -1,6 +1,6 @@
 source("graphs/generate_data.R")
 
-main <- function(package, database_path, output_path, debug = TRUE) {
+main <- function(analysis, package, database_path, output_path, debug = TRUE) {
   # The database
   db <- src_sqlite(database_path)
   store <- store(name=package, output_path=output_path)
@@ -23,73 +23,140 @@ main <- function(package, database_path, output_path, debug = TRUE) {
   promise.lookups <- promise_evaluations %>% filter(promise_id >= 0 && event_type == 0)
   alien.promise.forces <- promise_evaluations %>% filter(promise_id < 0 && event_type == 15)
   
-  # Overview stats
-  n.functions <- (functions %>% count %>% data.frame)$n
-  n.calls <- (calls %>% count %>% data.frame)$n
-  n.promises <- (promises %>% count %>% data.frame)$n
-  n.alien.promises <- (promise_evaluations %>% filter(promise_id < 0) %>% 
-                         group_by(promise_id) %>% count %>% data.frame)$promise_id %>% length
-  n.promise.forces <- (promise.forces %>% count %>% data.frame)$n
-  n.promise.lookups <- (promise.lookups %>% count %>% data.frame)$n 
-  n.alien.promise.forces <- (alien.promise.forces %>% count %>% data.frame)$n
-  n.alien.promise.lookups <- NA # I currently don't collect this information to save space
-  
-  # Write overview stats to file
-  store("basic_info")(
-    path = database_path,
-    n.functions = n.functions,
-    n.calls = n.calls,
-    n.promises = n.promises,
-    n.promise.forces = n.promise.forces,
-    n.promise.lookups = n.promise.lookups,
-    n.alien.promises = n.alien.promises,
-    n.alien.promise.forces = n.alien.promise.forces,
-    n.alien.promise.lookups = n.alien.promise.lookups
-  )
+  if(analysis == "overview") {
+    # Overview stats
+    n.functions <- (functions %>% count %>% data.frame)$n
+    n.calls <- (calls %>% count %>% data.frame)$n
+    n.promises <- (promises %>% count %>% data.frame)$n
+    n.alien.promises <- (promise_evaluations %>% filter(promise_id < 0) %>% 
+                           group_by(promise_id) %>% count %>% data.frame)$promise_id %>% length
+    n.promise.forces <- (promise.forces %>% count %>% data.frame)$n
+    n.promise.lookups <- (promise.lookups %>% count %>% data.frame)$n 
+    n.alien.promise.forces <- (alien.promise.forces %>% count %>% data.frame)$n
+    n.alien.promise.lookups <- NA # I currently don't collect this information to save space
+    
+    # Write overview stats to file
+    store("basic_info")(
+      path = database_path,
+      n.functions = n.functions,
+      n.calls = n.calls,
+      n.promises = n.promises,
+      n.promise.forces = n.promise.forces,
+      n.promise.lookups = n.promise.lookups,
+      n.alien.promises = n.alien.promises,
+      n.alien.promise.forces = n.alien.promise.forces,
+      n.alien.promise.lookups = n.alien.promise.lookups
+    )
+    return()
+  }
   
   # Write metadata to file
-  store("metadata")(metadata %>% distinct %>% as.data.frame)
+  if (analysis == "metadata") {
+    store("metadata")(metadata %>% distinct %>% as.data.frame)
+    return()
+  }
   
   # Promise evaluation
-  store("forces")(get_forces(promises, promise.forces, n.promises))
-  store("fuzzy_forces")(get_fuzzy_forces(promises, promise_evaluations, n.promises))
-  store("promise_evaluations")(get_promise_evaluations(promises, promise_evaluations, n.promises, cutoff=10))
-  store("promises_forced_by_another_promise")(get_promises_forced_by_another_evaluations(promises, promise.forces, n.promises))
-  store("promises_forcing_other_promises")(get_cascading_promises(promises, promise.forces))
+  if (analysis == "forces") {
+    store("forces")(get_forces(promises, promise.forces, n.promises))
+    return()
+  }
+  if (analysis == "fuzzy_forces") {
+    store("fuzzy_forces")(get_fuzzy_forces(promises, promise_evaluations, n.promises))
+    return()
+  }
+  if (analysis == "promise_evaluations") {
+    store("promise_evaluations")(get_promise_evaluations(promises, promise_evaluations, n.promises, cutoff=10))
+    return()
+  }
+  if (analysis == "promises_forced_by_another_promise") {
+    store("promises_forced_by_another_promise")(get_promises_forced_by_another_evaluations(promises, promise.forces, n.promises))
+    return()
+  }
+  if (analysis == "promises_forcing_other_promises") {
+    store("promises_forcing_other_promises")(get_cascading_promises(promises, promise.forces))
+    return()
+  }
   
   # Promise types
-  store("promise_types")(get_promise_types(promises, n.promises, cutoff=NA))
-  store("promise_full_types")(get_full_promise_types(promises, n.promises, cutoff=NA))
-  store("return_types")(get_promise_return_types(promises, promise_returns, n.promises, cutoff=NA))
+  if (analysis == "promise_types") {
+    store("promise_types")(get_promise_types(promises, n.promises, cutoff=NA))
+    return()
+  }
+  if (analysis == "promise_full_types") {
+    store("promise_full_types")(get_full_promise_types(promises, n.promises, cutoff=NA))
+    return()
+  }
+  if (analysis == "return_types") {
+    store("return_types")(get_promise_return_types(promises, promise_returns, n.promises, cutoff=NA))
+    return()
+  }
   
-  store("promise_code_to_return_types")(get_promise_types_to_return_types(promises, promise_returns, n.promises, cutoff=NA))
-  store("forces_by_type")(get_forces_by_type(promises, promise.forces, n.promises, n.promise.forces))
+  if (analysis == "") {
+    store("promise_code_to_return_types")(get_promise_types_to_return_types(promises, promise_returns, n.promises, cutoff=NA))
+    return()
+  }
+  if (analysis == "forces_by_type") {
+    store("forces_by_type")(get_forces_by_type(promises, promise.forces, n.promises, n.promise.forces))
+    return()
+  }
   
   # Evaluation distances
-  store("actual_distances")(get_actual_distances(promises, promise.forces, n.promise.forces, cutoff=20))
+  if (analysis == "actual_distances") {
+    store("actual_distances")(get_actual_distances(promises, promise.forces, n.promise.forces, cutoff=20))
+    return()
+  }
   
   # Functions and calls
-  store("call_types")(get_calls_by_type(calls, functions, n.calls))
-  store("compiled_calls")(get_call_compilations_by_type(calls, functions, n.calls, "closure"))
+  if (analysis == "call_types") {
+    store("call_types")(get_calls_by_type(calls, functions, n.calls))
+    return()
+  }
+  if (analysis == "compiled_calls") {
+    store("compiled_calls")(get_call_compilations_by_type(calls, functions, n.calls, "closure"))
+    return()
+  }
   
-  store("function_types")(get_functions_by_type(functions, n.functions))
+  if (analysis == "function_types") {
+    store("function_types")(get_functions_by_type(functions, n.functions))
+    return()
+  }
 
-  unaggregated_compiled_functions <- get_function_compilations_by_type_actual(calls, functions, n.functions, "closure", dont_aggregate_over_function_ids=TRUE)
-  store("unaggregated_compiled_functions")(unaggregated_compiled_functions)
-  store("compiled_functions")(get_function_compilations_by_type_aggregate_over_functions(unaggregated_compiled_functions, functions, n.functions, "closure"))
-  
+  if (analysis == "compiled_functions") {
+    unaggregated_compiled_functions <- get_function_compilations_by_type_actual(calls, functions, n.functions, "closure", dont_aggregate_over_function_ids=TRUE)
+    store("unaggregated_compiled_functions")(unaggregated_compiled_functions)
+    store("compiled_functions")(get_function_compilations_by_type_aggregate_over_functions(unaggregated_compiled_functions, functions, n.functions, "closure"))
+    return()
+  }
+
   # Strictness
-  store("call_strictness")(get_call_strictness(calls, promise_associations, promise.forces, n.calls))
-  store("call_strictness_rate")(get_call_strictness_rate(functions, calls, promise_associations, promise.forces, n.calls))
-  store("call_strictness_ratio")(get_call_strictness_ratios(functions, calls, promise_associations, promise.forces, n.calls))
-  store("call_strictness_by_type")(get_call_strictness_by_type(calls, functions, promise_associations, promise.forces, n.calls))
+  if (analysis == "call_strictness") {
+    store("call_strictness")(get_call_strictness(calls, promise_associations, promise.forces, n.calls))
+    return()
+  }
+  if (analysis == "call_strictness_rate") {
+    store("call_strictness_rate")(get_call_strictness_rate(functions, calls, promise_associations, promise.forces, n.calls))
+    return()
+  }
+  if (analysis == "call_strictness_ratio") {
+    store("call_strictness_ratio")(get_call_strictness_ratios(functions, calls, promise_associations, promise.forces, n.calls))
+    return()
+  }
+  if (analysis == "call_strictness_by_type") {
+    store("call_strictness_by_type")(get_call_strictness_by_type(calls, functions, promise_associations, promise.forces, n.calls))
+    return()
+  }
   
+  if (analysis == "function_strictness") {
   unaggregated_function_strictness <- get_function_strictness(calls, functions, promise_associations, promise.forces, n.functions, dont_aggregate_over_function_ids=TRUE)
   store("unaggregated_function_strictness")(unaggregated_function_strictness)
   store("function_strictness")(get_function_strictness_aggregate_over_functions(unaggregated_function_strictness, n.functions))
   store("function_strictness_rate")(get_function_strictness_rate(unaggregated_function_strictness, n.functions))
   store("function_strictness_by_type")(get_function_strictness_by_type(unaggregated_function_strictness, n.functions))
+  return()
+  }
   
+  if (analysis == "evaluation_order") {
   unaggregated_evaluation_order <- 
     get_call_promise_evaluation_order(calls, promise_associations, promises, arguments, promise_evaluations) %>%
     get_function_promise_evaluation_signatures(functions=functions, calls=calls)
@@ -99,13 +166,18 @@ main <- function(package, database_path, output_path, debug = TRUE) {
     get_function_promise_evaluation_order_summary(functions, unaggregated_evaluation_order) %>%
     get_function_promise_force_order_histogram(n.functions=n.functions, n.calls=n.calls, cutoff=10)
   )
+  return()
+  }
   
   # Specific calls
+  if (analysis == "specific_calls") {
   store("specific_calls")(
     get_function_calls(functions, calls, n.calls, 
                        "^<anonymous>$", "eval", "force", "delayAssign", 
                        "return", "<-", "assign", "print") %>% 
       select(function_name, number, percent))
+    return()
+  }
 }
 
 args <-commandArgs(trailingOnly=TRUE)
@@ -119,14 +191,16 @@ if (length(args) > 2 || length(args) == 0) {
 if (length(args) == 1) { write(args[1],stderr())
   args <- strsplit(args[1], split=":", fixed=TRUE)[[1]]}
 
-database <- args[1]
-csv_dir <- args[2]
-write(paste0("Extracting CSVs from ", database, "\n",
-             "                  to ", csv_dir), stderr())
+analysis <- args[1]
+database <- args[2]
+csv_dir <- args[3]
+write(paste0("Extracting CSVs for ", analysis, "\n",
+             "               from ", database, "\n",
+             "                 to ", csv_dir), stderr())
 
 if(!dir.exists(csv_dir)) 
   suppressWarnings(dir.create(csv_dir, recursive=TRUE))
 
 name <- gsub("\\..*$", "", basename(database))
 
-main(name, database, csv_dir, debug=TRUE)
+main(analysis, name, database, csv_dir, debug=TRUE)
