@@ -23,18 +23,18 @@ main <- function(analysis, package, database_path, output_path, debug = TRUE) {
   promise.lookups <- promise_evaluations %>% filter(promise_id >= 0 && event_type == 0)
   alien.promise.forces <- promise_evaluations %>% filter(promise_id < 0 && event_type == 15)
   
-  if(analysis == "overview") {
-    # Overview stats
-    n.functions <- (functions %>% count %>% data.frame)$n
-    n.calls <- (calls %>% count %>% data.frame)$n
-    n.promises <- (promises %>% count %>% data.frame)$n
-    n.alien.promises <- (promise_evaluations %>% filter(promise_id < 0) %>% 
+  # Overview stats
+  n.functions <- (functions %>% count %>% data.frame)$n
+  n.calls <- (calls %>% count %>% data.frame)$n
+  n.promises <- (promises %>% count %>% data.frame)$n
+  n.alien.promises <- (promise_evaluations %>% filter(promise_id < 0) %>% 
                            group_by(promise_id) %>% count %>% data.frame)$promise_id %>% length
-    n.promise.forces <- (promise.forces %>% count %>% data.frame)$n
-    n.promise.lookups <- (promise.lookups %>% count %>% data.frame)$n 
-    n.alien.promise.forces <- (alien.promise.forces %>% count %>% data.frame)$n
-    n.alien.promise.lookups <- NA # I currently don't collect this information to save space
-    
+  n.promise.forces <- (promise.forces %>% count %>% data.frame)$n
+  n.promise.lookups <- (promise.lookups %>% count %>% data.frame)$n 
+  n.alien.promise.forces <- (alien.promise.forces %>% count %>% data.frame)$n
+  n.alien.promise.lookups <- NA # I currently don't collect this information to save space
+  
+  if(analysis == "overview") {  
     # Write overview stats to file
     store("basic_info")(
       path = database_path,
