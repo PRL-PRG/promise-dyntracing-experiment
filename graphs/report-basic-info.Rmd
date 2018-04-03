@@ -1,0 +1,99 @@
+``` {r, "basic info", include=FALSE}
+aggregated_functions <- load_local_csv("aggregated_functions.csv") #
+
+#aggregated_functions %>% filter(!is.na(ERR1) || !is.na(ERR2)) %>% print
+
+basic_info <- 
+  load_local_csv("basic_info.csv") %>%
+  group_by(name) %>%
+  summarise(
+    datasets=paste(name, collapse=", "),
+    n.datasets=n(),
+    n.functions=sum(n.functions),
+    n.calls=sum(n.calls),
+    n.promises=sum(n.promises),
+    n.promise.forces=sum(n.promise.forces),
+    n.promise.lookups=sum(n.promise.lookups), 
+    n.alien.promises=sum(n.alien.promises),
+    n.alien.promise.forces=sum(n.alien.promise.forces)
+  )
+
+top5_basic_info <- 
+  basic_info %>% 
+  arrange(desc(n.calls, n.promises, n.promise.accesses, n.functions))%>% head(5)
+
+aggregate_basic_info <- 
+  basic_info %>% summarise(
+    name="*",
+    datasets=paste(name, collapse=", "),
+    n.datasets=n(),
+    n.functions=(aggregated_functions %>% count %>% pull(n)),
+    n.calls=sum(n.calls),
+    n.promises=sum(n.promises),
+    n.promise.forces=sum(n.promise.forces),
+    n.promise.lookups=sum(n.promise.lookups), 
+    n.alien.promises=sum(n.alien.promises),
+    n.alien.promise.forces=sum(n.alien.promise.forces)
+  )
+
+missing_basic_info <- 
+  basic_info %>% summarise(
+    name="...",
+    datasets="...",
+    n.datasets="...",
+    n.functions="...",
+    n.calls="...",
+    n.promises="...",
+    n.promise.forces="...",
+    n.promise.lookups="...", 
+    n.alien.promises="...",
+    n.alien.promise.forces="..."
+  )
+
+ n.packages <- basic_info %>% count %>% pull(n)
+ 
+ # some graphical stuff
+ package_figure_width <- 10
+ package_figure_columns <- min(7, ceiling(sqrt(n.packages)))
+ package_figure_rows <- ceiling(n.packages/package_figure_columns)
+ package_figure_height <- ceiling(10/7 * package_figure_rows)
+```
+
+# Dataset
+
+```{r, "dataset", echo=FALSE, comment="", row.names=FALSE}
+basic_info %>% select(name) %>% distinct %>% pull(name) %>% as.character %>% print(row.names=FALSE)
+```
+
+<!--r path -->
+# Overview
+
+``` {r, "overview", echo=FALSE, warning=FALSE}
+union(top5_basic_info, aggregate_basic_info) %>% 
+  mutate(
+    n.functions=pp_trunc(n.functions), 
+    n.calls=pp_trunc(n.calls), 
+    n.promises=pp_trunc(n.promises), 
+    n.promise.accesses=pp_trunc(n.promise.forces + n.promise.lookups),
+    n.promise.forces=pp_trunc(n.promise.forces),
+    n.promise.lookups=pp_trunc(n.promise.lookups)
+  ) %>% 
+  select(name, n.functions, n.calls, n.promises, 
+         n.promise.accesses, n.promise.forces, 
+         n.promise.lookups) %>%  
+  kable(col.names=c("package", "functions", "calls", "promises",
+                    "promise accesses", "promise forces",
+                    "promise lookups"), align="lrrrrrr")
+```
+
+<div style="font-size: 50%; padding-top: 2em">
+**promise force** means the promise is accessed and the code of the promise is executed  
+**promise lookup** mean the promise is accessed and the code of the promise is not executed
+</div>
+
+<!--div style="font-size: 50%;">
+(showing top 5)
+</div-->
+
+<!--Alien promises are promises which were created before we began tracing. We don't have all the information regarding them, so we generally ignore them, including in the data below. They also are a subject of a lot of lookups in functions `from base::*`, which we don't record to save disk space.-->
+
