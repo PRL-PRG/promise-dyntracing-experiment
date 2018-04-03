@@ -6,7 +6,7 @@ return_types <-
 
 ggplot(return_types %>%   
          group_by(type) %>% 
-         summarise(number=sum(number)) %>% 
+         summarise(number=sum(as.numeric(number))) %>% 
          mutate(percent=100*number/sum(number)), 
        aes(x=type, y=number)) + 
   geom_col() +
