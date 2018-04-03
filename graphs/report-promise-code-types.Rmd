@@ -1,0 +1,25 @@
+# Promise code types
+
+``` {r, "promise code types, aggregate", echo=FALSE, fig.width=10, fig.height=5}
+promise_types <- 
+  load_local_csv("promise_types.csv")
+
+ggplot(promise_types %>% group_by(type) %>% summarise(number=sum(as.numeric(number))) %>% mutate(percent=100*number/sum(number)), 
+       aes(x=type, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(axis.title.x=element_blank(), 
+        legend.position="none", 
+        axis.text.x=element_text(angle=90, vjust=.5)) +
+  ylab("No. of promises") + 
+  xlab("Promise type")
+```
+
+<div style="font-size: 50%">
+Promise types follow the type designations in ``Rinternals.h``.  
+<!--**α→β** indicates that type **α** variously evaluates to type **β**.
+**α** indicates that the promise contains the expression of type **α**.  
+**→α** indicates that the promise contains a promise which contains the expression of type **α**, etc.
+**BCODE →α** indicates that it's a byte-compiled expression that was originally of type **α**.  
+**SYM→α** indicates that it's a symbol that points to an expression of type **α**.  -->
+</div>
