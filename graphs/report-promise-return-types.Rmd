@@ -1,0 +1,19 @@
+# Promise return types
+
+``` {r, "promise return types, aggregate",  echo=FALSE, fig.width=10, fig.height=5}
+return_types <- 
+  load_local_csv("return_types.csv")
+
+ggplot(return_types %>%   
+         group_by(type) %>% 
+         summarise(number=sum(number)) %>% 
+         mutate(percent=100*number/sum(number)), 
+       aes(x=type, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(axis.title.x=element_blank(), 
+        legend.position="none", 
+        axis.text.x=element_text(angle=90, vjust=.5, hjust=1)) +
+  ylab("No. of promises") + 
+  xlab("Return type")
+```
