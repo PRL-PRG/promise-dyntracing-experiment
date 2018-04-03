@@ -4,7 +4,7 @@
 promise_full_types <-
   load_local_csv("promise_full_types.csv") %>%
   group_by(type) %>% 
-  summarise(number=sum(as.character(number))) %>% 
+  summarise(number=sum(as.numeric(number))) %>% 
   mutate(percent=100*number/sum(number)) %>% 
   mutate(type=as.character(type)) #%>%
   #filter(grepl("^PROM", type)) %>%
