@@ -64,8 +64,8 @@ pp_trunc <- function(x) ifelse(x==0, paste(format(x, digits=2, scientific=FALSE)
                                       ifelse(x < 1000000, 
                                              paste(format(floor((x/1000)*10)/10, digits=2, scientific=FALSE), "k", sep=""),
                                              ifelse(x < 1000000000,
-                                                    paste(format(floor((x/1000000)*10)/10, digits=2, scientific=FALSE), "mil", sep="")))),
-                                                    paste(format(floor((x/1000000000)*10)/10, digits=2, scientific=FALSE), "bil", sep="")))),
+                                                    paste(format(floor((x/1000000)*10)/10, digits=2, scientific=FALSE), "mil", sep=""),
+                                                    paste(format(floor((x/1000000000)*10)/10, digits=2, scientific=FALSE), "bil", sep="")))))
 pp_perc <- function(x) dollar_format(prefix="", suffix="%")(x)
 is_outlier <- function(x) x < quantile(x, 0.25) - 1.5 * IQR(x) | x > quantile(x, 0.75) + 1.5 * IQR(x)
 
