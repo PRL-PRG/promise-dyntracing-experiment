@@ -27,8 +27,16 @@ aggregate-csvs:
 	graphs/concat_functions.sh $(DATA_DIR)
 	if [ -e $(DATA_DIR)/csv/_all ]; then rm -r $(DATA_DIR)/csv/_all; fi
 	graphs/aggregate_csvs.sh $(DATA_DIR)/csv/_all $(DATA_DIR)/csv/*
-	graphs/generate_aggregated_data.sh $(DATA_DIR)
+	graphs/generate_aggregated_data.sh $(DATA_DIR) _all
 	#Rscript graphs/conglomerate_csvs.R $(DATA_DIR)/csv/_all
+
+partial-aggregate-csvs:
+	graphs/concat_functions.sh $(DATA_DIR)
+	if [ -e $(DATA_DIR)/csv/_all ]; then rm -r $(DATA_DIR)/csv/_all; fi
+	graphs/partial_aggregate_csvs.sh $(DATA_DIR)/csv/_partial $(DATA_DIR)/csv/*
+	graphs/generate_aggregated_data.sh $(DATA_DIR) _partial
+	#Rscript graphs/conglomerate_csvs.R $(DATA_DIR)/csv/_all
+
 
 report:
 	$(VANILLA_RSCRIPT) -e "rmarkdown::render('graphs/report-short.Rmd', params=list(CSV_DIR='$(DATA_DIR)/csv/_all', PRINT_DATA=TRUE))"
