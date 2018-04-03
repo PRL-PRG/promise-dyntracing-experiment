@@ -160,3 +160,9 @@ make_graphs_by_range <- function(data, range_column, max_columns=10, graphing_fu
 
 ```{r child = 'report-promise-code-types.Rmd', params=params}				      
 ```
+
+```{r child = 'report-type-traces.Rmd', params=params}				      
+```
+
+```{r child = 'report-promise-return-types.Rmd', params=params}				      
+```
