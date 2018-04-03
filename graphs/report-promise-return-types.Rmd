@@ -16,4 +16,6 @@ ggplot(return_types %>%
         axis.text.x=element_text(angle=90, vjust=.5, hjust=1)) +
   ylab("No. of promises") + 
   xlab("Return type")
+
+print(return_types)
 ```

@@ -6,7 +6,7 @@ forces <-
 	  group_by(classification) %>% 
 	  summarise(number=sum(as.numeric(number), na.rm=TRUE)) %>% 
 	  mutate(percent=100*number/sum(number))
-	```
+```
 
 ``` {r, "promise accesses kable", echo=FALSE}
 forces %>% prettify %>% kable(col.names=c("classification","number","percentage"), align="lrr")

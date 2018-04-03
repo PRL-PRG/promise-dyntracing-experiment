@@ -13,6 +13,8 @@ ggplot(promise_types %>% group_by(type) %>% summarise(number=sum(as.numeric(numb
         axis.text.x=element_text(angle=90, vjust=.5)) +
   ylab("No. of promises") + 
   xlab("Promise type")
+
+print(promise_types)
 ```
 
 <div style="font-size: 50%">
