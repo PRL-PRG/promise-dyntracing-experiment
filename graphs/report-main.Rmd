@@ -149,8 +149,8 @@ make_graphs_by_range <- function(data, range_column, max_columns=10, graphing_fu
 }
 ```
 
-<!--```{r child = 'report-basic-info.Rmd', params=params}				      
-```-->
+```{r child = 'report-basic-info.Rmd', params=params}				      
+```
 
 ```{r child = 'report-promise-accesses.Rmd', params=params}				      
 ```
