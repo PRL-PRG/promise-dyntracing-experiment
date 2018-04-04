@@ -32,7 +32,7 @@ aggregate-csvs:
 
 partial-aggregate-csvs:
 	graphs/concat_functions.sh $(DATA_DIR)
-	if [ -e $(DATA_DIR)/csv/_all ]; then rm -r $(DATA_DIR)/csv/_all; fi
+	if [ -e $(DATA_DIR)/csv/_partial ]; then rm -r $(DATA_DIR)/csv/_partial; fi
 	graphs/partial_aggregate_csvs.sh $(DATA_DIR)/csv/_partial $(DATA_DIR)/csv/*
 	graphs/generate_aggregated_data.sh $(DATA_DIR) _partial
 	#Rscript graphs/conglomerate_csvs.R $(DATA_DIR)/csv/_all

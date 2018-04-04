@@ -2,10 +2,10 @@
 
 ``` {r, "promise code types, aggregate", echo=FALSE, fig.width=10, fig.height=5}
 promise_types <- 
-  load_local_csv("promise_types.csv")
+  load_local_csv("promise_types.csv") %>% 
+  group_by(type) %>% summarise(number=sum(as.numeric(number))) %>% mutate(percent=100*number/sum(number))
 
-ggplot(promise_types %>% group_by(type) %>% summarise(number=sum(as.numeric(number))) %>% mutate(percent=100*number/sum(number)), 
-       aes(x=type, y=number)) + 
+ggplot(promise_types, aes(x=type, y=number)) + 
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
   theme(axis.title.x=element_blank(), 
@@ -14,7 +14,7 @@ ggplot(promise_types %>% group_by(type) %>% summarise(number=sum(as.numeric(numb
   ylab("No. of promises") + 
   xlab("Promise type")
 
-print(promise_types)
+promise_types %>% arrange(desc(number)) %>% prettify %>% kable(col.names=c("promise code type","number","percentage"), align="lrr")
 ```
 
 <div style="font-size: 50%">

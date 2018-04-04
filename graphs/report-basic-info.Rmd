@@ -1,33 +1,38 @@
 ``` {r, "basic info", include=FALSE}
-# FIXME aggregated_functions <- load_local_csv("aggregated_functions.csv") #
+library(stringr)
 
-# FIXME aggregated_functions %>% filter(!is.na(ERR1) || !is.na(ERR2)) %>% print
+aggregated_functions <- load_local_csv("aggregated_functions.csv", tibble(definition=character()))
+metadata <- load_local_csv("metadata.csv", tibble(name=character(), key=character(), value=character()))
 
 basic_info <- 
-  load_local_csv("basic_info.csv") %>%
+  load_local_csv("basic_info.csv", 
+                 tibble(name="?-?",
+                        n.functions=0, n.calls=0, n.promises=0, 
+                        n.promise.forces=0, n.promise.lookups=0, 
+                        n.alien.promises=0, n.alien.promise.forces=0)) %>%
   group_by(name) %>%
   summarise(
     datasets=paste(name, collapse=", "),
     n.datasets=n(),
-    n.functions=sum(as.character(n.functions)),
-    n.calls=sum(as.character(n.calls)),
-    n.promises=sum(as.character(n.promises)),
-    n.promise.forces=sum(as.character(n.promise.forces)),
-    n.promise.lookups=sum(as.character(n.promise.lookups)), 
-    n.alien.promises=sum(as.character(n.alien.promises)),
-    n.alien.promise.forces=sum(as.character(n.alien.promise.forces))
+    n.functions=sum(as.numeric(n.functions)),
+    n.calls=sum(as.numeric(n.calls)),
+    n.promises=sum(as.numeric(n.promises)),
+    n.promise.forces=sum(as.numeric(n.promise.forces)),
+    n.promise.lookups=sum(as.numeric(n.promise.lookups)), 
+    n.alien.promises=sum(as.numeric(n.alien.promises)),
+    n.alien.promise.forces=sum(as.numeric(n.alien.promise.forces))
   )
 
  top5_basic_info <- 
    basic_info %>% 
-   arrange(desc(n.calls, n.promises, n.promise.accesses, n.functions))%>% head(5)
+   arrange(desc(n.calls, n.promises, n.promise.accesses, n.functions)) %>% head(5)
  
  aggregate_basic_info <- 
    basic_info %>% summarise(
      name="*",
      datasets=paste(name, collapse=", "),
      n.datasets=n(),
-     n.functions=NA, # FIXME (aggregated_functions %>% count %>% pull(n)),
+     n.functions=(aggregated_functions %>% count %>% pull(n)),
      n.calls=sum(n.calls),
      n.promises=sum(n.promises),
      n.promise.forces=sum(n.promise.forces),
@@ -61,7 +66,16 @@ basic_info <-
 # Dataset
 
 ```{r, "dataset", echo=FALSE, comment="", row.names=FALSE}
-basic_info %>% select(name) %>% distinct %>% pull(name) %>% as.character %>% print(row.names=FALSE)
+#select(name) %>% distinct %>% pull(name) %>% as.character %>% print(row.names=FALSE)
+metadata %>% 
+filter(!grepl("^PROBE", key)) %>% filter(!grepl("^EXPRESSION", key)) %>% filter(!grepl("^DYNTRACE", key)) %>% 
+group_by(key, value) %>% summarize(occurances=n()) %>% kable(col.names=c("key", "value", "occurances"), align="lrr")
+
+basic_info %>%
+   mutate(package=str_split_fixed(name, "-", n=2)[,1], vignette=str_split_fixed(name, "-", n=2)[,2]) %>% 
+   group_by(package) %>% summarize(vignettes=n()) %>% 
+   ungroup() %>% summarize(packages=n(), vignettes=sum(vignettes)) %>% 
+   kable(col.names=c("packages", "vignettes"), align="lr")
 ```
 
 <!--r path -->

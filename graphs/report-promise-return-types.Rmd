@@ -2,12 +2,12 @@
 
 ``` {r, "promise return types, aggregate",  echo=FALSE, fig.width=10, fig.height=5}
 return_types <- 
-  load_local_csv("return_types.csv")
+  load_local_csv("return_types.csv", tibble(type=character(), number=numeric(), percent=numeric())) %>%   
+  group_by(type) %>% 
+  summarise(number=sum(as.numeric(number))) %>% 
+  mutate(percent=100*number/sum(number))
 
-ggplot(return_types %>%   
-         group_by(type) %>% 
-         summarise(number=sum(as.numeric(number))) %>% 
-         mutate(percent=100*number/sum(number)), 
+ggplot(return_types, 
        aes(x=type, y=number)) + 
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
@@ -17,5 +17,5 @@ ggplot(return_types %>%
   ylab("No. of promises") + 
   xlab("Return type")
 
-print(return_types)
+return_types %>% arrange(desc(number)) %>% prettify %>% kable(col.names=c("promise code type","number","percentage"), align="lrr")
 ```

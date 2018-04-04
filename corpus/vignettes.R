@@ -5,7 +5,7 @@ available <- available.packages(contriburl = "file:///data/CRAN/contrib")[,1]
 installed <- installed.packages()[,1]
 count_loc <- function(path) {
   if (file.exists(path))
-    length(readLines(path))
+    length(grepl("^[ \t\n]*#", grepl("[^ \t\n]", readLines(path)), invert=TRUE))
   else 0
 }
 

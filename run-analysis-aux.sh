@@ -1,7 +1,7 @@
 #!/bin/bash
 export R_LIBS=     #/home/kondziu/R_LIBS/
-export DATA_DIR=/mnt/ssd/data/kondziu/
-export PROCESSES=8
+export DATA_DIR=/mnt/disk/kondziu/
+export PROCESSES=2
 
 export DATA_DIR="$DATA_DIR/`ls $DATA_DIR -t | grep ....-..-..-..-..-..$ | head -1`"
 export LOG_FILE="$DATA_DIR/processing.log"
@@ -14,7 +14,7 @@ echo "Done checking package health and clean" | tee -a $LOG_FILE
 
 echo "Starting individual analyses" | tee -a $LOG_FILE
 echo -e "analyze-function-force\nanalyze-promise-lifespan\nanalyze-argument-promise-mode\nanalyze-promise-memory-usage\nanalyze-environment\nanalyze-position-evaluation-mode" | \
-xargs --max-procs $PROCESSES -I{} ./run-one-analysis.sh {}
+xargs --max-procs 8 -I{} ./run-one-analysis.sh {}
 echo "Done with individual analyses" | tee -a $LOG_FILE
 
 start=`date +%s`
