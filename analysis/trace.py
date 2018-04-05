@@ -7,18 +7,17 @@ def serialize_instruction(instruction):
 
 def parse_instruction(line):
     line = line.strip().split(" ")
-    print(line)
     opcode = line[0]
     if opcode == "prc":
         return (opcode, int(line[1]), int(line[2]))
     elif opcode == "prb":
-        return (opcode, int(line[1]))
+        return (opcode, int(line[1]), line[2])
     elif opcode in ["prf", "prv", "pre", "fnj", "prj"]:
         return (opcode, int(line[1]))
     elif opcode == "enc":
         return (opcode, int(line[1]))
     elif opcode in ["ena", "enl", "end", "enr"]:
-        return (opcode, int(line[1]), int(line[2]), line[3])
+        return (opcode, int(line[1]), int(line[2]), line[3], line[4])
     elif opcode in ["spb", "spf", "bub", "buf", "clb", "clf"]:
         return (opcode, line[1], int(line[2]), int(line[3]))
     else:
@@ -31,7 +30,7 @@ def parse_instruction(line):
 def read_trace(trace_filename):
     f = open(trace_filename, 'r')
     trace = [parse_instruction(line) for line in f.readlines()
-             if (not line.startswith('#')) and line.strip() ]
+             if (not line.startswith('#')) ]
     f.close()
     return trace
 

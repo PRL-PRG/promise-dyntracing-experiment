@@ -116,3 +116,13 @@ extract_package_name <-
   function(name) {
     str_extract(name, "^.*::")
   }
+
+pp <- function(number) format(number, big.mark=",", scientific=FALSE, trim=FALSE, digits=2)
+pp_trunc <- function(x) ifelse(x==0, paste(format(x, digits=2, scientific=FALSE)),
+                               ifelse(x < 1000, format(x, digits=2, scientific=FALSE), 
+                                      ifelse(x < 1000000, 
+                                             paste(format(floor((x/1000)*10)/10, digits=2, scientific=FALSE), "k", sep=""),
+                                             ifelse(x < 1000000000,
+                                                    paste(format(floor((x/1000000)*10)/10, digits=2, scientific=FALSE), "m", sep=""),
+                                                    paste(format(floor((x/1000000000)*10)/10, digits=2, scientific=FALSE), "b", sep="")))))
+pp_perc <- function(x) dollar_format(prefix="", suffix="%")(x)
