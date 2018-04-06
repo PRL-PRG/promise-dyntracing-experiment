@@ -1,0 +1,55 @@
+# Calls and functions by type
+
+<!--center>
+  <div class="col2">
+    <div class="together"-->
+```{r, "calls by type", echo=FALSE, fig.width=5, fig.height=4}
+    calls_types <- load_local_csv("call_types.csv", tibble(type=character(), number=numeric(), percent=numeric()))
+    
+    data <- 
+      calls_types %>% 
+      group_by(type) %>% 
+      summarise(number=sum(as.numeric(number))) %>% 
+      mutate(percent=100*number/sum(number))
+    
+    if (data %>% count %>% pull(n) > 0) {
+      ggplot(data, aes(x=type, y=number)) + 
+        geom_bar(stat="identity") +
+        ylab("No. of calls") + 
+        scale_y_continuous(labels=pp_trunc) +
+        theme(axis.title.x=element_blank())
+    }
+    
+    if (data %>% count %>% pull(n) > 0) {
+      data %>% prettify %>% kable(col.names=c("type","number","percentage"), align="lrr")
+    }
+```
+    <!--/div-->
+      
+```{r, "functions by type", echo=FALSE, fig.width=5, fig.height=4}
+    function_types <- load_local_csv("aggregated_function_types.csv", tibble(type=character(), number=numeric(), percent=numeric()))
+    
+    data <- function_types %>%
+      group_by(type) %>% 
+      summarise(number=sum(number)) %>% 
+      mutate(percent=100*number/sum(number)) 
+    
+    if (data %>% count %>% pull(n) > 0) {
+      ggplot(data, aes(x=type, y=number)) + 
+        geom_bar(stat="identity") +
+        ylab("No. of function definitions") + 
+        scale_y_continuous(labels=pp_trunc) +
+        theme(axis.title.x=element_blank())
+    }
+      
+    if (data %>% count %>% pull(n) > 0) {
+      data %>% prettify %>% kable(col.names=c("type","number","percentage"), align="lrr")
+    }
+```
+    
+      
+      
+      <div style="font-size: 50%">
+      **functions** refers to function definitions   
+    **calls** refers to function executions/calls
+    </div>
