@@ -6,180 +6,178 @@
 source("analysis/utils.R")
 source("analysis/analysis.R")
 
+purity_distribution <- function(environment_actions) {
+
+  pure <-
+    environment_actions %>%
+    filter(direct_ena == 0, transitive_ena == 0,
+           direct_end == 0, transitive_end == 0,
+           direct_enr == 0, transitive_enr == 0)
+
+  benign <-
+    pure %>%
+    filter(direct_enl == 0, transitive_enl == 0) %>%
+    select(id)
+
+  benign_count <-
+    benign %>%
+    tally() %>%
+    collect()
+
+  pure_count <-
+    pure %>%
+    tally() %>%
+    collect()
+
+  side_effecting_count <-
+    environment_actions %>%
+    filter(direct_ena > 0 | direct_end > 0 | direct_enr > 0) %>%
+    tally() %>%
+    collect()
+
+  list(
+    purity_distribution =
+      tibble(
+      "NATURE" = c("PURE", "SIDE EFFECTING"),
+      "COUNT" = c(pure_count$n, side_effecting_count$n)
+      ),
+    benign = benign)
+}
+
 analyze_database <- function(database_filepath) {
 
   db <- src_sqlite(database_filepath)
 
-  all_promises <-
-    tbl(db, "promise_evaluations") %>%
-    ##filter(promise_id >= 0) %>% TODO - check this one
-    filter(event_type == 0xF) %>%
-    select(promise_id) %>%
-    collect()
-
   promises <-
-    tbl(db, "promises") %>%
-    collect()
-
-  variable_actions <-
-    tbl(db, "variable_actions") %>%
-    filter(promise_id >= 0) %>%
-    select(promise_id, action) %>%
-    collect()
-
-  extra_promises <- setdiff(unique(all_promises[["promise_id"]]), variable_actions[["promise_id"]])
-
-  none_action_expressions <-
-    tibble("promise_id" = extra_promises) %>%
-    left_join(promises, by = c("promise_id" = "id")) %>%
-    mutate(full_type = full_type_to_final_type(full_type)) %>%
-    filter(!is_value(full_type)) %>%
-    group_by(expression) %>%
-    summarize(count = n())
-
-  extra_promises <- length(extra_promises)
-
-  if(nrow(variable_actions) == 0) return(NULL)
-
-  promise_associations <-
-    tbl(db, "promise_associations") %>%
-    filter(promise_id >= 0) %>%
-    select(promise_id, call_id)
-
-  calls <-
-    tbl(db, "calls") %>%
-    select(call_id = id, function_id)
+    tbl(db, "promises")
 
   functions <-
     tbl(db, "functions") %>%
-    select(function_id = id, definition)
-
-  promise_id_to_function_id <-
-    promise_associations %>%
-    left_join(calls, by = c("call_id" = "call_id")) %>%
-    left_join(functions, by = c("function_id" = "function_id")) %>%
-    group_by(promise_id) %>%
-    summarize(function_id = function_id, definition = definition) %>%
     collect()
 
-  variable_actions <-
-    variable_actions %>%
-    group_by(promise_id, action) %>%
-    summarize(count = n()) %>%
-    left_join(promise_id_to_function_id, by = c("promise_id" = "promise_id"))
+  aggregated_environment_actions <-
+    tbl(db, "aggregated_environment_actions") %>%
+    collect()
 
-  action_count_distribution <-
-    variable_actions %>%
-    group_by(action) %>%
-    summarize(action_count = sum(count)) %>%
-    rename(`ACTION` = action, `ACTION COUNT` = action_count) %>%
-    add_column(SCRIPT = basename(file_path_sans_ext(database_filepath)), .before = 1)
+  promise_environment_actions <-
+    tbl(db, "promise_environment_actions") %>%
+    filter(promise_id > 0) %>%
+    rename(id = promise_id)
 
-  action_promise_count_distribution <-
-    variable_actions %>%
-    group_by(action) %>%
-    summarize(promise_count = n_distinct(promise_id)) %>%
-    add_row(action = "none", promise_count = extra_promises) %>%
-    rename(`ACTION` = action, `PROMISE COUNT` = promise_count) %>%
-    add_column(SCRIPT = basename(file_path_sans_ext(database_filepath)), .before = 1)
+  call_environment_actions <-
+    tbl(db, "function_environment_actions") %>%
+    rename(id = function_id) %>%
+    collect()
 
-  purity_distribution <-
-    variable_actions %>%
-    spread(action, count) %>%
-    mutate(asn = if (exists('asn', where = .)) asn else 0) %>%
-    mutate(def = if (exists('def', where = .)) def else 0) %>%
-    mutate(rem = if (exists('rem', where = .)) rem else 0) %>%
-    replace(., is.na(.), 0) %>%
-    group_by(promise_id) %>%
-    summarize(PURITY = (asn + def + rem) == 0, function_id = function_id, definition = definition)
+  function_environment_actions <-
+    call_environment_actions %>%
+    group_by(id) %>%
+    summarize_all(sum)
 
-  function_purity_distribution <-
-    purity_distribution %>%
-    group_by(function_id) %>%
-    summarize(definition = first(definition), PURITY = all(PURITY))
+  promise_distribution_output <- purity_distribution(promise_environment_actions)
 
-  promise_purity_distribution <-
-    purity_distribution %>%
-    group_by(`PURITY`) %>%
-    summarize(`PROMISE COUNT` = n()) %>%
-    rowwise() %>%
-    mutate(`PURITY` = purityname(`PURITY`)) %>%
-    add_row(`PURITY` = "BENIGN", `PROMISE COUNT` = extra_promises) %>%
-    add_column(SCRIPT = basename(file_path_sans_ext(database_filepath)), .before = 1)
+  promise_purity_distribution <- promise_distribution_output$purity_distribution
 
-  list("none_action_expressions" = none_action_expressions,
-       "action_count_distribution" = action_count_distribution,
-       "action_promise_count_distribution" = action_promise_count_distribution,
-       "promise_purity_distribution" = promise_purity_distribution,
-       "function_purity_distribution" = function_purity_distribution)
+  benign_promises <-
+    promise_distribution_output$benign %>%
+    left_join(promises, c("id" = "id")) %>%
+    select(expression) %>%
+    collect()
+
+  call_distribution_output <- purity_distribution(call_environment_actions)
+
+  call_purity_distribution <- call_distribution_output$purity_distribution
+
+  benign_functions <-
+    call_distribution_output$benign %>%
+    left_join(functions, c("id" = "id")) %>%
+    select(definition) %>%
+    collect()
+
+  list("promise_purity_distribution" = promise_purity_distribution,
+       "call_purity_distribution" = call_purity_distribution,
+       "function_environment_actions" = function_environment_actions,
+       "aggregated_environment_actions" = aggregated_environment_actions,
+       "benign_promises" = benign_promises,
+       "benign_functions" = benign_functions)
+}
+
+combine_analyses <- function(acc, element) {
+  for(name in names(acc)) {
+    if(name == "function_environment_actions") {
+      acc[[name]] <-
+        acc[[name]] %>%
+        bind_rows(element[[name]]) %>%
+        group_by(id) %>%
+        summarize_all(sum)
+    }
+    else {
+      acc[[name]] = bind_rows(acc[[name]], element[[name]])
+    }
+  }
+  acc
 }
 
 summarize_analyses <- function(analyses) {
 
-  action_count_distribution_total <-
-    analyses$action_count_distribution %>%
-    group_by(ACTION) %>%
-    summarize(`ACTION COUNT` = sum(`ACTION COUNT`))
-
-  action_promise_count_distribution_total <-
-    analyses$action_promise_count_distribution %>%
-    group_by(ACTION) %>%
-    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`))
-
-  promise_purity_distribution_total <-
+  promise_purity_distribution <-
     analyses$promise_purity_distribution %>%
-    group_by(`PURITY`) %>%
-    summarize(`PROMISE COUNT` = sum(`PROMISE COUNT`))
+    group_by(`NATURE`) %>%
+    summarize(`COUNT` = sum(`COUNT`))
 
-  function_purity_distribution_total <-
-    analyses$function_purity_distribution %>%
-    group_by(function_id) %>%
-    summarize(definition = first(definition), PURITY = purityname(all(PURITY))) %>%
-    group_by(`PURITY`) %>%
-    summarize(`FUNCTION COUNT` = n_distinct(function_id))
-
-  none_action_expression_summary <-
-    analyses$none_action_expressions %>%
+  benign_promises <-
+    analyses$benign_promises %>%
     group_by(expression) %>%
-    summarize(count = sum(count))
+    summarize(count = n())
 
-  append(analyses,
-         list("action_count_distribution_total" = action_count_distribution_total,
-              "action_promise_count_distribution_total" = action_promise_count_distribution_total,
-              "promise_purity_distribution_total" = promise_purity_distribution_total,
-              "function_purity_distribution_total" = function_purity_distribution_total,
-              "none_action_expression_summary" = none_action_expression_summary))
+  call_purity_distribution <-
+    analyses$call_purity_distribution %>%
+    group_by(`NATURE`) %>%
+    summarize(`COUNT` = sum(`COUNT`))
+
+  benign_functions <-
+    analyses$benign_functions %>%
+    group_by(definition) %>%
+    summarize(count = n())
+
+  aggregated_environment_actions <-
+    analyses$aggregated_environment_actions %>%
+    group_by(context) %>%
+    summarize_all(sum) %>%
+    rename(`CONTEXT` = `context`)%>%
+    gather(`ENVIRONMENT ACTION`, `COUNT`, -`CONTEXT`)
+
+  list("promise_purity_distribution" = promise_purity_distribution,
+       "call_purity_distribution" = call_purity_distribution,
+       "aggregated_environment_actions" = aggregated_environment_actions,
+       "benign_promises" = benign_promises,
+       "benign_functions" = benign_functions)
 }
 
 visualize_analyses <- function(analyses) {
-  action_count_distribution <-
-    analyses$action_count_distribution_total %>%
-    ggplot(aes(`ACTION`, weight=`ACTION COUNT`)) +
-    geom_bar() +
-    labs(title = "Action count", y = "ACTION COUNT")
-
-  action_promise_count_distribution <-
-    analyses$action_promise_count_distribution_total %>%
-    ggplot(aes(`ACTION`, weight=`PROMISE COUNT`)) +
-    geom_bar() +
-    labs(title = "Promise count by action", y = "PROMISE COUNT")
 
   promise_purity_distribution <-
-    analyses$promise_purity_distribution_total %>%
-    ggplot(aes(`PURITY`, weight=`PROMISE COUNT`)) +
+    analyses$promise_purity_distribution %>%
+    ggplot(aes(`NATURE`, weight=`COUNT`)) +
     geom_bar() +
-    labs(title = "Promise count by purity", y = "PROMISE COUNT")
+    labs(title = "Promise count by purity", y = "COUNT")
 
-  function_purity_distribution <-
-    analyses$function_purity_distribution_total %>%
-    ggplot(aes(`PURITY`, weight=`FUNCTION COUNT`)) +
+  call_purity_distribution <-
+    analyses$call_purity_distribution %>%
+    ggplot(aes(`NATURE`, weight=`COUNT`)) +
     geom_bar() +
-    labs(title = "Function count by purity", y = "FUNCTION COUNT")
+    labs(title = "Call count by purity", y = "COUNT")
 
-  list("action_count_distribution" = action_count_distribution,
-       "action_promise_count_distribution" = action_promise_count_distribution,
-       "promise_purity_distribution" = promise_purity_distribution,
-       "function_purity_distribution" = function_purity_distribution)
+  aggregated_environment_actions <-
+    analyses$aggregated_environment_actions %>%
+    ggplot(aes(`ENVIRONMENT ACTION`, weight=`COUNT`, fill=`CONTEXT`)) +
+    geom_bar() +
+    labs(title = "Environment Action distribution by context")
+
+  list("promise_purity_distribution" = promise_purity_distribution,
+       "call_purity_distribution" = call_purity_distribution,
+       "aggregated_environment_actions" = aggregated_environment_actions)
+
 }
 
 main <- function() {
