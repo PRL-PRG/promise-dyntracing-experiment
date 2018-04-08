@@ -82,13 +82,6 @@ analyze_database <- function(database_filepath) {
        "sometimes_never_calls" = sometimes_never_calls)
 }
 
-combine_analyses <- function(acc, element) {
-  for(name in names(acc)) {
-    acc[[name]] = bind_rows(acc[[name]], element[[name]])
-  }
-  acc
-}
-
 summarize_analyses <- function(analyses) {
 
   function_definitions <-

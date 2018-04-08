@@ -85,13 +85,6 @@ analyze_database <- function(database_filepath) {
        "function_definitions" = function_definitions)
 }
 
-combine_analyses <- function(acc, element) {
-  for(name in names(acc)) {
-    acc[[name]] = bind_rows(acc[[name]], element[[name]])
-  }
-  acc
-}
-
 summarize_analyses <- function(analyses) {
 
   function_definitions <-

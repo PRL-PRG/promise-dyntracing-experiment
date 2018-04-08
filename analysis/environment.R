@@ -46,13 +46,6 @@ analyze_database <- function(database_filepath) {
   list("environment_function_usage" = environment_function_usage)
 }
 
-combine_analyses <- function(acc, element) {
-  for(name in names(acc)) {
-    acc[[name]] = bind_rows(acc[[name]], element[[name]])
-  }
-  acc
-}
-
 summarize_analyses <- function(analyses) {
 
   environment_function_usage <- analyses[["environment_function_usage"]]

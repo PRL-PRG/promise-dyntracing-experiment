@@ -116,16 +116,6 @@ analyze_database <- function(database_filepath) {
        call_counts = call_counts_table)
 }
 
-combine_analyses <- function(tables_acc, tables) {
-  list(lifespan = bind_rows(tables_acc$lifespan, tables$lifespan),
-       required_lifespan = bind_rows(tables_acc$required_lifespan,
-                                     tables$required_lifespan),
-       extra_lifespan = bind_rows(tables_acc$extra_lifespan,
-                                  tables$extra_lifespan),
-       counts = bind_rows(tables_acc$counts, tables$counts),
-       call_counts = bind_rows(tables_acc$call_counts, tables$call_counts))
-}
-
 summarize_analyses <- function(analyses) {
   analyses$lifespan_summary <-
     analyses$lifespan %>%

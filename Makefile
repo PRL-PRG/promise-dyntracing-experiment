@@ -47,37 +47,50 @@ report:
 analyze-argument-promise-mode:
 	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/table
 	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/graph
-	analysis/argument-promise-mode.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/argument-promise-mode/table $(OUTPUT_DIR)/argument-promise-mode/graph
+	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/partial
+	analysis/argument-promise-mode.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/argument-promise-mode/table $(OUTPUT_DIR)/argument-promise-mode/graph $(OUTPUT_DIR)/argument-promise-mode/partial
 
 analyze-environment:
 	mkdir -p $(OUTPUT_DIR)/environment/table
 	mkdir -p $(OUTPUT_DIR)/environment/graph
-	analysis/environment.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/environment/table $(OUTPUT_DIR)/environment/graph
+	mkdir -p $(OUTPUT_DIR)/environment/partial
+	analysis/environment.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/environment/table $(OUTPUT_DIR)/environment/graph $(OUTPUT_DIR)/environment/partial
 
 analyze-position-evaluation-mode:
 	mkdir -p $(OUTPUT_DIR)/position-evaluation-mode/table
 	mkdir -p $(OUTPUT_DIR)/position-evaluation-mode/graph
-	analysis/position-evaluation-mode.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/position-evaluation-mode/table $(OUTPUT_DIR)/position-evaluation-mode/graph
+	mkdir -p $(OUTPUT_DIR)/position-evaluation-mode/partial
+	analysis/position-evaluation-mode.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/position-evaluation-mode/table $(OUTPUT_DIR)/position-evaluation-mode/graph $(OUTPUT_DIR)/position-evaluation-mode/partial
 
 analyze-side-effects:
 	mkdir -p $(OUTPUT_DIR)/side-effects/table
 	mkdir -p $(OUTPUT_DIR)/side-effects/graph
-	analysis/side-effects.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/side-effects/table $(OUTPUT_DIR)/side-effects/graph
+	mkdir -p $(OUTPUT_DIR)/side-effects/partial
+	analysis/side-effects.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/side-effects/table $(OUTPUT_DIR)/side-effects/graph mkdir -p $(OUTPUT_DIR)/side-effects/partial
+
+analyze-fast-side-effects:
+	mkdir -p $(OUTPUT_DIR)/fast-side-effects/table
+	mkdir -p $(OUTPUT_DIR)/fast-side-effects/graph
+	mkdir -p $(OUTPUT_DIR)/fast-side-effects/partial
+	analysis/fast-side-effects.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/fast-side-effects/table $(OUTPUT_DIR)/fast-side-effects/graph $(OUTPUT_DIR)/fast-side-effects/partial
 
 analyze-promise-memory-usage:
 	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/table
 	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/graph
-	analysis/promise-memory-usage.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-memory-usage/table $(OUTPUT_DIR)/promise-memory-usage/graph
+	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/partial
+	analysis/promise-memory-usage.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-memory-usage/table $(OUTPUT_DIR)/promise-memory-usage/graph $(OUTPUT_DIR)/promise-memory-usage/partial
 
 analyze-promise-lifespan:
 	mkdir -p $(OUTPUT_DIR)/promise-lifespan/table
 	mkdir -p $(OUTPUT_DIR)/promise-lifespan/graph
-	analysis/promise-lifespan.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-lifespan/table $(OUTPUT_DIR)/promise-lifespan/graph
+	mkdir -p $(OUTPUT_DIR)/promise-lifespan/partial
+	analysis/promise-lifespan.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-lifespan/table $(OUTPUT_DIR)/promise-lifespan/graph $(OUTPUT_DIR)/promise-lifespan/partial
 
 analyze-function-force:
 	mkdir -p $(OUTPUT_DIR)/function-force/table
 	mkdir -p $(OUTPUT_DIR)/function-force/graph
-	analysis/function-force.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/function-force/table $(OUTPUT_DIR)/function-force/graph
+	mkdir -p $(OUTPUT_DIR)/function-force/partial
+	analysis/function-force.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/function-force/table $(OUTPUT_DIR)/function-force/graph $(OUTPUT_DIR)/function-force/partial
 
 compute-interference:
 	mkdir -p $(OUTPUT_DIR)/interference/table
@@ -92,7 +105,8 @@ analyze-interference:
 analyze-general-info:
 	mkdir -p $(OUTPUT_DIR)/general-info/table
 	mkdir -p $(OUTPUT_DIR)/general-info/graph
-	analysis/general-info.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/general-info/table $(OUTPUT_DIR)/general-info/graph
+	mkdir -p $(OUTPUT_DIR)/general-info/partial
+	analysis/general-info.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/general-info/table $(OUTPUT_DIR)/general-info/graph $(OUTPUT_DIR)/general-info/partial
 
 analyze-jumps:
 	mkdir -p $(OUTPUT_DIR)/jumps/table
@@ -105,7 +119,7 @@ analyze-accesses:
 	analysis/accesses.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/accesses/table $(OUTPUT_DIR)/accesses/graph
 
 
-analyze: analyze-environment analyze-argument-promise-mode analyze-position-evaluation-mode analyze-side-effects analyze-promise-memory-usage analyze-promise-lifespan analyze-function-force
+analyze: analyze-environment analyze-argument-promise-mode analyze-position-evaluation-mode analyze-promise-memory-usage analyze-promise-lifespan analyze-function-force
 
 analysis-book:
 	cd analysis/report; $(VANILLA_RSCRIPT) -e "bookdown::render_book(list.files('.'), 'bookdown::gitbook', output_dir='$(SITE_DIR)', config_file='_bookdown.yml', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"

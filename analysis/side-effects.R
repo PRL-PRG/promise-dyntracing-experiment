@@ -12,10 +12,14 @@ analyze_database <- function(database_filepath) {
 
   all_promises <-
     tbl(db, "promise_evaluations") %>%
-    filter(promise_id >= 0) %>%
+    ##filter(promise_id >= 0) %>% TODO - check this one
+    filter(event_type == 0xF) %>%
     select(promise_id) %>%
     collect()
 
+  promises <-
+    tbl(db, "promises") %>%
+    collect()
 
   variable_actions <-
     tbl(db, "variable_actions") %>%
@@ -23,8 +27,17 @@ analyze_database <- function(database_filepath) {
     select(promise_id, action) %>%
     collect()
 
+  extra_promises <- setdiff(unique(all_promises[["promise_id"]]), variable_actions[["promise_id"]])
 
-  extra_promises <- length(setdiff(unique(all_promises[["promise_id"]]), variable_actions[["promise_id"]]))
+  none_action_expressions <-
+    tibble("promise_id" = extra_promises) %>%
+    left_join(promises, by = c("promise_id" = "id")) %>%
+    mutate(full_type = full_type_to_final_type(full_type)) %>%
+    filter(!is_value(full_type)) %>%
+    group_by(expression) %>%
+    summarize(count = n())
+
+  extra_promises <- length(extra_promises)
 
   if(nrow(variable_actions) == 0) return(NULL)
 
@@ -94,17 +107,11 @@ analyze_database <- function(database_filepath) {
     add_row(`PURITY` = "BENIGN", `PROMISE COUNT` = extra_promises) %>%
     add_column(SCRIPT = basename(file_path_sans_ext(database_filepath)), .before = 1)
 
-  list("action_count_distribution" = action_count_distribution,
+  list("none_action_expressions" = none_action_expressions,
+       "action_count_distribution" = action_count_distribution,
        "action_promise_count_distribution" = action_promise_count_distribution,
        "promise_purity_distribution" = promise_purity_distribution,
        "function_purity_distribution" = function_purity_distribution)
-}
-
-combine_analyses <- function(acc, element) {
-  for(name in names(acc)) {
-    acc[[name]] = bind_rows(acc[[name]], element[[name]])
-  }
-  acc
 }
 
 summarize_analyses <- function(analyses) {
@@ -131,11 +138,17 @@ summarize_analyses <- function(analyses) {
     group_by(`PURITY`) %>%
     summarize(`FUNCTION COUNT` = n_distinct(function_id))
 
+  none_action_expression_summary <-
+    analyses$none_action_expressions %>%
+    group_by(expression) %>%
+    summarize(count = sum(count))
+
   append(analyses,
          list("action_count_distribution_total" = action_count_distribution_total,
               "action_promise_count_distribution_total" = action_promise_count_distribution_total,
               "promise_purity_distribution_total" = promise_purity_distribution_total,
-              "function_purity_distribution_total" = function_purity_distribution_total))
+              "function_purity_distribution_total" = function_purity_distribution_total,
+              "none_action_expression_summary" = none_action_expression_summary))
 }
 
 visualize_analyses <- function(analyses) {
