@@ -126,6 +126,11 @@ analyze-function-returns:
 	mkdir -p $(OUTPUT_DIR)/function-returns/partial
 	analysis/function-returns.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/function-returns/table $(OUTPUT_DIR)/function-returns/graph $(OUTPUT_DIR)/function-returns/partial
 
+analyze-specific-calls:
+	mkdir -p $(OUTPUT_DIR)/specific-calls/table
+	mkdir -p $(OUTPUT_DIR)/specific-calls/graph
+	mkdir -p $(OUTPUT_DIR)/specific-calls/partial
+	analysis/specific-calls.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/specific-calls/table $(OUTPUT_DIR)/specific-calls/graph $(OUTPUT_DIR)/specific-calls/partial
 
 
 analyze: analyze-environment analyze-argument-promise-mode analyze-position-evaluation-mode analyze-promise-memory-usage analyze-promise-lifespan analyze-function-force
