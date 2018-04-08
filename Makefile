@@ -66,7 +66,7 @@ analyze-side-effects:
 	mkdir -p $(OUTPUT_DIR)/side-effects/table
 	mkdir -p $(OUTPUT_DIR)/side-effects/graph
 	mkdir -p $(OUTPUT_DIR)/side-effects/partial
-	analysis/side-effects.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/side-effects/table $(OUTPUT_DIR)/side-effects/graph mkdir -p $(OUTPUT_DIR)/side-effects/partial
+	analysis/side-effects.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/side-effects/table $(OUTPUT_DIR)/side-effects/graph $(OUTPUT_DIR)/side-effects/partial
 
 analyze-promise-memory-usage:
 	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/table
