@@ -82,15 +82,26 @@ import_as_tables <- function(table_dir, extension = "csv") {
   analyses
 }
 
+combine_analyses <- function(acc, element, combiner = bind_rows) {
+  for(name in names(acc)) {
+    if(nrow(acc[[name]]) == 0)
+      acc[[name]] = element[[name]]
+    else if(nrow(element[[name]]) != 0)
+      acc[[name]] = combiner(acc[[name]], element[[name]])
+  }
+  acc
+}
+
 parse_program_arguments <- function() {
   usage <- "%prog input-dir table-dir graphs-dir"
   description <- paste(
     "",
     "",
-    "part         part of the pipeline to run - analyze, visualize or all",
-    "input-dir    directory containing sqlite databases (scanned recursively)",
-    "table-dir    directory to which tables will be exported",
-    "graph-dir    directory to which graphs will be exported",
+    "part           part of the pipeline to run - analyze, visualize or all",
+    "input-dir      directory containing sqlite databases (scanned recursively)",
+    "table-dir      directory to which tables will be exported",
+    "graph-dir      directory to which graphs will be exported",
+    "partial-dir    directory to which partial analyses will be exported",
     "",
     "",
     sep = "\n")
@@ -99,7 +110,7 @@ parse_program_arguments <- function() {
                                 description = description,
                                 add_help_option = TRUE,
                                 option_list = list())
-  parse_args(option_parser, positional_arguments = 4)
+  parse_args(option_parser, positional_arguments = 5)
 }
 
 drive_analysis <- function(analysis_name,
@@ -119,6 +130,7 @@ drive_analysis <- function(analysis_name,
   input_dir <- arguments$args[2]
   table_dir <- arguments$args[3]
   graph_dir <- arguments$args[4]
+  partial_dir <- arguments$args[5]
 
   if(part %in% c("all", "analyze")) {
     analyses <-
@@ -130,22 +142,35 @@ drive_analysis <- function(analysis_name,
         function(database_filepath) {
           info("  • Analyzing ", database_filepath,
                " (", file_size(database_filepath), ")", "\n")
-          analyze_database(database_filepath)
-        }) %T>%
+          result <- analyze_database(database_filepath)
+          if(!is.null(result)) {
+            info("  • Exporting analysis", "\n")
+            analysis_dir <- file.path(partial_dir, file_path_sans_ext(basename(database_filepath)))
+            dir.create(analysis_dir)
+            export_as_tables(result, analysis_dir)
+          }
+          result
+        }) %>%
+      compact()
+  }
+
+  if(part %in% c("all", "summarize")) {
+    info("• Importing analyses", "\n")
+    analyses <-
+      list.dirs(partial_dir, recursive = FALSE) %>%
+      lapply(import_as_tables) %T>%
       (function (ignore) info("• Combining analyses", "\n")) %>%
-      compact() %>%
       Reduce(combine_analyses, .) %T>%
       (function (ignore) info("• Summarizing analyses", "\n")) %>%
       summarize_analyses()
-    info("• Exporting analyses", "\n")
+    info("• Exporting summary", "\n")
     export_analyses(analyses, table_dir)
-  }
-  else {
-    info("• Importing analyses", "\n")
-    analyses <- import_analyses(table_dir)
   }
 
   if(part %in% c("all", "visualize")) {
+    info("• Importing summary", "\n")
+    analyses <- import_analyses(table_dir)
+
     info("• Visualizing analyses", "\n")
     visualizations <- visualize_analyses(analyses)
 

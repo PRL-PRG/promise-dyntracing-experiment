@@ -48,14 +48,6 @@ analyze_database <- function(database_filepath) {
 
 }
 
-combine_analyses <- function(acc, element) {
-
-  for(name in names(acc)) {
-    acc[[name]] = bind_rows(acc[[name]], element[[name]])
-  }
-  acc
-}
-
 summarize_analyses <- function(analyses) {
   summary <-
     analyses$raw %>%

@@ -33,16 +33,6 @@ analyze_database <- function(database_file_path) {
                           promise_lookups = promise_evaluations %>% filter(event_type == 0) %>% pull(n)))
 }
 
-# combine dataframes from analyzeDatabase
-# kind of like fold
-# returns a list that has the same shape as analyzeDatabase
-combine_analyses <- function(acc, element) {
-  for(name in names(acc)) {    
-    acc[[name]] = bind_rows(acc[[name]], element[[name]])  
-  }  
-  acc
-}
-
 # REDUCE
 # runs analyses on all the data from all the vignettes
 # analyses is the list form combine analyses
