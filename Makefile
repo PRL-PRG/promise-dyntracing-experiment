@@ -111,12 +111,21 @@ analyze-general-info:
 analyze-jumps:
 	mkdir -p $(OUTPUT_DIR)/jumps/table
 	mkdir -p $(OUTPUT_DIR)/jumps/graph
-	analysis/jumps.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/jumps/table $(OUTPUT_DIR)/jumps/graph
+	mkdir -p $(OUTPUT_DIR)/jumps/partial
+	analysis/jumps.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/jumps/table $(OUTPUT_DIR)/jumps/graph $(OUTPUT_DIR)/jumps/partial
 
 analyze-accesses:
 	mkdir -p $(OUTPUT_DIR)/accesses/table
 	mkdir -p $(OUTPUT_DIR)/accesses/graph
-	analysis/accesses.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/accesses/table $(OUTPUT_DIR)/accesses/graph
+	mkdir -p $(OUTPUT_DIR)/accesses/partial
+	analysis/accesses.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/accesses/table $(OUTPUT_DIR)/accesses/graph $(OUTPUT_DIR)/accesses/partial
+
+analyze-function-returns:
+	mkdir -p $(OUTPUT_DIR)/function-returns/table
+	mkdir -p $(OUTPUT_DIR)/function-returns/graph
+	mkdir -p $(OUTPUT_DIR)/function-returns/partial
+	analysis/function-returns.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/function-returns/table $(OUTPUT_DIR)/function-returns/graph $(OUTPUT_DIR)/function-returns/partial
+
 
 
 analyze: analyze-environment analyze-argument-promise-mode analyze-position-evaluation-mode analyze-promise-memory-usage analyze-promise-lifespan analyze-function-force
