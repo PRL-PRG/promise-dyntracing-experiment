@@ -13,7 +13,7 @@ make clean PROCESSES=$PROCESSES DATA_DIR="$DATA_DIR"
 echo "Done checking package health and clean" | tee -a $LOG_FILE
 
 echo "Starting individual analyses" | tee -a $LOG_FILE
-echo -e "analyze-function-force\nanalyze-promise-lifespan\nanalyze-argument-promise-mode\nanalyze-promise-memory-usage\nanalyze-environment\nanalyze-position-evaluation-mode" | \
+echo -e "analyze-function-force\nanalyze-promise-lifespan\nanalyze-argument-promise-mode\nanalyze-promise-memory-usage\nanalyze-environment\nanalyze-position-evaluation-mode\nanalyze-general-info" | \
 xargs --max-procs $PROCESSES -I{} ./run-one-analysis.sh {}
 echo "Done with individual analyses" | tee -a $LOG_FILE
 

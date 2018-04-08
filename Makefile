@@ -99,6 +99,11 @@ analyze-jumps:
 	mkdir -p $(OUTPUT_DIR)/jumps/graph
 	analysis/jumps.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/jumps/table $(OUTPUT_DIR)/jumps/graph
 
+analyze-accesses:
+	mkdir -p $(OUTPUT_DIR)/accesses/table
+	mkdir -p $(OUTPUT_DIR)/accesses/graph
+	analysis/accesses.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/accesses/table $(OUTPUT_DIR)/accesses/graph
+
 
 analyze: analyze-environment analyze-argument-promise-mode analyze-position-evaluation-mode analyze-side-effects analyze-promise-memory-usage analyze-promise-lifespan analyze-function-force
 

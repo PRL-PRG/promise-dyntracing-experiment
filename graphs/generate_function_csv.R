@@ -17,8 +17,6 @@ preaggregated <- function(database_path, output_path, debug = TRUE) {
   functions <- db %>% tbl("functions") %>% rename(function_id = id) %>% select(-definition) %>% collect #mutate(definition=gsub("\n","%\\n ", definition)) # TODO rename to unaggregated_
   store("aggregated_functions")(functions)
   
-  basic_info <- load("basic_info")
-  
   total_functions <- functions %>% count %>% pull(n)
   store("aggregated_function_types")(get_functions_by_type(functions, total_functions))
   
@@ -31,6 +29,7 @@ preaggregated <- function(database_path, output_path, debug = TRUE) {
   store("aggregated_function_strictness_by_type")(get_function_strictness_by_type(unaggregated_function_strictness, total_functions))
   
   unaggregated_evaluation_order <- load("unaggregated_evaluation_order")
+  basic_info <- load("basic_info")
   store("aggregated_evaluation_order")(
     get_function_promise_evaluation_order_summary(functions, unaggregated_evaluation_order) %>%
     get_function_promise_force_order_histogram(n.functions=total_functions, n.calls=sum(basic_info$n.calls), cutoff=10)

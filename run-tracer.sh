@@ -5,7 +5,7 @@ export PROCESSES=8
 
 start=`date +%s`
 
-make trace PROCESSES=$PROCESSES DATA_DIR=$DATA_DIR
+make trace PROCESSES=$PROCESSES DATA_DIR=$DATA_DIR PACKAGES="`cat /mnt/ssd/data/kondziu/2018-03-29-19-15-34/same_packages`"
 
 # FIFTY_PACKAGES=`cat dyntrace/packages.csv | cut -f1 -d\; | head -n 50 | tr '\n' ' '`
 # make trace PROCESSES=$PROCESSES DATA_DIR="$DATA_DIR" PACKAGES="$FIFTY_PACKAGES"

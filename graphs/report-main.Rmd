@@ -183,3 +183,12 @@ make_graphs_by_range <- function(data, range_column, max_columns=10, graphing_fu
 
 ```{r child = 'report-interactions-among-promises.Rmd', params=params}				      
 ```
+
+```{r child = 'report-calls-and-fucntions-by-type.Rmd', params=params}				      
+```
+
+```{r child = 'report-byte-code-compilation.Rmd', params=params}				      
+```
+
+```{r child = 'report-call-and-function-definition-strictness.Rmd', params=params}				      
+```
