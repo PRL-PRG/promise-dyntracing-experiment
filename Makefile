@@ -136,7 +136,7 @@ analysis-report:
 	$(VANILLA_RSCRIPT) -e "rmarkdown::render('analysis/analysis.Rmd', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"
 
 install-dependencies:
-	$(VANILLA_RSCRIPT) install_dependencies.R
+	$(VANILLA_RSCRIPT) install-dependencies.R
 
 analyze-in-screens:
 	screen -S analyze-function-force            -d -m bash -c "make analyze-function-force           DATA_DIR=$(DATA_DIR); read x" 
