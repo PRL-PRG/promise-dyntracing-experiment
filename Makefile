@@ -148,8 +148,10 @@ analyze-in-screens:
 	screen -S compute-interference              -d -m bash -c "make compute-interference 		 DATA_DIR=$(DATA_DIR); read x"
 
 paper-components:
-	mkdir $(DATA_DIR)/paper-components
+	mkdir -p $(DATA_DIR)/paper-components
+	mkdir -p $(DATA_DIR)/paper-components/figures
 	cat $(OUTPUT_DIR)/*/variables.sty > $(DATA_DIR)/paper-components/variables.sty
+	cp $(OUTPUT_DIR)/*/graph/*.pdf $(DATA_DIR)/paper-components/figures/
 
 tests:
 	mkdir -p tests/data
