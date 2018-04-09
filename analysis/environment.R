@@ -37,9 +37,9 @@ analyze_database <- function(database_filepath) {
       calls_tbl %>%
       select(`FUNCTION NAME`=function_name) %>%
       filter(`FUNCTION NAME` %in% ENVIRONMENT_METHODS) %>%
+      collect() %>%
       group_by(`FUNCTION NAME`) %>%
       summarize(`COUNT` = n()) %>%
-      collect() %>%
       bind_rows(total_calls, total_new_environments) %>%
       mutate(`SCRIPT`=basename(file_path_sans_ext(database_filepath)))
 

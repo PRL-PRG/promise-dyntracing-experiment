@@ -21,7 +21,7 @@ analyze_database <- function(database_file_path) {
   
   promise_evaluations <- 
     left_join(data.frame(event_type=c(0,15)), promise_evaluations, by='event_type', copy=TRUE) %>% 
-    mutate(n=ifelse(is.na(n), 0, n))
+    mutate(n=ifelse(is.na(n), 0, n)) %>% collect
   
   list(general=data.frame(db=database_file_path, 
                           package = components[1],

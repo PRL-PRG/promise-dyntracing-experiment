@@ -14,7 +14,7 @@ analyze_database <- function(database_file_path) {
     basename(tools::file_path_sans_ext(database_file_path)), "-", 2)[[1]]
   
   db <- src_sqlite(database_file_path)
-  jumps <- db %>% tbl("jumps")
+  jumps <- db %>% tbl("jumps") %>% collect
   
   list(call_depth=(jumps %>% group_by(call_depth) %>% count %>% as.data.frame), #%>% mutate(db=database_file_path, package = components[1])
        promise_depth=(jumps %>% group_by(promise_depth) %>% count %>% as.data.frame),
