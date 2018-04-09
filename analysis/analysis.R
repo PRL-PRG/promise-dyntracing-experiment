@@ -113,6 +113,7 @@ parse_program_arguments <- function() {
   parse_args(option_parser, positional_arguments = 5)
 }
 
+overwrite <- FALSE
 drive_analysis <- function(analysis_name,
                            analyze_database,
                            combine_analyses,
@@ -140,14 +141,27 @@ drive_analysis <- function(analysis_name,
       {info("  • Found ", length(.), " files", "\n", "• Analyzing databases", "\n")} %>%
       lapply(
         function(database_filepath) {
-          info("  • Analyzing ", database_filepath,
-               " (", file_size(database_filepath), ")", "\n")
-          result <- analyze_database(database_filepath)
-          if(!is.null(result)) {
-            info("  • Exporting analysis", "\n")
-            analysis_dir <- file.path(partial_dir, file_path_sans_ext(basename(database_filepath)))
-            dir.create(analysis_dir)
-            export_as_tables(result, analysis_dir)
+          dataset_name = tools::file_path_sans_ext(
+            sapply(
+              strsplit(database_filepath,  split="/", fixed=TRUE), 
+              function(e) e[length(e)]))
+          dataset_path <- file.path(partial_dir, dataset_name)
+          if (file.exists(dataset_path) && !overwrite) {
+            info("  • Skipping ", database_filepath,
+                 " (", file_size(database_filepath), ") ",
+                "partial data already exists at ", dataset_path,
+                " and overwrite is not set", "\n")
+            result <- import_as_tables(dataset_path)
+          } else {
+            info("  • Analyzing ", database_filepath,
+                 " (", file_size(database_filepath), ")", "\n")
+            result <- analyze_database(database_filepath)
+            if(!is.null(result)) {
+              info("  • Exporting analysis", "\n")
+              analysis_dir <- file.path(partial_dir, file_path_sans_ext(basename(database_filepath)))
+              dir.create(analysis_dir)
+              export_as_tables(result, analysis_dir)
+            }
           }
           result
         }) %>%
