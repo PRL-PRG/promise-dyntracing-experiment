@@ -128,6 +128,8 @@ visualize_analyses <- function(analyses) {
        "mode_value_type" = mode_value_type)
 }
 
+export_variables <- function(variables_file) {
+}
 
 main <- function() {
   drive_analysis("Argument Mode Analysis",
@@ -137,7 +139,8 @@ main <- function() {
                  export_as_tables,
                  import_as_tables,
                  visualize_analyses,
-                 export_as_images)
+                 export_as_images,
+                 export_variables)
 }
 
 main()

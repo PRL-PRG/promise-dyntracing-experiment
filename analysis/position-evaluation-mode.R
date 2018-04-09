@@ -188,6 +188,9 @@ visualize_analyses <- function(analyses) {
          evaluation_mode_distribution_by_formal_parameter_position)
 }
 
+export_variables <- function(variables_file) {
+}
+
 main <- function() {
   drive_analysis("Position Evaluation Mode",
                  analyze_database,
@@ -196,7 +199,8 @@ main <- function() {
                  export_as_tables,
                  import_as_tables,
                  visualize_analyses,
-                 export_as_images)
+                 export_as_images,
+                 export_variables)
 }
 
 main()
