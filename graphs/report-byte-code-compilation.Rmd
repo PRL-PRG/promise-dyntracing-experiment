@@ -10,11 +10,13 @@
       mutate(percent=100*number/sum(number))
     
     if (data %>% count %>% pull(n) > 0) {
-      ggplot(data, aes(x=compiled, y=number)) + 
+      g<-ggplot(data, aes(x=compiled, y=number)) + 
         geom_bar(stat="identity") +
         ylab("No. of calls") + 
         scale_y_continuous(labels=pp_trunc) +
         theme(axis.title.x=element_blank())
+      g
+      save_graph("byte-code-compilation-calls.pdf", g)
     }
     
     if (data %>% count %>% pull(n) > 0) {
@@ -32,11 +34,13 @@
       mutate(percent=100*number/sum(number))
     
     if (data %>% count %>% pull(n) > 0) {
-      ggplot(data, aes(x=compiled, y=number)) + 
+      g <- ggplot(data, aes(x=compiled, y=number)) + 
         geom_bar(stat="identity") +
         ylab("No. of calls") + 
         scale_y_continuous(labels=pp_trunc) +
         theme(axis.title.x=element_blank())
+      g
+      save_graph("byte-code-compilation-functions.pdf", g)
     }
       
     if (data %>% count %>% pull(n) > 0) {

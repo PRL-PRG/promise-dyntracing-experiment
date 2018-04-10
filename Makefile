@@ -39,10 +39,12 @@ partial-aggregate-csvs:
 
 
 report:
-	$(VANILLA_RSCRIPT) -e "rmarkdown::render('graphs/report-short.Rmd', params=list(CSV_DIR='$(DATA_DIR)/csv/_all', PRINT_DATA=TRUE))"
-	mv graphs/report-short.html $(DATA_DIR)
-	$(VANILLA_RSCRIPT) -e "rmarkdown::render('graphs/report.Rmd', params=list(CSV_DIR='$(DATA_DIR)/csv/_all', PRINT_DATA=TRUE))"
-	mv graphs/report.html $(DATA_DIR)
+	$(VANILLA_RSCRIPT) -e "rmarkdown::render('graphs/report-main.Rmd', params=list(CSV_DIR='$(DATA_DIR)/csv/_partial', PRINT_DATA=TRUE))"
+	mv graphs/report-main.html $(DATA_DIR)
+#	$(VANILLA_RSCRIPT) -e "rmarkdown::render('graphs/report-short.Rmd', params=list(CSV_DIR='$(DATA_DIR)/csv/_all', PRINT_DATA=TRUE))"
+#	mv graphs/report-short.html $(DATA_DIR)
+#	$(VANILLA_RSCRIPT) -e "rmarkdown::render('graphs/report.Rmd', params=list(CSV_DIR='$(DATA_DIR)/csv/_all', PRINT_DATA=TRUE))"
+#	mv graphs/report.html $(DATA_DIR)
 
 analyze-argument-promise-mode:
 	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/table

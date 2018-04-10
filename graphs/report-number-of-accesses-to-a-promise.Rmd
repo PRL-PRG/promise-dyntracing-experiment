@@ -13,12 +13,14 @@ evaluations <-
 				                          no.of.evaluations)) %>% 
 	arrange(no.of.evaluations)
 										      
-ggplot(evaluations, aes(x=no.of.evaluations, y=number)) + 
+g <- ggplot(evaluations, aes(x=no.of.evaluations, y=number)) + 
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
   scale_x_discrete(limit=0:11, labels=evaluations %>% pull(labels)) +
   theme(axis.title.x=element_blank(), legend.position="none") +
 	ylab("No. of promises") + xlab("No. of accesses")
+g
+save_graph("promise-evaluations.pdf", g)
 
 evaluations %>% select(labels, number, percent) %>% prettify %>% kable(col.names=c("no. of evaluations","number","percentage"), align="lrr")
 ``` 

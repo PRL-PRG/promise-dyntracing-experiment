@@ -5,7 +5,7 @@ promise_types <-
   load_local_csv("promise_types.csv") %>% 
   group_by(type) %>% summarise(number=sum(as.numeric(number))) %>% mutate(percent=100*number/sum(number))
 
-ggplot(promise_types, aes(x=type, y=number)) + 
+g <- ggplot(promise_types, aes(x=type, y=number)) + 
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
   theme(axis.title.x=element_blank(), 
@@ -13,6 +13,8 @@ ggplot(promise_types, aes(x=type, y=number)) +
         axis.text.x=element_text(angle=90, vjust=.5)) +
   ylab("No. of promises") + 
   xlab("Promise type")
+g
+save_graph("promise-types.pdf", g)
 
 promise_types %>% arrange(desc(number)) %>% prettify %>% kable(col.names=c("promise code type","number","percentage"), align="lrr")
 ```

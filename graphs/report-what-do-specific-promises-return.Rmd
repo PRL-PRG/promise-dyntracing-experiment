@@ -8,7 +8,7 @@ types_to_return_types <-
   mutate(percent=100*number/sum(number)) %>%
   arrange(desc(number))
 
-ggplot(types_to_return_types, aes(x=types, y=number)) + 
+g <- ggplot(types_to_return_types, aes(x=types, y=number)) + 
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
   theme(axis.title.x=element_blank(), 
@@ -17,6 +17,8 @@ ggplot(types_to_return_types, aes(x=types, y=number)) +
         axis.text.x=element_text(angle=90, vjust=.5, hjust=1)) +
   ylab("No. of promises") + 
   xlab("Type/return type")
+g
+save_graph("what-do-specific-promises-return.pdf", g)
 
 types_to_return_types %>% arrange(desc(number)) %>% prettify %>% kable(col.names=c("type/return type","number","percentage"), align="lrr")
 ```

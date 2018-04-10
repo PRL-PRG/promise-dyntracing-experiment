@@ -21,12 +21,14 @@ strict_closure_calls_aggregate <-
   summarise(number=sum(as.numeric(number))) %>% 
   mutate(percent=100*number/sum(number)) 
 
-ggplot(strict_closure_calls_aggregate, aes(x=label, y=number)) + 
+g <- ggplot(strict_closure_calls_aggregate, aes(x=label, y=number)) + 
   ggtitle("Call strictness") +
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
   theme(legend.position="none", axis.title.x=element_blank()) +
   ylab("No. of calls") 
+g
+save_graph("call-strictness.pdf", g)
 
 strict_closure_calls_aggregate %>% prettify %>% kable(col.names=c("strictness","number","percentage"), align="lrr")
 ```
@@ -42,12 +44,14 @@ strict_closure_functions_aggregate <-
   summarise(number=sum(as.numeric(number))) %>%
   mutate(percent=100*number/sum(number))
 
-ggplot(strict_closure_functions_aggregate, aes(x=label, y=number)) +
+g <- ggplot(strict_closure_functions_aggregate, aes(x=label, y=number)) +
   ggtitle("Function strictness") +
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
   theme(legend.position="none", axis.title.x=element_blank()) +
   xlab("Function strictness (closures)")
+g
+save_graph("function-strictness.pdf", g)
 
 strict_closure_functions_aggregate %>% prettify %>% kable(col.names=c("strictness","number","percentage"), align="lrr")
 ```
@@ -104,12 +108,14 @@ data <- strict_calls_ratio_labelled %>%
   group_by(short) %>%
   summarize(number=sum(as.numeric(number)))
 
-ggplot(data, aes(x=short, y=number)) +
+g <- ggplot(data, aes(x=short, y=number)) +
   geom_col() +
   scale_y_continuous(labels=pp_trunc) +
   theme(legend.position="none") +
   ylab("No. of calls") +
   xlab("Ratio of evaluated promises (evaluated args/total args)")
+g
+save_graph("strict-calls-ratio.pdf", g)
 
 print(data)
 #data %>% prettify %>% kable(col.names=c("strictness ratio","number","percentage"), align="lrr")

@@ -1,7 +1,7 @@
 #!/bin/bash
 export R_LIBS=/home/kondziu/R_LIBS/
 export DATA_DIR=/mnt/ssd/data/kondziu/
-export PROCESSES=8
+export PROCESSES=4
 
 start=`date +%s`
 

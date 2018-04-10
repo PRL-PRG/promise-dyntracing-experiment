@@ -61,7 +61,12 @@ g_cause_big <-
   theme(legend.position="none", axis.title.y=element_blank())
 
 # Drawing
-grid.arrange(g_receive, g_cause_small, g_cause_big, ncol=3, widths=c(4,5,9))
+g <- grid.arrange(g_receive, g_cause_small, g_cause_big, ncol=3, widths=c(4,5,9))
+g
+save_graph("interactions-among-promises.pdf", g)
+save_graph("promise-interactions-receive.pdf", g_receive)
+save_graph("promise-interactions-cause-small.pdf", g_cause_small)
+save_graph("promise-interactions-cause-big.pdf", g_cause_big)
 
 # Printout
 promises_forced_by_another_promise %>% prettify %>% kable(col.names=c("forced by another promise","number","percentage"), align="lrr")

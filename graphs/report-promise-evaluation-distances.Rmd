@@ -9,12 +9,15 @@ actual_distances <-
   summarise(number=sum(as.numeric(number), na.rm=TRUE)) %>% 
   mutate(percent=100*number/sum(number))
 
-ggplot(actual_distances, aes(x=actual_distance, y=number)) + 
+g <- ggplot(actual_distances, aes(x=actual_distance, y=number)) + 
   geom_col() +
   scale_x_discrete(limits=c(NA,0:20,">20",-1)) +
   scale_y_continuous(labels=pp_trunc) +
   ylab("No. of promises") + 
   theme(axis.title.x=element_blank())
+
+g
+save_graph("promise-actual-distances.pdf", g)
 
 actual_distances %>% prettify %>% kable(col.names=c("distance","number","percentage"), align="lrr")
 ```

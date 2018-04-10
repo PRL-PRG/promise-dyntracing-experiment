@@ -60,6 +60,11 @@ load_local_csv <- function (csv_file, backup=NULL) {
       error=function(e) backup
     )
 }
+save_graph <- function(pdf_file, graph) {
+    path <- file.path(params$CSV_DIR, pdf_file)
+    write(paste("writing graph to", path), stderr())
+    ggsave(path, graph, device="pdf")
+}
 print_data <- function (x) if(params$PRINT_DATA) print(x, row.names=FALSE)
 prettify <- function(x) x %>% mutate(number=pp_trunc(number), percent=pp_perc(percent)) %>% as.data.frame
 pp_trunc <- function(x) ifelse(x==0, paste(format(x, digits=2, scientific=FALSE)),
