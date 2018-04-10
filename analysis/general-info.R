@@ -26,7 +26,7 @@ analyze_database <- function(database_file_path) {
   list(general=data.frame(db=database_file_path, 
                           package = components[1],
                           vignette = components[2],
-                          functions = functions %>% count %>% pull(n),
+                          functions = functions %>% select(id) %>% collect,
                           calls = calls %>% count %>% pull(n),
                           promises = promises %>% count %>% pull(n),
                           promise_forces = promise_evaluations %>% filter(event_type == 15) %>% pull(n),
@@ -40,7 +40,7 @@ analyze_database <- function(database_file_path) {
 summarize_analyses <- function(analyses) {
   list(general=data.frame(packages = analyses$general %>% pull(package) %>% unique %>% length,
                   vignette = analyses$general %>% pull(vignette) %>% unique %>% length,
-                  functions = analyses$general %>% pull(functions) %>% sum,
+                  functions = analyses$general %>% pull(functions) %>% unique %>% length,
                   calls = analyses$general %>% pull(calls) %>% sum,
                   promises = analyses$general %>% pull(promises) %>% sum,
                   promise_forces = analyses$general %>% pull(promise_forces) %>% sum,
