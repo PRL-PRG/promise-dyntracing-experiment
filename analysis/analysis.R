@@ -102,6 +102,7 @@ parse_program_arguments <- function() {
     "table-dir      directory to which tables will be exported",
     "graph-dir      directory to which graphs will be exported",
     "partial-dir    directory to which partial analyses will be exported",
+    "variables-file sty file to which variables will be exported",
     "",
     "",
     sep = "\n")
@@ -110,7 +111,7 @@ parse_program_arguments <- function() {
                                 description = description,
                                 add_help_option = TRUE,
                                 option_list = list())
-  parse_args(option_parser, positional_arguments = 5)
+  parse_args(option_parser, positional_arguments = 6)
 }
 
 overwrite <- FALSE
@@ -121,7 +122,9 @@ drive_analysis <- function(analysis_name,
                            export_analyses,
                            import_analyses,
                            visualize_analyses,
-                           export_visualizations) {
+                           export_visualizations,
+                           export_variables) {
+
   info(analysis_name, "\n")
 
   start_time <- now()
@@ -132,6 +135,7 @@ drive_analysis <- function(analysis_name,
   table_dir <- arguments$args[3]
   graph_dir <- arguments$args[4]
   partial_dir <- arguments$args[5]
+  variables_filename <- arguments$args[6]
 
   if(part %in% c("all", "analyze")) {
     analyses <-
@@ -179,6 +183,23 @@ drive_analysis <- function(analysis_name,
       summarize_analyses()
     info("• Exporting summary", "\n")
     export_analyses(analyses, table_dir)
+  }
+
+  if(part %in% c("all", "variables")) {
+    info("• Importing summary", "\n")
+    analyses <- import_analyses(table_dir)
+
+    info("• Exporting variables", "\n")
+    info("•   Exporting ", variables_filename, "\n")
+
+    variables_file <- file(variables_filename, "wt")
+    writeLines("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", variables_file)
+    writeLines("%%", variables_file)
+    writeLines(paste0("%% ", analysis_name), variables_file)
+    writeLines("%%", variables_file)
+    writeLines("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\n", variables_file)
+    export_variables(variables_file)
+    close(variables_file)
   }
 
   if(part %in% c("all", "visualize")) {

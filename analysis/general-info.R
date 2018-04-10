@@ -52,6 +52,8 @@ visualize_analyses <- function(analyses) {
   list()
 }
 
+export_variables <- function(variables_file) {
+}
 
 main <- function() {  
   drive_analysis("general-info",
@@ -61,7 +63,8 @@ main <- function() {
                  export_as_tables,  # exports CSV files automatically
                  import_as_tables,  # (re-)imports data from CSV files
                  visualize_analyses,
-                 export_as_images)
+                 export_as_images,
+                 export_variables)
 }
 
 main()

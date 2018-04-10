@@ -111,6 +111,8 @@ visualize_analyses <- function(analyses) {
        "relative_object_size" = relative_object_size_visualization)
 }
 
+export_variables <- function(variables_file) {
+}
 
 main <- function() {
   drive_analysis("Promise Memory Usage Analysis",
@@ -120,7 +122,8 @@ main <- function() {
                  export_as_tables,
                  import_as_tables,
                  visualize_analyses,
-                 export_as_images)
+                 export_as_images,
+                 export_variables)
 }
 
 main()

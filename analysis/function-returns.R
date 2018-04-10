@@ -79,15 +79,19 @@ visualize_analyses <- function(analyses) {
     )
 }
 
-main <- function() {  
+export_variables <- function(variables_file) {
+}
+
+main <- function() {
   drive_analysis("function-returns",
                  analyze_database,
                  combine_analyses,
-                 summarize_analyses, 
+                 summarize_analyses,
                  export_as_tables,  # exports CSV files automatically
                  import_as_tables,  # (re-)imports data from CSV files
                  visualize_analyses,
-                 export_as_images)
+                 export_as_images,
+                 export_variables)
 }
 
 main()
