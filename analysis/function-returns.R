@@ -79,11 +79,12 @@ visualize_analyses <- function(analyses) {
     )
 }
 
-export_variables <- function(variables_file) {
+latex_analyses <- function(analyses) {
+  list()
 }
 
 main <- function() {
-  drive_analysis("function-returns",
+  drive_analysis("Function Return Type",
                  analyze_database,
                  combine_analyses,
                  summarize_analyses,
@@ -91,7 +92,8 @@ main <- function() {
                  import_as_tables,  # (re-)imports data from CSV files
                  visualize_analyses,
                  export_as_images,
-                 export_variables)
+                 latex_analyses,
+                 export_as_latex_defs)
 }
 
 main()

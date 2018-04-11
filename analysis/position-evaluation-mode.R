@@ -188,7 +188,8 @@ visualize_analyses <- function(analyses) {
          evaluation_mode_distribution_by_formal_parameter_position)
 }
 
-export_variables <- function(variables_file) {
+latex_analyses <- function(analyses) {
+  list()
 }
 
 main <- function() {
@@ -200,7 +201,8 @@ main <- function() {
                  import_as_tables,
                  visualize_analyses,
                  export_as_images,
-                 export_variables)
+                 latex_analyses,
+                 export_as_latex_defs)
 }
 
 main()

@@ -43,19 +43,22 @@ visualize_analyses <- function(analyses) {
   list()
 }
 
-export_variables <- function(variables_file) {
+latex_analyses <- function(analyses) {
+  list()
 }
 
-main <- function() {  
-  drive_analysis("function-returns",
+main <- function() {
+  drive_analysis("Calls to delayedAssign",
                  analyze_database,
                  combine_analyses,
-                 summarize_analyses, 
+                 summarize_analyses,
                  export_as_tables,  # exports CSV files automatically
                  import_as_tables,  # (re-)imports data from CSV files
                  visualize_analyses,
                  export_as_images,
-                 export_variables)
+                 latex_analyses,
+                 export_as_latex_defs)
+
 }
 
 main()
