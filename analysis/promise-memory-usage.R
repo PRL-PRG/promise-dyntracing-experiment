@@ -74,16 +74,17 @@ visualize_analyses <- function(analyses) {
 
   object_count_visualization <-
     analyses$object_count_size %>%
-    ggplot(aes(`GROUP TYPE`, weight = `COUNT`, fill=`OBJECT TYPE`)) +
+    rename("Object type" = `OBJECT TYPE`) %>%
+    ggplot(aes(`GROUP TYPE`, weight = `RELATIVE COUNT`, fill=`Object type`)) +
     geom_bar() +
-    scale_y_continuous(sec.axis = sec_axis(~ . * 100 / total_object_count,
-                                           breaks = seq(0, 100, 10),
-                                           labels = percent_labels),
-                       labels = count_labels) +
-    labs(y ="Count") +
+    scale_y_continuous(sec.axis = sec_axis(~ . * total_object_count / 100,
+                                           labels = count_labels),
+                       labels = percent_labels) +
+    labs(y ="Count (%)") +
     labs(x = NULL) +
     guides(title = NULL) +
-    scale_fill_gdocs()
+    scale_fill_gdocs() +
+    theme(legend.position = "bottom")
 
   total_object_size <- analyses$aggregate$total_object_size
 
