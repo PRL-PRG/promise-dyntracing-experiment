@@ -47,86 +47,49 @@ report:
 #	mv graphs/report.html $(DATA_DIR)
 
 analyze-argument-promise-mode:
-	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/table
-	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/graph
-	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/partial
-	analysis/argument-promise-mode.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/argument-promise-mode/table $(OUTPUT_DIR)/argument-promise-mode/graph $(OUTPUT_DIR)/argument-promise-mode/partial $(OUTPUT_DIR)/argument-promise-mode/variables.sty
+	analysis/argument-promise-mode.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/argument-promise-mode/table $(OUTPUT_DIR)/argument-promise-mode/graph $(OUTPUT_DIR)/argument-promise-mode/partial $(OUTPUT_DIR)/argument-promise-mode/latex
 
 analyze-environment:
-	mkdir -p $(OUTPUT_DIR)/environment/table
-	mkdir -p $(OUTPUT_DIR)/environment/graph
-	mkdir -p $(OUTPUT_DIR)/environment/partial
-	analysis/environment.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/environment/table $(OUTPUT_DIR)/environment/graph $(OUTPUT_DIR)/environment/partial $(OUTPUT_DIR)/environment/variables.sty
+	analysis/environment.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/environment/table $(OUTPUT_DIR)/environment/graph $(OUTPUT_DIR)/environment/partial $(OUTPUT_DIR)/environment/latex
 
 analyze-position-evaluation-mode:
-	mkdir -p $(OUTPUT_DIR)/position-evaluation-mode/table
-	mkdir -p $(OUTPUT_DIR)/position-evaluation-mode/graph
-	mkdir -p $(OUTPUT_DIR)/position-evaluation-mode/partial
-	analysis/position-evaluation-mode.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/position-evaluation-mode/table $(OUTPUT_DIR)/position-evaluation-mode/graph $(OUTPUT_DIR)/position-evaluation-mode/partial $(OUTPUT_DIR)/position-evaluation-mode/variables.sty
+	analysis/position-evaluation-mode.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/position-evaluation-mode/table $(OUTPUT_DIR)/position-evaluation-mode/graph $(OUTPUT_DIR)/position-evaluation-mode/partial $(OUTPUT_DIR)/position-evaluation-mode/latex
 
 analyze-side-effects:
-	mkdir -p $(OUTPUT_DIR)/side-effects/table
-	mkdir -p $(OUTPUT_DIR)/side-effects/graph
-	mkdir -p $(OUTPUT_DIR)/side-effects/partial
-	analysis/side-effects.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/side-effects/table $(OUTPUT_DIR)/side-effects/graph $(OUTPUT_DIR)/side-effects/partial $(OUTPUT_DIR)/side-effects/variables.sty
+	analysis/side-effects.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/side-effects/table $(OUTPUT_DIR)/side-effects/graph $(OUTPUT_DIR)/side-effects/partial $(OUTPUT_DIR)/side-effects/latex
 
 analyze-promise-memory-usage:
-	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/table
-	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/graph
-	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/partial
-	analysis/promise-memory-usage.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-memory-usage/table $(OUTPUT_DIR)/promise-memory-usage/graph $(OUTPUT_DIR)/promise-memory-usage/partial $(OUTPUT_DIR)/promise-memory-usage/variables.sty
+	analysis/promise-memory-usage.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-memory-usage/table $(OUTPUT_DIR)/promise-memory-usage/graph $(OUTPUT_DIR)/promise-memory-usage/partial $(OUTPUT_DIR)/promise-memory-usage/latex
 
 analyze-promise-lifespan:
-	mkdir -p $(OUTPUT_DIR)/promise-lifespan/table
-	mkdir -p $(OUTPUT_DIR)/promise-lifespan/graph
-	mkdir -p $(OUTPUT_DIR)/promise-lifespan/partial
-	analysis/promise-lifespan.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-lifespan/table $(OUTPUT_DIR)/promise-lifespan/graph $(OUTPUT_DIR)/promise-lifespan/partial $(OUTPUT_DIR)/promise-lifespan/variables.sty
+	analysis/promise-lifespan.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-lifespan/table $(OUTPUT_DIR)/promise-lifespan/graph $(OUTPUT_DIR)/promise-lifespan/partial $(OUTPUT_DIR)/promise-lifespan/latex
 
 analyze-function-force:
-	mkdir -p $(OUTPUT_DIR)/function-force/table
-	mkdir -p $(OUTPUT_DIR)/function-force/graph
-	mkdir -p $(OUTPUT_DIR)/function-force/partial
-	analysis/function-force.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/function-force/table $(OUTPUT_DIR)/function-force/graph $(OUTPUT_DIR)/function-force/partial $(OUTPUT_DIR)/function-force/variables.sty
+	analysis/function-force.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/function-force/table $(OUTPUT_DIR)/function-force/graph $(OUTPUT_DIR)/function-force/partial $(OUTPUT_DIR)/function-force/latex
 
 analyze-general-info:
-	mkdir -p $(OUTPUT_DIR)/general-info/table
-	mkdir -p $(OUTPUT_DIR)/general-info/graph
-	mkdir -p $(OUTPUT_DIR)/general-info/partial
-	analysis/general-info.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/general-info/table $(OUTPUT_DIR)/general-info/graph $(OUTPUT_DIR)/general-info/partial $(OUTPUT_DIR)/general-info/variables.sty
+	analysis/general-info.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/general-info/table $(OUTPUT_DIR)/general-info/graph $(OUTPUT_DIR)/general-info/partial $(OUTPUT_DIR)/general-info/latex
 
 analyze-jumps:
-	mkdir -p $(OUTPUT_DIR)/jumps/table
-	mkdir -p $(OUTPUT_DIR)/jumps/graph
-	mkdir -p $(OUTPUT_DIR)/jumps/partial
-	analysis/jumps.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/jumps/table $(OUTPUT_DIR)/jumps/graph $(OUTPUT_DIR)/jumps/partial $(OUTPUT_DIR)/jumps/variables.sty
+	analysis/jumps.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/jumps/table $(OUTPUT_DIR)/jumps/graph $(OUTPUT_DIR)/jumps/partial $(OUTPUT_DIR)/jumps/latex
 
 analyze-accesses:
-	mkdir -p $(OUTPUT_DIR)/accesses/table
-	mkdir -p $(OUTPUT_DIR)/accesses/graph
-	mkdir -p $(OUTPUT_DIR)/accesses/partial
-	analysis/accesses.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/accesses/table $(OUTPUT_DIR)/accesses/graph $(OUTPUT_DIR)/accesses/partial $(OUTPUT_DIR)/accesses/variables.sty
+	analysis/accesses.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/accesses/table $(OUTPUT_DIR)/accesses/graph $(OUTPUT_DIR)/accesses/partial $(OUTPUT_DIR)/accesses/latex
 
 analyze-function-returns:
-	mkdir -p $(OUTPUT_DIR)/function-returns/table
-	mkdir -p $(OUTPUT_DIR)/function-returns/graph
-	mkdir -p $(OUTPUT_DIR)/function-returns/partial
-	analysis/function-returns.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/function-returns/table $(OUTPUT_DIR)/function-returns/graph $(OUTPUT_DIR)/function-returns/partial $(OUTPUT_DIR)/function-returns/variables.sty
+	analysis/function-returns.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/function-returns/table $(OUTPUT_DIR)/function-returns/graph $(OUTPUT_DIR)/function-returns/partial $(OUTPUT_DIR)/function-returns/latex
 
 analyze-specific-calls:
-	mkdir -p $(OUTPUT_DIR)/specific-calls/table
-	mkdir -p $(OUTPUT_DIR)/specific-calls/graph
-	mkdir -p $(OUTPUT_DIR)/specific-calls/partial
-	analysis/specific-calls.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/specific-calls/table $(OUTPUT_DIR)/specific-calls/graph $(OUTPUT_DIR)/specific-calls/partial $(OUTPUT_DIR)/specific-calls/variables.sty
+	analysis/specific-calls.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/specific-calls/table $(OUTPUT_DIR)/specific-calls/graph $(OUTPUT_DIR)/specific-calls/partial $(OUTPUT_DIR)/specific-calls/latex
 
 compute-interference:
-	mkdir -p $(OUTPUT_DIR)/interference/table
-	mkdir -p $(OUTPUT_DIR)/interference/graph
 	analysis/interference.py $(DATA_DIR)/data $(OUTPUT_DIR)/interference/table
 
 analyze-interference:
-	mkdir -p $(OUTPUT_DIR)/interference/table
-	mkdir -p $(OUTPUT_DIR)/interference/graph
-	analysis/interference.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/interference/table $(OUTPUT_DIR)/interference/graph $(OUTPUT_DIR)/interference/partial $(OUTPUT_DIR)/interference/variables.sty
+	analysis/interference.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/interference/table $(OUTPUT_DIR)/interference/graph $(OUTPUT_DIR)/interference/partial $(OUTPUT_DIR)/interference/latex
+
+analyze-promise-types:
+	analysis/promise-types.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-types/table $(OUTPUT_DIR)/promise-types/graph $(OUTPUT_DIR)/promise-types/partial $(OUTPUT_DIR)/promise-types/latex
 
 analyze: analyze-environment analyze-argument-promise-mode analyze-position-evaluation-mode analyze-promise-memory-usage analyze-promise-lifespan analyze-function-force
 
@@ -152,7 +115,7 @@ analyze-in-screens:
 paper-components:
 	mkdir -p $(DATA_DIR)/paper-components
 	mkdir -p $(DATA_DIR)/paper-components/figures
-	cat $(OUTPUT_DIR)/*/variables.sty > $(DATA_DIR)/paper-components/variables.sty
+	cat $(OUTPUT_DIR)/*/latex > $(DATA_DIR)/paper-components/latex
 	cp $(OUTPUT_DIR)/*/graph/*.pdf $(DATA_DIR)/paper-components/figures/
 
 tests:

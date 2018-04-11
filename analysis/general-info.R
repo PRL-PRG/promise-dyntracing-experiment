@@ -5,56 +5,72 @@ source("analysis/analysis.R")
 
 library(dplyr)
 
-# expects a certain set of functions
-
-# MAP
-# for every DB file
 analyze_database <- function(database_file_path) {
   components <- stringr::str_split(
     basename(tools::file_path_sans_ext(database_file_path)), "-", 2)[[1]]
   
   db <- src_sqlite(database_file_path)
-  promises <- db %>% tbl("promises")
-  promise_evaluations <- db %>% tbl("promise_evaluations") %>% group_by(event_type) %>% count
-  calls <- db %>% tbl("calls") 
-  functions <- db %>% tbl("functions") 
+  promises <- tbl(db, sql('SELECT COUNT(*) AS n FROM promises')) %>% pull(n)
+  promise_events <- tbl(db, sql('SELECT COUNT(*) AS n FROM promise_lifecycle')) %>% pull(n)
+  promise_evaluations <- tbl(db, sql('SELECT COUNT(*) AS n FROM promise_lifecycle WHERE event_type = 1')) %>% pull(n)
+  promise_lookups <- tbl(db, sql('SELECT COUNT(*) AS n FROM promise_lifecycle WHERE event_type = 5')) %>% pull(n)
+  calls <- tbl(db, sql('SELECT COUNT(*) AS n FROM calls')) %>% pull(n)
+  functions <- tbl(db, sql('SELECT id FROM functions')) %>% collect
   
-  promise_evaluations <- 
-    left_join(data.frame(event_type=c(0,15)), promise_evaluations, by='event_type', copy=TRUE) %>% 
-    mutate(n=ifelse(is.na(n), 0, n)) %>% collect
-  
-  list(general=data.frame(db=database_file_path, 
-                          package = components[1],
+  list(general=data.frame(package = components[1],
                           vignette = components[2],
-                          calls = calls %>% count %>% pull(n),
-                          promises = promises %>% count %>% pull(n),
-                          promise_forces = promise_evaluations %>% filter(event_type == 15) %>% pull(n),
-                          promise_lookups = promise_evaluations %>% filter(event_type == 0) %>% pull(n)),
-       functions=data.frame(functions = functions %>% select(id) %>% collect))
+                          calls = calls,
+                          promises = promises,
+                          promise_events = promise_events,
+                          promise_evaluations = promise_evaluations,
+                          promise_lookups = promise_lookups),
+       functions=data.frame(functions = functions))
 }
 
-# REDUCE
-# runs analyses on all the data from all the vignettes
-# analyses is the list form combine analyses
-# returns the summarized data that undergoes visualization
 summarize_analyses <- function(analyses) {
-  print(analyses)
-  list(general=data.frame(packages = analyses$general %>% pull(package) %>% unique %>% length,
-                  vignette = analyses$general %>% pull(vignette) %>% unique %>% length,
-                  functions = analyses$functions %>% pull(functions) %>% unique %>% length,
-                  calls = analyses$general %>% pull(calls) %>% sum,
-                  promises = analyses$general %>% pull(promises) %>% sum,
-                  promise_forces = analyses$general %>% pull(promise_forces) %>% sum,
-                  promise_lookups = analyses$general %>% pull(promise_lookups) %>% sum))
+  packages <- analyses$general %>% pull(package) %>% unique %>% length
+  vignettes <- analyses$general %>% pull(vignette) %>% unique %>% length
+  functions <- analyses$functions %>% pull(id) %>% unique %>% length
+  calls <- analyses$general %>% pull(calls) %>% sum
+  promises <- analyses$general %>% pull(promises) %>% sum
+  promise_events <- analyses$general %>% pull(promise_events) %>% sum
+  promise_evaluations <- analyses$general %>% pull(promise_evaluations) %>% sum
+  promise_lookups <- analyses$general %>% pull(promise_lookups) %>% sum
+  list(general=data.frame(packages = packages,
+                          vignettes = vignettes,
+                          functions = functions,
+                          calls = calls,
+                          promises = promises,
+                          promise_events = promise_events,
+                          promise_evaluations = promise_evaluations,
+                          promise_lookups = promise_lookups))
 }
 
-#return a list of ggplot2 objects
 visualize_analyses <- function(analyses) {
   list()
 }
 
 latex_analyses <- function(analyses) {
   list()
+}
+
+latex_tables <- function(analyses) {
+  list(general = analyses$general %>%
+                 mutate(
+                   packages = pp_trunc(packages),
+                   vignettes = pp_trunc(vignettes),
+                   functions = pp_trunc(functions),
+                   calls = pp_trunc(calls),
+                   promises = pp_trunc(promises),
+                   promise_events = pp_trunc(promise_events),
+                   promise_evaluations = pp_trunc(promise_evaluations),
+                   promise_lookups = pp_trunc(promise_lookups)
+                 ) %>%    
+                 kable(col.names = c("Packages", "Vignettes", "Functions", 
+                                     "Calls", "Promises", "Promise events", 
+                                     "Promise evaluations", 
+                                     "Promise lookups"), 
+                       format="latex"))
 }
 
 main <- function() {
@@ -67,11 +83,9 @@ main <- function() {
                  visualize_analyses,
                  export_as_images,
                  latex_analyses,
-                 export_as_latex_defs)
+                 export_as_latex_defs,
+                 latex_tables,
+                 export_as_latex_tables)
 }
 
 main()
-
-
-
-

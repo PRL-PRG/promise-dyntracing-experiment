@@ -5,12 +5,31 @@ source("analysis/analysis.R")
 
 library(dplyr)
 
-# expects a certain set of functions
+humanize_classification <- function(vector) 
+  ifelse(vector == 1, "multiforce",
+  ifelse(vector == 2, "force and reuse",
+  ifelse(vector == 3, "just force",
+  ifelse(vector == 4, "unforced", "?"))))
 
-# MAP
-# for every DB file
+# to_bits_single <- function(x){
+#   tmp <- as.numeric(intToBits(x))
+#   id <- seq_len(match(1,tmp,length(tmp))-1)
+#   tmp[-id]
+# }
+
+to_bits <- function(x) lapply(x, to_bits_single)
+
+humanize_metaprogramming <- function(vector) {
+  lapply(vector, function(x) {
+    e <- as.numeric(intToBits(x))
+    if (sum[1:3])
+      "lookup"
+     
+  })
+}
+  
+
 analyze_database <- function(database_file_path) {
-
   components <- stringr::str_split(
     basename(tools::file_path_sans_ext(database_file_path)), "-", 2)[[1]]
 
@@ -24,17 +43,34 @@ analyze_database <- function(database_file_path) {
     summarise(
       forces = sum(event_type == 1),
       lookups = sum(event_type == 5 & inside_force == 1),
-      metaprogramming_any = sum(event_type >= 3) & sum(event_type <= 8) & (inside_force != 1),
-      metaprogramming_set = sum(event_type >= 6) & sum(event_type <= 8) & (inside_force != 1)
-    ) %>%
+      metaprogramming_any = sum(event_type >= 3) & 
+                            sum(event_type <= 8) & 
+                            (inside_force != 1),
+      #metaprogramming_set = sum(event_type >= 6) & 
+      #                      sum(event_type <= 8) & 
+      #                      (inside_force != 1),
+      lookup_expr = sum(event_type == 3) & (inside_force != 1),
+      lookup_env = sum(event_type == 4) & (inside_force != 1),
+      lookup_val = sum(event_type == 5) & (inside_force != 1),
+      set_expr = sum(event_type == 6) & (inside_force != 1),
+      set_env = sum(event_type == 7) & (inside_force != 1),
+      set_val = sum(event_type == 8) & (inside_force != 1)) %>%
     mutate(
       classification = ifelse(forces > 0,
-                       ifelse(forces > 1, "multiforce",
-                       ifelse(lookups > 0, "force and reuse", "just force")),
-                       "unforced"),
-      metaprogramming = ifelse(metaprogramming_any > 0,
-                        ifelse(metaprogramming_set > 0, "meta/set", "meta/get"), "clean")
-    ) %>%
+                       ifelse(forces > 1, 1, #"multiforce",
+                       ifelse(lookups > 0, 2, #"force and reuse", 
+                                           3)), #"just force")),
+                                           4), #"unforced"),
+      metaprogramming = ifelse(lookup_expr > 0, 1, 0) + 
+                        ifelse(lookup_env > 0, 2, 0) +
+                        ifelse(lookup_val > 0, 4, 0) + 
+                        ifelse(set_expr > 0, 8, 0) + 
+                        ifelse(set_env > 0, 16, 0) +
+                        ifelse(set_val > 0, 32, 0)) %>%
+      
+      #metaprogramming = ifelse(metaprogramming_any > 0,
+      #                  ifelse(metaprogramming_set > 0, "meta/set", "meta/get"), "clean")
+    #) %>%
     group_by(classification, metaprogramming) %>%
     count %>%
     as.data.frame
@@ -42,17 +78,13 @@ analyze_database <- function(database_file_path) {
   list(accesses=data)
 }
 
-# REDUCE
-# runs analyses on all the data from all the vignettes
-# analyses is the list form combine analyses
-# returns the summarized data that undergoes visualization
 summarize_analyses <- function(analyses) {
-
   list(
     accesses=analyses$accesses %>%
       group_by(classification) %>%
       summarise(number=sum(n)) %>%
-      mutate(percent=(100*number/sum(number))),
+      mutate(percent=(100*number/sum(number))) %>%
+      mutate(),
 
     metaprogramming=analyses$accesses %>%
       group_by(metaprogramming) %>%
@@ -66,36 +98,50 @@ summarize_analyses <- function(analyses) {
       mutate(percent=(100*number/sum(number))))
 }
 
-#return a list of ggplot2 objects
 visualize_analyses <- function(analyses) {
   list(
     accesses=
       ggplot(analyses$accesses, aes(x=classification, y=number)) +
-      ggtitle("Accesses") +
+      #ggtitle("Accesses") +
       geom_col() +
       scale_y_continuous(labels=pp_trunc) +
-      theme(legend.position="none", axis.title.x=element_blank()) +
-      xlab("Classification"),
+      theme(legend.position="none", axis.title.x=element_blank()),
+      #xlab("Access pattern"),
 
     metaprogramming=
       ggplot(analyses$metaprogramming, aes(x=metaprogramming, y=number)) +
-      ggtitle("Metaprogramming") +
+      #ggtitle("Metaprogramming") +
       geom_col() +
       scale_y_continuous(labels=pp_trunc) +
-      theme(legend.position="none", axis.title.x=element_blank()) +
-      xlab("Classification"),
+      theme(legend.position="none", axis.title.x=element_blank()),
+      #xlab(""),
 
     accesses_and_metaprogramming=
       ggplot(analyses$accesses_and_metaprogramming, aes(x=label, y=number)) +
-      ggtitle("Accesses/metaprogramming") +
+      #ggtitle("Accesses/metaprogramming") +
       geom_col() +
       scale_y_continuous(labels=pp_trunc) +
-      theme(legend.position="none", axis.title.x=element_blank()) +
-      xlab("Classification"))
+      theme(legend.position="none", axis.title.x=element_blank()))
+      #xlab("Classification"))
 }
 
 latex_analyses <- function(analyses) {
   list()
+}
+
+latex_tables <- function(analyses) {
+  list(accesses = analyses$accesses %>%
+                  mutate(number=pp_trunc(number), percent=pp_perc(percent)) %>%    
+                  kable(col.names = c("Access pattern", "Number", "Percent"), 
+                        format="latex"),
+       metaprogramming = analyses$metaprogramming %>%
+                  mutate(number=pp_trunc(number), percent=pp_perc(percent)) %>%    
+                  kable(col.names = c("Access pattern", "Number", "Percent"), 
+                       format="latex"),
+       accesses_and_metaprogramming = analyses$accesses_and_metaprogramming %>%
+                  mutate(number=pp_trunc(number), percent=pp_perc(percent)) %>%    
+                  kable(col.names = c("Access pattern", "Number", "Percent"), 
+                       format="latex"))
 }
 
 main <- function() {
@@ -109,7 +155,9 @@ main <- function() {
                  visualize_analyses,
                  export_as_images,
                  latex_analyses,
-                 export_as_latex_defs)
+                 export_as_latex_defs,
+                 latex_tables,
+                 export_as_latex_tables)
 }
 
 main()

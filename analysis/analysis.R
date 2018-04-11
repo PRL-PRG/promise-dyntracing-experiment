@@ -1,3 +1,4 @@
+library(hashmap)
 library(methods)
 library(tools)
 library(gdata)
@@ -11,6 +12,7 @@ library(magrittr)
 library(lubridate)
 library(broom)
 library(stringr)
+library(knitr)
 
 info <- function(...) cat(green(bold(paste0(...))))
 
@@ -52,7 +54,7 @@ export_as_images <- function(visualizations, graph_dir, extension = "pdf") {
     iwalk(
       function(graph, graphname) {
         filename <- file.path(graph_dir, paste0(graphname, ".", extension))
-        info("  • Exporting ", filename, "\n")
+        info("  * Exporting ", filename, "\n")
         ggsave(plot = graph, filename = filename)
       })
 }
@@ -62,11 +64,20 @@ export_as_tables <- function(analyses, table_dir, extension = "csv") {
       iwalk(
         function(table, tablename) {
           filename <- file.path(table_dir, paste0(tablename, ".", extension))
-          info("  • Exporting ", filename, "\n")
+          info("  * Exporting ", filename, "\n")
           write_csv(table, filename)
         })
 }
 
+export_as_latex_tables <- function(analyses, table_dir, extension = "tex") {
+  analyses %>%
+      iwalk(
+        function(table, tablename) {
+          filename <- file.path(table_dir, paste0(tablename, ".", extension))
+          info("  * Exporting ", filename, "\n")
+          table %>% capture.output %>% cat(file=filename, sep="\n")
+        })
+}
 
 import_as_tables <- function(table_dir, extension = "csv") {
   table_files <- list_files_with_exts(table_dir, extension)
@@ -75,14 +86,40 @@ import_as_tables <- function(table_dir, extension = "csv") {
     table_files %>%
     map(
       function(table_file) {
-          info("  • Importing ", table_file, "\n")
-          read_csv(table_file)
+          info("  * Importing ", table_file, "\n")
+          read_csv(table_file, col_types = cols())
       }) %>%
     setNames(table_names)
 
   analyses
 }
 
+export_as_rdata <- function(analyses, table_dir, extension = "RData") {
+  analyses %>%
+      iwalk(
+        function(table, tablename) {
+          filename <- file.path(table_dir, paste0(tablename, ".", extension))
+          info("  * Exporting ", filename, "\n")
+          save(table, file = filename)
+        })
+}
+
+
+import_as_rdata <- function(table_dir, extension = "RData") {
+  table_files <- list_files_with_exts(table_dir, extension)
+  table_names <- map(table_files, compose(file_path_sans_ext, basename))
+  analyses <-
+    table_files %>%
+    map(
+      function(table_file) {
+          info("  * Importing ", table_file, "\n")
+          load(file = table_file) # loads `table` into the current environment
+          table
+      }) %>%
+    setNames(table_names)
+
+  analyses
+}
 
 create_latex_def <-
   function(value, name) {
@@ -104,6 +141,7 @@ create_latex_defs <-
 export_as_latex_defs <-
   function(def_pairs, analysis_name, latex_filename) {
 
+    file.create(latex_filename)
     latex_file <- file(latex_filename, "wt")
 
     comment_line <- paste0(rep("%", 80), collapse = "")
@@ -118,7 +156,6 @@ export_as_latex_defs <-
 
     close(latex_file)
   }
-
 
 combine_analyses <- function(acc, element, combiner = bind_rows) {
   for(name in names(acc)) {
@@ -180,7 +217,9 @@ drive_analysis <- function(analysis_name,
                            visualize_analyses,
                            export_visualizations,
                            latex_analyses,
-                           export_latex) {
+                           export_latex,
+                           latex_tables,
+                           export_latex_tables) {
 
   info(analysis_name, "\n")
 
@@ -192,14 +231,17 @@ drive_analysis <- function(analysis_name,
   table_dir <- arguments$args[3]
   graph_dir <- arguments$args[4]
   partial_dir <- arguments$args[5]
-  latex_filename <- arguments$args[6]
-
+  latex_dir <- arguments$args[6]
+  
+  for (dir in c(input_dir, table_dir, graph_dir, partial_dir, latex_dir))
+    dir.create(dir, recursive=TRUE)
+  
   if(part %in% c("all", "analyze")) {
     analyses <-
       input_dir %T>%
-      info("• Sanning for sqlite files in ", ., "\n") %>%
+      info("* Scanning for sqlite files in ", ., "\n") %>%
       find_files("sqlite") %T>%
-      {info("  • Found ", length(.), " files", "\n", "• Analyzing databases", "\n")} %>%
+      {info("  * Found ", length(.), " files", "\n", "* Analyzing databases", "\n")} %>%
       lapply(
         function(database_filepath) {
           dataset_name = tools::file_path_sans_ext(
@@ -208,20 +250,20 @@ drive_analysis <- function(analysis_name,
               function(e) e[length(e)]))
           dataset_path <- file.path(partial_dir, dataset_name)
           if (file.exists(dataset_path) && !overwrite) {
-            info("  • Skipping ", database_filepath,
+            info("  * Skipping ", database_filepath,
                  " (", file_size(database_filepath), ") ",
                 "partial data already exists at ", dataset_path,
                 " and overwrite is not set", "\n")
             result <- import_as_tables(dataset_path)
           } else {
-            info("  • Analyzing ", database_filepath,
+            info("  * Analyzing ", database_filepath,
                  " (", file_size(database_filepath), ")", "\n")
             result <- analyze_database(database_filepath)
             if(!is.null(result)) {
-              info("  • Exporting analysis", "\n")
+              info("  * Exporting analysis", "\n")
               analysis_dir <- file.path(partial_dir, file_path_sans_ext(basename(database_filepath)))
               dir.create(analysis_dir)
-              export_as_tables(result, analysis_dir)
+              export_as_rdata(result, analysis_dir)
             }
           }
           result
@@ -230,40 +272,45 @@ drive_analysis <- function(analysis_name,
   }
 
   if(part %in% c("all", "summarize")) {
-    info("• Importing analyses", "\n")
+    info("* Importing analyses", "\n")
     analyses <-
       list.dirs(partial_dir, recursive = FALSE) %>%
-      lapply(import_as_tables) %T>%
-      (function (ignore) info("• Combining analyses", "\n")) %>%
+      lapply(import_as_rdata) %T>%
+      (function (ignore) info("* Combining analyses", "\n")) %>%
       Reduce(combine_analyses, .) %T>%
-      (function (ignore) info("• Summarizing analyses", "\n")) %>%
+      (function (ignore) info("* Summarizing analyses", "\n")) %>%
       summarize_analyses()
-    info("• Exporting summary", "\n")
+    info("* Exporting summary", "\n")
     export_analyses(analyses, table_dir)
   }
 
   if(part %in% c("all", "latex")) {
-    info("• Importing summary", "\n")
+    info("* Importing summary", "\n")
     analyses <- import_analyses(table_dir)
 
-    info("• Exporting latex", "\n")
-    info("•   Exporting ", latex_filename, "\n")
+    info("* Exporting latex definitions", "\n")
+    
+    latex_filename <-  file.path(latex_dir, paste0("variables", ".sty"))
+    info("*   Exporting ", latex_filename, "\n")
 
     export_latex(latex_analyses(analyses), analysis_name, latex_filename)
+    
+    info("* Exporting latex tables", "\n")
+    export_latex_tables(latex_tables(analyses), latex_dir)
   }
 
   if(part %in% c("all", "visualize")) {
-    info("• Importing summary", "\n")
+    info("* Importing summary", "\n")
     analyses <- import_analyses(table_dir)
 
-    info("• Visualizing analyses", "\n")
+    info("* Visualizing analyses", "\n")
     visualizations <- visualize_analyses(analyses)
 
-    info("• Exporting visualizations", "\n")
+    info("* Exporting visualizations", "\n")
     export_visualizations(visualizations, graph_dir)
   }
 
-  info("• Finished in ", time_difference(start_time, now()), "\n")
+  info("* Finished in ", time_difference(start_time, now()), "\n")
 
   warnings()
 }
