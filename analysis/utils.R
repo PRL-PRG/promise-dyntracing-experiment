@@ -84,11 +84,13 @@ update_argument_name <- function(name) {
 
 memory_size_labels <-
   function(x) {
-    y = log2(x)
-    units <- c("B", "KB", "MB", "GB", "TB", "PB")
-    unit <- units[y %/% 10 + 1]
-    value <- 2 ^ (y %% 10)
-    paste(value, unit, sep = " ")
+    ifelse(x == 0,
+           "0 B",
+           { y <- log2(x)
+             units <- c("B", "KB", "MB", "GB", "TB", "PB")
+             unit <- units[y %/% 10 + 1]
+             value <- 2 ^ (y %% 10)
+             paste(round(value, 0), unit, sep = " ") })
   }
 
 count_labels <-
@@ -98,18 +100,23 @@ count_labels <-
     } else if(x < 10^3) {
       paste0(x)
     } else if(x < 10^6) {
-      paste(x/1000, "THOUSAND", sep=" ")
+      paste(x/1000, "K", sep=" ")
     } else if(x < 10^9) {
-      paste(x/(10^6), "MILLION", sep=" ")
+      paste(x/(10^6), "M", sep=" ")
     } else {
-      paste(x/(10^9), "BILLION", sep=" ")
+      paste(x/(10^9), "B", sep=" ")
     }
   },
   "x")
 
 relative_labels <-
   function(x) {
-    paste0(x * 100, "%", sep=" ")
+    percent_labels(x * 1000)
+  }
+
+percent_labels <-
+  function(x) {
+    paste0(x, "%", sep=" ")
   }
 
 extract_package_name <-

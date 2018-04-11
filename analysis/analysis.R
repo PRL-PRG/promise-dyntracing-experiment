@@ -67,6 +67,7 @@ export_as_tables <- function(analyses, table_dir, extension = "csv") {
         })
 }
 
+
 import_as_tables <- function(table_dir, extension = "csv") {
   table_files <- list_files_with_exts(table_dir, extension)
   table_names <- map(table_files, compose(file_path_sans_ext, basename))
@@ -81,6 +82,43 @@ import_as_tables <- function(table_dir, extension = "csv") {
 
   analyses
 }
+
+
+create_latex_def <-
+  function(value, name) {
+    paste("\\def",
+          paste0("\\", name),
+          paste0("{", value, "}"),
+          sep = " ")
+  }
+
+
+create_latex_defs <-
+  function(def_pairs) {
+    def_pairs %>%
+      map2(names(.), create_latex_def) %>%
+      paste0(collapse="\n")
+  }
+
+
+export_as_latex_defs <-
+  function(def_pairs, analysis_name, latex_filename) {
+
+    latex_file <- file(latex_filename, "wt")
+
+    comment_line <- paste0(rep("%", 80), collapse = "")
+
+    writeLines(comment_line, latex_file)
+    writeLines("%%", latex_file)
+    writeLines(paste0("%% ", analysis_name), latex_file)
+    writeLines("%%", latex_file)
+    writeLines(comment_line, latex_file)
+    writeLines("\n", latex_file)
+    writeLines(create_latex_defs(def_pairs), latex_file)
+
+    close(latex_file)
+  }
+
 
 combine_analyses <- function(acc, element, combiner = bind_rows) {
   for(name in names(acc)) {
@@ -97,12 +135,12 @@ parse_program_arguments <- function() {
   description <- paste(
     "",
     "",
-    "part           part of the pipeline to run - analyze, visualize or all",
-    "input-dir      directory containing sqlite databases (scanned recursively)",
-    "table-dir      directory to which tables will be exported",
-    "graph-dir      directory to which graphs will be exported",
-    "partial-dir    directory to which partial analyses will be exported",
-    "variables-file sty file to which variables will be exported",
+    "part            part of the pipeline to run - analyze, visualize or all",
+    "input-dir       directory containing sqlite databases (scanned recursively)",
+    "table-dir       directory to which tables will be exported",
+    "graph-dir       directory to which graphs will be exported",
+    "partial-dir     directory to which partial analyses will be exported",
+    "latex-filename  sty file to which variables will be exported",
     "",
     "",
     sep = "\n")
@@ -114,6 +152,24 @@ parse_program_arguments <- function() {
   parse_args(option_parser, positional_arguments = 6)
 }
 
+
+underscore_to_camel_case <-
+  function(name) {
+    name %>%
+      str_replace_all("_", " ") %>%
+      str_to_title() %>%
+      str_replace_all(" ", "")
+  }
+
+
+to_list <-
+  function(df, row) {
+    setNames(as.vector(df[row,]),
+             underscore_to_camel_case(colnames(df)))
+  }
+
+
+
 overwrite <- FALSE
 drive_analysis <- function(analysis_name,
                            analyze_database,
@@ -123,7 +179,8 @@ drive_analysis <- function(analysis_name,
                            import_analyses,
                            visualize_analyses,
                            export_visualizations,
-                           export_variables) {
+                           latex_analyses,
+                           export_latex) {
 
   info(analysis_name, "\n")
 
@@ -135,7 +192,7 @@ drive_analysis <- function(analysis_name,
   table_dir <- arguments$args[3]
   graph_dir <- arguments$args[4]
   partial_dir <- arguments$args[5]
-  variables_filename <- arguments$args[6]
+  latex_filename <- arguments$args[6]
 
   if(part %in% c("all", "analyze")) {
     analyses <-
@@ -185,21 +242,14 @@ drive_analysis <- function(analysis_name,
     export_analyses(analyses, table_dir)
   }
 
-  if(part %in% c("all", "variables")) {
+  if(part %in% c("all", "latex")) {
     info("• Importing summary", "\n")
     analyses <- import_analyses(table_dir)
 
-    info("• Exporting variables", "\n")
-    info("•   Exporting ", variables_filename, "\n")
+    info("• Exporting latex", "\n")
+    info("•   Exporting ", latex_filename, "\n")
 
-    variables_file <- file(variables_filename, "wt")
-    writeLines("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%", variables_file)
-    writeLines("%%", variables_file)
-    writeLines(paste0("%% ", analysis_name), variables_file)
-    writeLines("%%", variables_file)
-    writeLines("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n\n", variables_file)
-    export_variables(variables_file)
-    close(variables_file)
+    export_latex(latex_analyses(analyses), analysis_name, latex_filename)
   }
 
   if(part %in% c("all", "visualize")) {
