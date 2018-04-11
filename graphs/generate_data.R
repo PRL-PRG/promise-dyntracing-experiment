@@ -18,6 +18,17 @@ store <- function(name, output_path) function(table) function(...) {
   write(paste("done writing", path), stderr())
 }
 
+store_exists <- function(name, output_path) function(table) {
+  path <- file.path(output_path, paste(table, "csv", sep="."))
+  write(paste("checking if already exists", path), stderr())
+  if (file.exists(path)) {
+    write(paste("store already exists", path), stderr())
+    TRUE
+  } else 
+    FALSE
+}
+
+
 load <- function(input_path) function (csv_file) {
     path <- file.path(input_path, paste0(csv_file, ".csv"))
     write(paste("reading", path), stderr())
