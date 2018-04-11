@@ -105,21 +105,37 @@ visualize_analyses <- function(analyses) {
        "object_size" = object_size_visualization)
 }
 
-latex_analyses <- function(analyses) {
-  to_list(analyses$aggregate, 1)
-}
+latex_analyses <-
+  function(analyses) {
 
-main <- function() {
-  drive_analysis("Promise Memory Usage Analysis",
-                 analyze_database,
-                 combine_analyses,
-                 summarize_analyses,
-                 export_as_tables,
-                 import_as_tables,
-                 visualize_analyses,
-                 export_as_images,
-                 latex_analyses,
-                 export_as_latex_defs)
-}
+    relative_count_size <-
+      analyses$object_count_size %>%
+      group_by(`GROUP TYPE`) %>%
+      summarize(`RELATIVE SIZE` = sum(`RELATIVE SIZE`),
+                `RELATIVE COUNT` = sum(`RELATIVE COUNT`))
+    count_size <-
+      analyses$object_count_size %>%
+      group_by(`GROUP TYPE`) %>%
+      summarize(`SIZE` = sum(`SIZE`),
+                `COUNT` = sum(`COUNT`))
+
+    append(to_named_values(count_size, "GROUP TYPE"),
+           to_named_values(relative_count_size, "GROUP TYPE"))
+
+  }
+
+main <-
+  function() {
+    drive_analysis("Promise Memory Usage Analysis",
+                   analyze_database,
+                   combine_analyses,
+                   summarize_analyses,
+                   export_as_tables,
+                   import_as_tables,
+                   visualize_analyses,
+                   export_as_images,
+                   latex_analyses,
+                   export_as_latex_defs)
+  }
 
 main()

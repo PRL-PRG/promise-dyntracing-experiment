@@ -149,3 +149,28 @@ pp_perc <-
     dollar_format(prefix="", suffix="%")(x)
   }
 
+
+to_named_values <-
+  function(df, column_name) {
+
+    underscore_to_camel_case <-
+      function(name) {
+        name %>%
+          str_replace_all("_", " ") %>%
+          str_to_title() %>%
+          str_replace_all(" ", "")
+      }
+
+    named_values <- list()
+    rownames(df) <- df[[column_name]]
+    for(rowname in rownames(df)) {
+      for(colname in colnames(df)) {
+        if(colname != column_name) {
+          var_name <-
+            underscore_to_camel_case(paste(rowname, colname, collapse="_"))
+          named_values[[var_name]] <- df[rowname, colname]
+        }
+      }
+    }
+    named_values
+  }
