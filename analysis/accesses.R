@@ -19,15 +19,22 @@ humanize_classification <- function(vector)
 
 to_bits <- function(x) lapply(x, to_bits_single)
 
-humanize_metaprogramming <- function(vector) {
-  lapply(vector, function(x) {
+humanize_metaprogramming <- function(vector)
+  sapply(vector, function(x) {
     e <- as.numeric(intToBits(x))
-    if (sum[1:3])
-      "lookup"
-     
-  })
-}
-  
+    paste(
+      Filter(function(x) x!="",
+             ifelse(sum(e[1:6]),
+                   c(ifelse(sum(e[1:3]), "lookup", ""),
+                      ifelse(e[1], "expr", ""),
+                      ifelse(e[2], "env", ""),
+                      ifelse(e[3], "val", ""),
+                      ifelse(sum(e[4:6]), "set", ""),
+                      ifelse(e[4], "expr", ""),
+                      ifelse(e[5], "env", ""),
+                      ifelse(e[6], "val", "")),
+                    c("clean"))), 
+             collapse=" ")})
 
 analyze_database <- function(database_file_path) {
   components <- stringr::str_split(
@@ -41,36 +48,26 @@ analyze_database <- function(database_file_path) {
     select(promise_id, event_type, inside_force) %>%
     group_by(promise_id) %>%
     summarise(
-      forces = sum(event_type == 1),
-      lookups = sum(event_type == 5 & inside_force == 1),
+      forces =              sum(event_type == 1),
+      lookups =             sum(event_type == 5 & inside_force == 1),
       metaprogramming_any = sum(event_type >= 3) & 
-                            sum(event_type <= 8) & 
-                            (inside_force != 1),
-      #metaprogramming_set = sum(event_type >= 6) & 
-      #                      sum(event_type <= 8) & 
-      #                      (inside_force != 1),
-      lookup_expr = sum(event_type == 3) & (inside_force != 1),
-      lookup_env = sum(event_type == 4) & (inside_force != 1),
-      lookup_val = sum(event_type == 5) & (inside_force != 1),
-      set_expr = sum(event_type == 6) & (inside_force != 1),
-      set_env = sum(event_type == 7) & (inside_force != 1),
-      set_val = sum(event_type == 8) & (inside_force != 1)) %>%
+                            sum(event_type <= 8) & (inside_force != 1),
+      lookup_expr =         sum(event_type == 3) & (inside_force != 1),
+      lookup_env =          sum(event_type == 4) & (inside_force != 1),
+      lookup_val =          sum(event_type == 5) & (inside_force != 1),
+      set_expr =            sum(event_type == 6) & (inside_force != 1),
+      set_env =             sum(event_type == 7) & (inside_force != 1),
+      set_val =             sum(event_type == 8) & (inside_force != 1)) %>%
     mutate(
-      classification = ifelse(forces > 0,
-                       ifelse(forces > 1, 1, #"multiforce",
-                       ifelse(lookups > 0, 2, #"force and reuse", 
-                                           3)), #"just force")),
-                                           4), #"unforced"),
-      metaprogramming = ifelse(lookup_expr > 0, 1, 0) + 
-                        ifelse(lookup_env > 0, 2, 0) +
-                        ifelse(lookup_val > 0, 4, 0) + 
-                        ifelse(set_expr > 0, 8, 0) + 
-                        ifelse(set_env > 0, 16, 0) +
-                        ifelse(set_val > 0, 32, 0)) %>%
-      
-      #metaprogramming = ifelse(metaprogramming_any > 0,
-      #                  ifelse(metaprogramming_set > 0, "meta/set", "meta/get"), "clean")
-    #) %>%
+      classification =      ifelse(forces > 0,
+                            ifelse(forces > 1, 1, 
+                            ifelse(lookups > 0, 2, 3)), 4),
+      metaprogramming =     ifelse(lookup_expr > 0, 1, 0) + 
+                            ifelse(lookup_env > 0, 2, 0) +
+                            ifelse(lookup_val > 0, 4, 0) + 
+                            ifelse(set_expr > 0, 8, 0) + 
+                            ifelse(set_env > 0, 16, 0) +
+                            ifelse(set_val > 0, 32, 0)) %>%
     group_by(classification, metaprogramming) %>%
     count %>%
     as.data.frame
@@ -79,23 +76,32 @@ analyze_database <- function(database_file_path) {
 }
 
 summarize_analyses <- function(analyses) {
+  print(analyses$accesses %>% pull(metaprogramming) %>% humanize_metaprogramming)
   list(
     accesses=analyses$accesses %>%
       group_by(classification) %>%
       summarise(number=sum(n)) %>%
       mutate(percent=(100*number/sum(number))) %>%
-      mutate(),
+      #ungroup %>%
+      mutate(classification=humanize_classification(classification)),
 
     metaprogramming=analyses$accesses %>%
       group_by(metaprogramming) %>%
       summarise(number=sum(n)) %>%
-      mutate(percent=(100*number/sum(number))),
+      mutate(percent=(100*number/sum(number))) %>%
+      ungroup %>%
+      mutate(metaprogramming=humanize_metaprogramming(metaprogramming)),
 
     accesses_and_metaprogramming=analyses$accesses %>%
-      mutate(label=paste0(classification, " ", metaprogramming)) %>%
-      group_by(label) %>%
+      group_by(classification, metaprogramming) %>%
       summarise(number=sum(n)) %>%
-      mutate(percent=(100*number/sum(number))))
+      mutate(percent=(100*number/sum(number))) %>%
+      ungroup %>%
+      mutate(label=paste0(
+        classification=humanize_classification(classification), " ",
+        metaprogramming=humanize_metaprogramming(metaprogramming))) %>%
+      select(label, number, percent)
+    )
 }
 
 visualize_analyses <- function(analyses) {
