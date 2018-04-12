@@ -146,6 +146,10 @@ visualize_analyses <- function(analyses) {
   list("evaluation_mode_distribution" = evaluation_mode_distribution)
 }
 
+latex_tables <- function(analyses) {
+  list()
+}
+
 main <- function() {
   drive_analysis("Function force",
                  analyze_database,
@@ -154,7 +158,9 @@ main <- function() {
                  export_as_tables,
                  import_as_tables,
                  visualize_analyses,
-                 export_as_images)
+                 export_as_images,
+                 latex_tables,
+                 export_as_latex_tables)
 }
 
 main()
