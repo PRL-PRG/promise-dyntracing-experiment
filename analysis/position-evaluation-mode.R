@@ -43,17 +43,18 @@ analyze_database <- function(database_filepath) {
 
   evaluation_mode_source_table <-
     promise_associations_tbl %>%
-    left_join(promise_evaluations_tbl, by = c("promise_id" = "promise_id")) %>%
+    left_join(promise_evaluations_tbl, by = "promise_id") %>%
     #mutate(event_type = ifelse(is.na(promise_id), 1, event_type)) %>%
-    left_join(arguments_tbl, by = c("argument_id" = "argument_id")) %>%
-    left_join(calls_tbl, by = c("call_id" = "call_id")) %>%
-    left_join(functions_tbl, by = c("function_id" = "function_id")) %>%
+    left_join(arguments_tbl, by = "argument_id") %>%
+    left_join(calls_tbl, by = "call_id") %>%
+    left_join(functions_tbl, by = "function_id") %>%
     select(-definition) %>%
-    collect() %>%
+    #collect() %>% XXX 
     group_by(call_id) %>%
-    mutate(weird = any(is.na(promise_id))) %>%
+    mutate(weird = is.na(promise_id)) %>% # XXX
     ungroup() %>%
-    filter(weird == FALSE)
+    filter(weird == FALSE) %>% 
+    collect()
 
   evaluation_mode <-
     evaluation_mode_source_table %>%
@@ -75,7 +76,8 @@ analyze_database <- function(database_filepath) {
   sometimes_never_calls <-
     evaluation_mode_source_table %>%
     filter(`function_id` %in% sometimes_never_functions[["FUNCTION ID"]]) %>%
-    select(function_id, function_name, call_id, call_expression, formal_parameter_position, name, promise_id, event_type,)
+    select(function_id, function_name, call_id, call_expression, 
+           formal_parameter_position, name, promise_id, event_type)
 
   list("evaluation_mode" = evaluation_mode,
        "function_definitions" = function_definitions,
@@ -192,6 +194,26 @@ latex_analyses <- function(analyses) {
   list()
 }
 
+latex_tables <- function(analyses) {
+  print(analyses$evaluation_mode_summarized)
+  list(evaluation_mode_distribution_by_function=
+       analyses$evaluation_mode_summarized %>% 
+       filter(`TYPE` == "FUNCTION") %>%
+       mutate(number=pp_trunc(`COUNT`), 
+             percent=pp_perc(100*`COUNT`/sum(`COUNT`))) %>%    
+       select(`EVALUATION MODE`, number, percent) %>%
+       kable(col.names = c("Function Evaluation Mode", "Number", "Percent"), 
+             format="latex"),
+       evaluation_mode_distribution_by_formal_parameter_position=
+       analyses$evaluation_mode_summarized %>% 
+       filter(`TYPE` == "FORMAL PARAMETER POSITION") %>%
+       mutate(number=pp_trunc(COUNT), 
+              percent=pp_perc(100*COUNT/sum(COUNT))) %>%
+       select(`EVALUATION MODE`, number, percent) %>%
+       kable(col.names = c("Position Evaluation Mode", "Number", "Percent"), 
+             format="latex"))
+}
+
 main <- function() {
   drive_analysis("Position Evaluation Mode",
                  analyze_database,
@@ -202,7 +224,9 @@ main <- function() {
                  visualize_analyses,
                  export_as_images,
                  latex_analyses,
-                 export_as_latex_defs)
+                 export_as_latex_defs,
+                 latex_tables,
+                 export_as_latex_tables)
 }
 
 main()

@@ -11,12 +11,6 @@ humanize_classification <- function(vector)
   ifelse(vector == 3, "just force",
   ifelse(vector == 4, "unforced", "?"))))
 
-# to_bits_single <- function(x){
-#   tmp <- as.numeric(intToBits(x))
-#   id <- seq_len(match(1,tmp,length(tmp))-1)
-#   tmp[-id]
-# }
-
 to_bits <- function(x) lapply(x, to_bits_single)
 
 humanize_metaprogramming <- function(vector)
@@ -76,7 +70,6 @@ analyze_database <- function(database_file_path) {
 }
 
 summarize_analyses <- function(analyses) {
-  print(analyses$accesses %>% pull(metaprogramming) %>% humanize_metaprogramming)
   list(
     accesses=analyses$accesses %>%
       group_by(classification) %>%
@@ -151,7 +144,6 @@ latex_tables <- function(analyses) {
 }
 
 main <- function() {
-
   drive_analysis("General Info",
                  analyze_database,
                  combine_analyses,

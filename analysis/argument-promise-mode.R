@@ -132,6 +132,10 @@ latex_analyses <- function(analyses) {
   list()
 }
 
+latex_tables <- function(analyses) {
+  list()
+}
+
 main <- function() {
   drive_analysis("Argument Mode Analysis",
                  analyze_database,
@@ -142,7 +146,9 @@ main <- function() {
                  visualize_analyses,
                  export_as_images,
                  latex_analyses,
-                 export_as_latex_defs)
+                 export_as_latex_defs,
+                 latex_tables,
+                 export_as_latex_tables)
 }
 
 main()

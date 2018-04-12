@@ -108,6 +108,10 @@ latex_analyses <- function(analyses) {
   to_list(analyses$aggregate, 1)
 }
 
+latex_tables <- function(analyses) {
+  list()
+}
+
 main <- function() {
   drive_analysis("Promise Memory Usage Analysis",
                  analyze_database,
@@ -118,7 +122,9 @@ main <- function() {
                  visualize_analyses,
                  export_as_images,
                  latex_analyses,
-                 export_as_latex_defs)
+                 export_as_latex_defs,
+                 latex_tables,
+                 export_as_latex_tables)
 }
 
 main()
