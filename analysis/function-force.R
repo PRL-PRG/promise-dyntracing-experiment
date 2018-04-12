@@ -146,6 +146,10 @@ visualize_analyses <- function(analyses) {
   list("evaluation_mode_distribution" = evaluation_mode_distribution)
 }
 
+latex_analyses <- function(analyses) {
+  list()
+}
+
 latex_tables <- function(analyses) {
   list()
 }
@@ -159,6 +163,8 @@ main <- function() {
                  import_as_tables,
                  visualize_analyses,
                  export_as_images,
+                 latex_analyses,
+                 export_as_latex_defs,
                  latex_tables,
                  export_as_latex_tables)
 }
