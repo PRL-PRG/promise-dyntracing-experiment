@@ -42,16 +42,24 @@ analyze_database <- function(database_file_path) {
     select(promise_id, event_type, inside_force) %>%
     group_by(promise_id) %>%
     summarise(
-      forces =              sum(event_type == 1),
-      lookups =             sum(event_type == 5 & inside_force == 1),
-      metaprogramming_any = sum(event_type >= 3) & 
-                            sum(event_type <= 8) & (inside_force != 1),
-      lookup_expr =         sum(event_type == 3) & (inside_force != 1),
-      lookup_env =          sum(event_type == 4) & (inside_force != 1),
-      lookup_val =          sum(event_type == 5) & (inside_force != 1),
-      set_expr =            sum(event_type == 6) & (inside_force != 1),
-      set_env =             sum(event_type == 7) & (inside_force != 1),
-      set_val =             sum(event_type == 8) & (inside_force != 1)) %>%
+      forces =              sum(event_type == 1, na.rm = TRUE),
+      lookups =             sum(event_type == 5, na.rm = TRUE) & 
+                            (inside_force == 1),
+      metaprogramming_any = sum(event_type >= 3, na.rm = TRUE) & 
+                            sum(event_type <= 8, na.rm = TRUE) & 
+                            (inside_force != 1),
+      lookup_expr =         sum(event_type == 3, na.rm = TRUE) & 
+                            (inside_force != 1),
+      lookup_env =          sum(event_type == 4, na.rm = TRUE) & 
+                            (inside_force != 1),
+      lookup_val =          sum(event_type == 5, na.rm = TRUE) & 
+                            (inside_force != 1),
+      set_expr =            sum(event_type == 6, na.rm = TRUE) & 
+                            (inside_force != 1),
+      set_env =             sum(event_type == 7, na.rm = TRUE) & 
+                            (inside_force != 1),
+      set_val =             sum(event_type == 8, na.rm = TRUE) & 
+                            (inside_force != 1)) %>%
     mutate(
       classification =      ifelse(forces > 0,
                             ifelse(forces > 1, 1, 

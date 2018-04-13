@@ -12,8 +12,8 @@ analyze_database <- function(database_file_path) {
   db <- src_sqlite(database_file_path)
   promises <- tbl(db, sql('SELECT COUNT(*) AS n FROM promises')) %>% pull(n)
   promise_events <- tbl(db, sql('SELECT COUNT(*) AS n FROM promise_lifecycle')) %>% pull(n)
-  promise_evaluations <- tbl(db, sql('SELECT COUNT(*) AS n FROM promise_lifecycle WHERE event_type = 1')) %>% pull(n)
-  promise_lookups <- tbl(db, sql('SELECT COUNT(*) AS n FROM promise_lifecycle WHERE event_type = 5')) %>% pull(n)
+  promise_evaluations <- tbl(db, sql('SELECT COUNT(*) AS n FROM promise_lifecycle WHERE event_type = 15')) %>% pull(n)
+  promise_lookups <- tbl(db, sql('SELECT COUNT(*) AS n FROM promise_lifecycle WHERE event_type = 1')) %>% pull(n)
   calls <- tbl(db, sql('SELECT COUNT(*) AS n FROM calls')) %>% pull(n)
   functions <- tbl(db, sql('SELECT id FROM functions')) %>% collect
   
