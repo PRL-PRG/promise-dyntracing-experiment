@@ -1,3 +1,5 @@
+library(hashmap)
+
 typename <- function(type) {
     switch(toString(type),
            "0" = "NIL",
@@ -30,6 +32,27 @@ typename <- function(type) {
            "99" = "FUN",
            "NA" = "NA",
            "?")
+}
+
+SEXP_TYPE_NAMES <- c(
+    "NIL", "SYM", "LIST", "CLOS", "ENV",  "PROM", # 0-5
+    "LANG", "SPECIAL", "BUILTIN", "CHAR",  "LGL", # 6-10
+    "INT", "REAL", "CPLX", "STR", "DOT", "ANY",   # 13-18
+    "VEC", "EXPR", "BCODE", "EXTPTR", "WEAKREF",  # 19-23
+    "RAW", "S4",                                  # 24-25
+    "actbind", "...")                             # 42, 69 
+SEXP_TYPE_CODES <- c(0:10,13:25,42,69) 
+SEXP_TYPES <- hashmap(keys=SEXP_TYPE_CODES, values=SEXP_TYPE_NAMES)
+SEXP_TYPES_REV <- hashmap(keys=SEXP_TYPE_NAMES, values=SEXP_TYPE_CODES)
+guard_against_na <- function(key, map) ifelse(is.na(key), "NA", map[[key]])
+humanize_promise_type <- function(type) guard_against_na(type, SEXP_TYPES) 
+dehumanize_promise_type <- function(type) guard_against_na(type, SEXP_TYPES_REV)
+humanize_full_promise_type = function(full_type) {
+  strsplit(full_type, ',', fixed=TRUE) %>% 
+    sapply(., as.numeric) %>% 
+    sapply(., function(type) humanize_promise_type(type)) %>% 
+    #lapply(., function(vec) paste(vec, collapse = "→"))
+    paste(., collapse = ">")
 }
 
 eventname <- function(event) {
