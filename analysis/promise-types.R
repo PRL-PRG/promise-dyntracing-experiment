@@ -8,8 +8,6 @@ library(dplyr)
 analyze_database <- function(database_file_path) {
   db <- src_sqlite(database_file_path)
   promises <- db %>% tbl("promises")
-  print(promises %>% group_by(full_type) %>% count %>% 
-                          as.data.frame)
   list(promise_types=promises %>% group_by(type) %>% count %>% as.data.frame, 
        promise_full_types=promises %>% group_by(full_type) %>% count %>% 
                           as.data.frame)
@@ -44,12 +42,14 @@ latex_analyses <- function(analyses) {
 }
 
 main <- function() {
-  drive_analysis("promise-types",
-                 analyze_database,
-                 combine_analyses,
-                 summarize_analyses,
-                 visualize_analyses,
-                 latex_analyses)
+  create_analyzer(
+    "Promise Types",
+    analyze_database,
+    combine_analyses,
+    summarize_analyses,
+    visualize_analyses,
+    latex_analyses) %>%
+  drive_analysis
 }
 
 main()
