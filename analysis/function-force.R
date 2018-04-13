@@ -42,9 +42,9 @@ analyze_database <- function(database_filepath) {
 
   evaluation_mode <-
     calls_tbl %>%
-    left_join(arguments_tbl, by = c("call_id" = "call_id")) %>%
-    left_join(promise_associations_tbl, by = c("argument_id" = "argument_id")) %>%
-    left_join(promise_evaluations_tbl, by = c("promise_id" = "promise_id")) %>%
+    left_join(arguments_tbl, by = "call_id") %>%
+    left_join(promise_associations_tbl, by = "argument_id") %>%
+    left_join(promise_evaluations_tbl, by = "promise_id") %>%
     filter(!is.na(formal_parameter_position)) %>%
     group_by(function_id, call_id, formal_parameter_position) %>%
     summarize(`POSITION ALWAYS FORCED` = !is.na(count),

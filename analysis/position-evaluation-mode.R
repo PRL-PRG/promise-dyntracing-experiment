@@ -43,17 +43,18 @@ analyze_database <- function(database_filepath) {
 
   evaluation_mode_source_table <-
     promise_associations_tbl %>%
-    left_join(promise_evaluations_tbl, by = c("promise_id" = "promise_id")) %>%
+    left_join(promise_evaluations_tbl, by = "promise_id") %>%
     #mutate(event_type = ifelse(is.na(promise_id), 1, event_type)) %>%
-    left_join(arguments_tbl, by = c("argument_id" = "argument_id")) %>%
-    left_join(calls_tbl, by = c("call_id" = "call_id")) %>%
-    left_join(functions_tbl, by = c("function_id" = "function_id")) %>%
+    left_join(arguments_tbl, by = "argument_id") %>%
+    left_join(calls_tbl, by = "call_id") %>%
+    left_join(functions_tbl, by = "function_id") %>%
     select(-definition) %>%
-    collect() %>%
+    collect() %>% # TODO remove
     group_by(call_id) %>%
-    mutate(weird = any(is.na(promise_id))) %>%
+    mutate(weird = any(is.na(promise_id))) %>% # TODO modify
     ungroup() %>%
     filter(weird == FALSE)
+    # TODO add collect()
 
   evaluation_mode <-
     evaluation_mode_source_table %>%
@@ -75,7 +76,8 @@ analyze_database <- function(database_filepath) {
   sometimes_never_calls <-
     evaluation_mode_source_table %>%
     filter(`function_id` %in% sometimes_never_functions[["FUNCTION ID"]]) %>%
-    select(function_id, function_name, call_id, call_expression, formal_parameter_position, name, promise_id, event_type,)
+    select(function_id, function_name, call_id, call_expression, 
+           formal_parameter_position, name, promise_id, event_type)
 
   list("evaluation_mode" = evaluation_mode,
        "function_definitions" = function_definitions,
