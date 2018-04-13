@@ -4,6 +4,7 @@ source("analysis/utils.R")
 source("analysis/analysis.R")
 
 library(dplyr)
+library(knitr)
 
 analyze_database <- function(database_file_path) {
   components <- stringr::str_split(
@@ -16,17 +17,17 @@ analyze_database <- function(database_file_path) {
     select(effective_distance=effective_distance_from_origin, 
            actual_distance=actual_distance_from_origin)
 
-  list(actual_distances =    promise_evaluations %>% 
-                             group_by(actual_distance) %>%
-                             count %>% as.data.frame)
+  list(actual_distances = promise_evaluations %>% 
+                          group_by(actual_distance) %>%
+                          count %>% as.data.frame)
 }
 
 summarize_analyses <- function(analyses) {
   data <-
-    list(actual_distances =    analyses$actual_distances %>% 
-                               group_by(actual_distance) %>%
-                               summarise(number=sum(as.numeric(n))) %>%
-                               mutate(percent=(100*number/sum(number))))
+    list(actual_distances = analyses$actual_distances %>% 
+                            group_by(actual_distance) %>%
+                            summarise(number=sum(as.numeric(n))) %>%
+                            mutate(percent=(100*number/sum(number))))
   
   data$actual_distances_short = rbind(data$actual_distances %>%
                                       filter(actual_distance<25) %>%
@@ -43,7 +44,6 @@ summarize_analyses <- function(analyses) {
 }
 
 visualize_analyses <- function(analyses) {
-  print(analyses)
   list(
     actual_distances = 
       ggplot(analyses$actual_distances_short, aes(x=actual_distance, y=number)) +
@@ -54,7 +54,18 @@ visualize_analyses <- function(analyses) {
 }
 
 latex_analyses <- function(analyses) {
-  list()
+  list(evaluationDistancesTbl = 
+          analyses$actual_distances_short %>%
+               mutate(number=pp_trunc(number),
+                      percent=pp_perc(percent)) %>%
+               kable(col.names = c("Distance", "Number", "Percent"),
+                     format = "latex"),
+       evaluationDistancesAllTbl = 
+          analyses$actual_distances_short %>%
+               mutate(number=pp_trunc(number),
+                      percent=pp_perc(percent)) %>%
+               kable(col.names = c("Distance", "Number", "Percent"), 
+                     format = "latex"))
 }
 
 main <-
@@ -71,3 +82,4 @@ main <-
 
 main()
 warnings()
+
