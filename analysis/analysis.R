@@ -47,7 +47,10 @@ create_table <- function(input_dir) {
   Reduce(bind_rows, lapply(find_files(input_dir, "sqlite"), analyze_database))
 }
 
-export_as_images <- function(visualizations, graph_dir, extension = "pdf") {
+export_as_images <- function(visualizations, graph_dir, logger, extension = "pdf") {
+
+  dir.create(graph_dir, showWarnings = FALSE, recursive = TRUE)
+
   visualizations %>%
     iwalk(
       function(graph, graphname) {
@@ -57,7 +60,10 @@ export_as_images <- function(visualizations, graph_dir, extension = "pdf") {
       })
 }
 
-export_as_tables <- function(analyses, table_dir, extension = "csv") {
+export_as_tables <- function(analyses, table_dir, logger, extension = "csv") {
+
+  dir.create(table_dir, showWarnings = FALSE, recursive = TRUE)
+
   analyses %>%
       iwalk(
         function(table, tablename) {
@@ -68,7 +74,7 @@ export_as_tables <- function(analyses, table_dir, extension = "csv") {
 }
 
 
-import_as_tables <- function(table_dir, extension = "csv") {
+import_as_tables <- function(table_dir, logger, extension = "csv") {
   table_files <- list_files_with_exts(table_dir, extension)
   table_names <- map(table_files, compose(file_path_sans_ext, basename))
   analyses <-
@@ -102,7 +108,7 @@ create_latex_defs <-
 
 
 export_as_latex_defs <-
-  function(def_pairs, analysis_name, latex_filename) {
+  function(def_pairs, analysis_name, latex_filename, logger) {
 
     latex_file <- file(latex_filename, "wt")
 
@@ -131,27 +137,42 @@ combine_analyses <- function(acc, element, combiner = bind_rows) {
 }
 
 parse_program_arguments <- function() {
-  usage <- "%prog input-dir table-dir graphs-dir"
+
+  usage <- "%prog input-dir summary-dir visualization-dir latex-filename cache-dir [OPTION]..."
   description <- paste(
     "",
-    "",
-    "part            part of the pipeline to run - analyze, visualize or all",
-    "input-dir       directory containing sqlite databases (scanned recursively)",
-    "table-dir       directory to which tables will be exported",
-    "graph-dir       directory to which graphs will be exported",
-    "partial-dir     directory to which partial analyses will be exported",
-    "latex-filename  sty file to which variables will be exported",
-    "",
-    "",
+    "input-dir         directory containing sqlite databases (scanned recursively)",
+    "summary-dir       directory to which summaries will be exported",
+    "visualization-dir directory to which visualizations will be exported",
+    "latex-filename    file to which latex will be exported",
+    "cache-dir         directory to which intermediate state will be exported",
     sep = "\n")
+
+  option_list <- list(make_option(c("-c", "--use-cache"),
+                                  action="store_true",
+                                  default=FALSE,
+                                  help="use cache for pre-computed results [default %default]"),
+                      make_option(c("-s", "--stage"),
+                                  type="character",
+                                  default="all",
+                                  help="stage of the pipeline to run - analyze, summarize, visualize, latex or all [default %default]",
+                                  metavar="character"))
 
   option_parser <- OptionParser(usage = usage,
                                 description = description,
                                 add_help_option = TRUE,
-                                option_list = list())
-  parse_args(option_parser, positional_arguments = 6)
-}
+                                option_list = option_list)
 
+  arguments <- parse_args2(option_parser) #, positional_arguments = 5)
+
+  list(stage=arguments$options$stage,
+       use_cache=arguments$options$use_cache,
+       input_dir=arguments$args[1],
+       summary_dir=arguments$args[2],
+       visualization_dir=arguments$args[3],
+       latex_filename=arguments$args[4],
+       cache_dir=arguments$args[5])
+}
 
 underscore_to_camel_case <-
   function(name) {
@@ -161,7 +182,6 @@ underscore_to_camel_case <-
       str_replace_all(" ", "")
   }
 
-
 to_list <-
   function(df, row) {
     setNames(as.vector(df[row,]),
@@ -169,101 +189,218 @@ to_list <-
   }
 
 
+fix_string <-
+  function(prefix="", suffix="") {
+    function(str) {
+      paste0(paste0(prefix, collapse=""),
+             str,
+             paste0(suffix, collapse=""))
+    }
+  }
 
-overwrite <- FALSE
-drive_analysis <- function(analysis_name,
-                           analyze_database,
-                           combine_analyses,
-                           summarize_analyses,
-                           export_analyses,
-                           import_analyses,
-                           visualize_analyses,
-                           export_visualizations,
-                           latex_analyses,
-                           export_latex) {
 
-  info(analysis_name, "\n")
+scan_stage <-
+  function(analyzer, logger, settings) {
 
-  start_time <- now()
+    info("• Sanning for sqlite files in ", settings$input_dir, "\n")
 
-  arguments <- parse_program_arguments()
-  part <- arguments$args[1]
-  input_dir <- arguments$args[2]
-  table_dir <- arguments$args[3]
-  graph_dir <- arguments$args[4]
-  partial_dir <- arguments$args[5]
-  latex_filename <- arguments$args[6]
+    found_files <- find_files(settings$input_dir, "sqlite")
+    filenames <- basename(file_path_sans_ext(found_files))
+    cached_files <- file.path(settings$cache_dir, filenames)
+    exists <- file.exists(cached_files)
+    compute <- !settings$use_cache | (settings$use_cache & !exists)
 
-  if(part %in% c("all", "analyze")) {
-    analyses <-
-      input_dir %T>%
-      info("• Sanning for sqlite files in ", ., "\n") %>%
-      find_files("sqlite") %T>%
-      {info("  • Found ", length(.), " files", "\n", "• Analyzing databases", "\n")} %>%
-      lapply(
-        function(database_filepath) {
-          dataset_name = tools::file_path_sans_ext(
-            sapply(
-              strsplit(database_filepath,  split="/", fixed=TRUE), 
-              function(e) e[length(e)]))
-          dataset_path <- file.path(partial_dir, dataset_name)
-          if (file.exists(dataset_path) && !overwrite) {
-            info("  • Skipping ", database_filepath,
-                 " (", file_size(database_filepath), ") ",
-                "partial data already exists at ", dataset_path,
-                " and overwrite is not set", "\n")
-            result <- import_as_tables(dataset_path)
-          } else {
-            info("  • Analyzing ", database_filepath,
-                 " (", file_size(database_filepath), ")", "\n")
-            result <- analyze_database(database_filepath)
-            if(!is.null(result)) {
-              info("  • Exporting analysis", "\n")
-              analysis_dir <- file.path(partial_dir, file_path_sans_ext(basename(database_filepath)))
-              dir.create(analysis_dir)
-              export_as_tables(result, analysis_dir)
-            }
+    tibble(filename=filenames,
+           source_path=found_files,
+           cache_path=cached_files,
+           exists=exists,
+           compute=compute)
+  }
+
+analyze_stage <-
+  function(analyzer, logger, settings, scan) {
+
+    analyze <-
+      function(filename, source_path, cache_path, exists, compute) {
+        if(compute) {
+          info("• Analyzing ", source_path, " (", file_size(source_path), ")", "\n")
+          result <- analyzer$analyze_database(source_path)
+          if(!is.null(result)) {
+            info("• Exporting analysis", "\n")
+              dir.create(cache_path, showWarnings = FALSE, recursive = TRUE)
+              analyzer$export_analysis(result, cache_path, logger)
           }
-          result
-        }) %>%
-      compact()
-  }
+        } else {
+          info("• Skipping ", source_path, " (", file_size(source_path), ") ",
+               "partial data already exists at ", cache_path,
+               " and overwrite is not set", "\n")
+          result <- analyzer$import_analysis(cache_path, logger)
+        }
+        result
+      }
 
-  if(part %in% c("all", "summarize")) {
-    info("• Importing analyses", "\n")
+    info("\n", "• Analyzing databases", "\n")
+
     analyses <-
-      list.dirs(partial_dir, recursive = FALSE) %>%
-      lapply(import_as_tables) %T>%
-      (function (ignore) info("• Combining analyses", "\n")) %>%
-      Reduce(combine_analyses, .) %T>%
-      (function (ignore) info("• Summarizing analyses", "\n")) %>%
-      summarize_analyses()
+      scan %>%
+      as.list() %>%
+      pmap(analyze) %>%
+      compact()
+
+    info("\n", "• Analyzed databases", "\n")
+
+    analyses
+  }
+
+combine_stage <-
+  function(analyzer, logger, settings, analyses) {
+    info("• Combining analyses", "\n")
+    combined_analyses <- Reduce(analyzer$combine_analyses, analyses)
+    info("\n", "• Combined databases", "\n")
+
+    combined_analyses
+  }
+
+
+summarize_stage <-
+  function(analyzer, logger, settings, combined_analyses) {
+    info("• Summarizing analyses", "\n")
+
+    summarized_analyses <- analyzer$summarize_analyses(combined_analyses)
+
     info("• Exporting summary", "\n")
-    export_analyses(analyses, table_dir)
+    analyzer$export_summary(summarized_analyses,
+                            settings$summary_dir,
+                            logger)
+
+    summarized_analyses
   }
 
-  if(part %in% c("all", "latex")) {
-    info("• Importing summary", "\n")
-    analyses <- import_analyses(table_dir)
 
-    info("• Exporting latex", "\n")
-    info("•   Exporting ", latex_filename, "\n")
 
-    export_latex(latex_analyses(analyses), analysis_name, latex_filename)
-  }
-
-  if(part %in% c("all", "visualize")) {
-    info("• Importing summary", "\n")
-    analyses <- import_analyses(table_dir)
-
+visualize_stage <-
+  function(analyzer, logger, settings, summarized_analyses) {
     info("• Visualizing analyses", "\n")
-    visualizations <- visualize_analyses(analyses)
+    visualizations <- analyzer$visualize_analyses(summarized_analyses)
 
     info("• Exporting visualizations", "\n")
-    export_visualizations(visualizations, graph_dir)
+    analyzer$export_visualizations(visualizations,
+                                   settings$visualization_dir,
+                                   logger)
+    visualizations
   }
 
-  info("• Finished in ", time_difference(start_time, now()), "\n")
 
-  warnings()
+latex_stage <-
+  function(analyzer, logger, settings, summarized_analyses) {
+    info("• Latexing analyses", "\n")
+    latex <- analyzer$latex_analyses(summarized_analyses)
+
+    info("• Exporting latex to ", settings$latex_filename, "\n")
+    analyzer$export_latex(latex,
+                          analyzer$name,
+                          settings$latex_filename,
+                          logger)
+  }
+
+import_analyses <-
+  function(analyzer, logger, settings) {
+    list.dirs(settings$cache_dir, recursive = FALSE) %>%
+      map2(list(logger), analyzer$import_analysis)
+  }
+
+import_summarized_analyses <-
+  function(analyzer, logger, settings) {
+    analyzer$import_summary(settings$summary_dir, logger)
+  }
+
+create_analyzer <- function(analysis_name,
+                            analyze_database,
+                            combine_analyses,
+                            summarize_analyses,
+                            visualize_analyses,
+                            latex_analyses,
+                            import_analysis = import_as_tables,
+                            export_analysis = export_as_tables,
+                            import_summary = import_as_tables,
+                            export_summary = export_as_tables,
+                            export_visualizations = export_as_images,
+                            export_latex = export_as_latex_defs) {
+  analyzer <- list(name=analysis_name,
+                   analyze_database=analyze_database,
+                   combine_analyses=combine_analyses,
+                   summarize_analyses=summarize_analyses,
+                   visualize_analyses=visualize_analyses,
+                   latex_analyses=latex_analyses,
+                   import_analysis=import_analysis,
+                   export_analysis=export_analysis,
+                   import_summary=import_summary,
+                   export_summary=export_summary,
+                   export_visualizations=export_visualizations,
+                   export_latex=export_latex)
+  class(analyzer) <- c("analyzer")
+  analyzer
 }
+
+create_logger <- function() {
+  indentation <- 0
+  indent <- function() { indentation <- indentation + 1 }
+  exdent <- function() { indentation <- indentation - 1 }
+  logger <- list(info = info,
+                 indent = indent,
+                 exdent = exdent)
+  class(logger) <- c("logger")
+  logger
+}
+
+drive_analysis <-
+  function(analyzer,
+           logger = create_logger(),
+           settings = parse_program_arguments()) {
+
+    start_time <- now()
+
+    info(analyzer$name, "\n")
+
+    analyses <- NULL
+    combined_analyses <- NULL
+    summarized_analyses <- NULL
+    latex <- NULL
+    visualizations <- NULL
+    stage <- settings$stage
+
+    if(stage %in% c("all", "analyze")) {
+      scan <- scan_stage(analyzer, logger, settings)
+      analyses <- analyze_stage(analyzer, logger, settings, scan)
+    }
+
+    if(stage %in% c("all", "summarize")) {
+      if(is.null(analyses)) {
+        info("• Importing analyses", "\n")
+        analyses <- import_analyses(analyzer, logger, settings)
+      }
+      combined_analyses <- combine_stage(analyzer, logger, settings, analyses)
+      summarized_analyses <- summarize_stage(analyzer, logger, settings, combined_analyses)
+    }
+
+    if(stage %in% c("all", "latex")) {
+      if(is.null(summarized_analyses)) {
+        info("• Importing summary", "\n")
+        summarized_analyses <- import_summarized_analyses(analyzer, logger, settings)
+      }
+      latex_stage(analyzer, logger, settings, summarized_analyses)
+    }
+
+    if(stage %in% c("all", "visualize")) {
+      if(is.null(summarized_analyses)) {
+        info("• Importing summary", "\n")
+        summarized_analyses <- import_summarized_analyses(analyzer, logger, settings)
+      }
+      visualize_stage(analyzer, logger, settings, summarized_analyses)
+    }
+
+    end_time <- now()
+
+    info("• Finished in ", time_difference(start_time, end_time), "\n")
+
+  }

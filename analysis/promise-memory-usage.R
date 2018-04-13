@@ -126,16 +126,15 @@ latex_analyses <-
 
 main <-
   function() {
-    drive_analysis("Promise Memory Usage Analysis",
-                   analyze_database,
-                   combine_analyses,
-                   summarize_analyses,
-                   export_as_tables,
-                   import_as_tables,
-                   visualize_analyses,
-                   export_as_images,
-                   latex_analyses,
-                   export_as_latex_defs)
+    analyzer <-
+      create_analyzer("Promise Memory Usage Analysis",
+                      analyze_database,
+                      combine_analyses,
+                      summarize_analyses,
+                      visualize_analyses,
+                      latex_analyses)
+    drive_analysis(analyzer)
   }
 
 main()
+warnings()

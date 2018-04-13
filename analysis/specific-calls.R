@@ -20,16 +20,6 @@ analyze_database <- function(database_file_path) {
   )
 }
 
-# combine dataframes from analyzeDatabase
-# kind of like fold
-# returns a list that has the same shape as analyzeDatabase
-combine_analyses <- function(acc, element) {
-  for(name in names(acc)) {    
-    acc[[name]] = bind_rows(acc[[name]], element[[name]])  
-  }  
-  acc
-}
-
 # REDUCE
 # runs analyses on all the data from all the vignettes
 # analyses is the list form combine analyses
@@ -47,22 +37,17 @@ latex_analyses <- function(analyses) {
   list()
 }
 
-main <- function() {
-  drive_analysis("Calls to delayedAssign",
-                 analyze_database,
-                 combine_analyses,
-                 summarize_analyses,
-                 export_as_tables,  # exports CSV files automatically
-                 import_as_tables,  # (re-)imports data from CSV files
-                 visualize_analyses,
-                 export_as_images,
-                 latex_analyses,
-                 export_as_latex_defs)
-
-}
+main <-
+  function() {
+    analyzer <-
+      create_analyzer("Specific Calls Analysis",
+                      analyze_database,
+                      combine_analyses,
+                      summarize_analyses,
+                      visualize_analyses,
+                      latex_analyses)
+    drive_analysis(analyzer)
+  }
 
 main()
-
-
-
-
+warnings()

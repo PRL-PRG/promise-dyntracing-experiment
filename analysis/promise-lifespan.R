@@ -248,17 +248,17 @@ latex_analyses <- function(analyses) {
   list()
 }
 
-main <- function() {
-  drive_analysis("Promise Lifespan Analysis",
-                 analyze_database,
-                 combine_analyses,
-                 summarize_analyses,
-                 export_as_tables,
-                 import_as_tables,
-                 visualize_analyses,
-                 export_as_images,
-                 latex_analyses,
-                 export_as_latex_defs)
-}
+main <-
+  function() {
+    analyzer <-
+      create_analyzer("Promise Lifespan Analysis",
+                      analyze_database,
+                      combine_analyses,
+                      summarize_analyses,
+                      visualize_analyses,
+                      latex_analyses)
+    drive_analysis(analyzer)
+  }
 
 main()
+warnings()

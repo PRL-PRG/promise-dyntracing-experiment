@@ -1,13 +1,16 @@
 DATA_DIR=`date +'%y-%m-%d-%H-%M-%S'`
+LOG_FILE=log-`date +'%y-%m-%d-%H-%M-%S'`.txt
 OUTPUT_DIR=$(DATA_DIR)/output
 TRACER=../R-dyntrace/bin/R
 PROCESSES=1
 PACKAGES=
 MINIMUM_DISK_SIZE=50000000 # ~50GB
-PART=all
+STAGE=all
+USE_CACHE=--use-cache
 VANILLA_R=R
 VANILLA_RSCRIPT=Rscript
 SITE_DIR=~/public_html
+ANALYSIS=promise-memory-usage
 trace:
 	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(MINIMUM_DISK_SIZE) $(PACKAGES)
 
@@ -46,89 +49,8 @@ report:
 #	$(VANILLA_RSCRIPT) -e "rmarkdown::render('graphs/report.Rmd', params=list(CSV_DIR='$(DATA_DIR)/csv/_all', PRINT_DATA=TRUE))"
 #	mv graphs/report.html $(DATA_DIR)
 
-analyze-argument-promise-mode:
-	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/table
-	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/graph
-	mkdir -p $(OUTPUT_DIR)/argument-promise-mode/partial
-	analysis/argument-promise-mode.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/argument-promise-mode/table $(OUTPUT_DIR)/argument-promise-mode/graph $(OUTPUT_DIR)/argument-promise-mode/partial $(OUTPUT_DIR)/argument-promise-mode/variables.sty
-
-analyze-environment:
-	mkdir -p $(OUTPUT_DIR)/environment/table
-	mkdir -p $(OUTPUT_DIR)/environment/graph
-	mkdir -p $(OUTPUT_DIR)/environment/partial
-	analysis/environment.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/environment/table $(OUTPUT_DIR)/environment/graph $(OUTPUT_DIR)/environment/partial $(OUTPUT_DIR)/environment/variables.sty
-
-analyze-position-evaluation-mode:
-	mkdir -p $(OUTPUT_DIR)/position-evaluation-mode/table
-	mkdir -p $(OUTPUT_DIR)/position-evaluation-mode/graph
-	mkdir -p $(OUTPUT_DIR)/position-evaluation-mode/partial
-	analysis/position-evaluation-mode.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/position-evaluation-mode/table $(OUTPUT_DIR)/position-evaluation-mode/graph $(OUTPUT_DIR)/position-evaluation-mode/partial $(OUTPUT_DIR)/position-evaluation-mode/variables.sty
-
-analyze-side-effects:
-	mkdir -p $(OUTPUT_DIR)/side-effects/table
-	mkdir -p $(OUTPUT_DIR)/side-effects/graph
-	mkdir -p $(OUTPUT_DIR)/side-effects/partial
-	analysis/side-effects.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/side-effects/table $(OUTPUT_DIR)/side-effects/graph $(OUTPUT_DIR)/side-effects/partial $(OUTPUT_DIR)/side-effects/variables.sty
-
-analyze-promise-memory-usage:
-	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/table
-	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/graph
-	mkdir -p $(OUTPUT_DIR)/promise-memory-usage/partial
-	analysis/promise-memory-usage.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-memory-usage/table $(OUTPUT_DIR)/promise-memory-usage/graph $(OUTPUT_DIR)/promise-memory-usage/partial $(OUTPUT_DIR)/promise-memory-usage/variables.sty
-
-analyze-promise-lifespan:
-	mkdir -p $(OUTPUT_DIR)/promise-lifespan/table
-	mkdir -p $(OUTPUT_DIR)/promise-lifespan/graph
-	mkdir -p $(OUTPUT_DIR)/promise-lifespan/partial
-	analysis/promise-lifespan.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/promise-lifespan/table $(OUTPUT_DIR)/promise-lifespan/graph $(OUTPUT_DIR)/promise-lifespan/partial $(OUTPUT_DIR)/promise-lifespan/variables.sty
-
-analyze-function-force:
-	mkdir -p $(OUTPUT_DIR)/function-force/table
-	mkdir -p $(OUTPUT_DIR)/function-force/graph
-	mkdir -p $(OUTPUT_DIR)/function-force/partial
-	analysis/function-force.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/function-force/table $(OUTPUT_DIR)/function-force/graph $(OUTPUT_DIR)/function-force/partial $(OUTPUT_DIR)/function-force/variables.sty
-
-analyze-general-info:
-	mkdir -p $(OUTPUT_DIR)/general-info/table
-	mkdir -p $(OUTPUT_DIR)/general-info/graph
-	mkdir -p $(OUTPUT_DIR)/general-info/partial
-	analysis/general-info.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/general-info/table $(OUTPUT_DIR)/general-info/graph $(OUTPUT_DIR)/general-info/partial $(OUTPUT_DIR)/general-info/variables.sty
-
-analyze-jumps:
-	mkdir -p $(OUTPUT_DIR)/jumps/table
-	mkdir -p $(OUTPUT_DIR)/jumps/graph
-	mkdir -p $(OUTPUT_DIR)/jumps/partial
-	analysis/jumps.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/jumps/table $(OUTPUT_DIR)/jumps/graph $(OUTPUT_DIR)/jumps/partial $(OUTPUT_DIR)/jumps/variables.sty
-
-analyze-accesses:
-	mkdir -p $(OUTPUT_DIR)/accesses/table
-	mkdir -p $(OUTPUT_DIR)/accesses/graph
-	mkdir -p $(OUTPUT_DIR)/accesses/partial
-	analysis/accesses.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/accesses/table $(OUTPUT_DIR)/accesses/graph $(OUTPUT_DIR)/accesses/partial $(OUTPUT_DIR)/accesses/variables.sty
-
-analyze-function-returns:
-	mkdir -p $(OUTPUT_DIR)/function-returns/table
-	mkdir -p $(OUTPUT_DIR)/function-returns/graph
-	mkdir -p $(OUTPUT_DIR)/function-returns/partial
-	analysis/function-returns.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/function-returns/table $(OUTPUT_DIR)/function-returns/graph $(OUTPUT_DIR)/function-returns/partial $(OUTPUT_DIR)/function-returns/variables.sty
-
-analyze-specific-calls:
-	mkdir -p $(OUTPUT_DIR)/specific-calls/table
-	mkdir -p $(OUTPUT_DIR)/specific-calls/graph
-	mkdir -p $(OUTPUT_DIR)/specific-calls/partial
-	analysis/specific-calls.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/specific-calls/table $(OUTPUT_DIR)/specific-calls/graph $(OUTPUT_DIR)/specific-calls/partial $(OUTPUT_DIR)/specific-calls/variables.sty
-
-compute-interference:
-	mkdir -p $(OUTPUT_DIR)/interference/table
-	mkdir -p $(OUTPUT_DIR)/interference/graph
-	analysis/interference.py $(DATA_DIR)/data $(OUTPUT_DIR)/interference/table
-
-analyze-interference:
-	mkdir -p $(OUTPUT_DIR)/interference/table
-	mkdir -p $(OUTPUT_DIR)/interference/graph
-	analysis/interference.R $(PART) $(DATA_DIR)/data $(OUTPUT_DIR)/interference/table $(OUTPUT_DIR)/interference/graph $(OUTPUT_DIR)/interference/partial $(OUTPUT_DIR)/interference/variables.sty
-
-analyze: analyze-environment analyze-argument-promise-mode analyze-position-evaluation-mode analyze-promise-memory-usage analyze-promise-lifespan analyze-function-force
+analyze:
+	analysis/$(ANALYSIS).R $(USE_CACHE) --stage=$(STAGE) $(DATA_DIR)/data $(OUTPUT_DIR)/$(ANALYSIS)/summary $(OUTPUT_DIR)/$(ANALYSIS)/visualizations $(OUTPUT_DIR)/$(ANALYSIS)/variables.sty $(OUTPUT_DIR)/$(ANALYSIS)/cache 2>&1 | tee $(OUTPUT_DIR)/$(ANALYSIS)/$(LOG_FILE)
 
 analysis-book:
 	cd analysis/report; $(VANILLA_RSCRIPT) -e "bookdown::render_book(list.files('.'), 'bookdown::gitbook', output_dir='$(SITE_DIR)', config_file='_bookdown.yml', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"
@@ -140,20 +62,30 @@ install-dependencies:
 	$(VANILLA_RSCRIPT) install-dependencies.Rmd
 
 analyze-in-screens:
-	screen -S analyze-promise-lifespan          -d -m bash -c "make analyze-promise-lifespan         DATA_DIR=$(DATA_DIR); read x"
-	screen -S analyze-argument-promise-mode     -d -m bash -c "make analyze-argument-promise-mode    DATA_DIR=$(DATA_DIR); read x"
-	screen -S analyze-interference              -d -m bash -c "make analyze-interference             DATA_DIR=$(DATA_DIR); read x"
-	screen -S analyze-promise-memory-usage      -d -m bash -c "make analyze-promise-memory-usage     DATA_DIR=$(DATA_DIR); read x"
-	screen -S analyze-environment               -d -m bash -c "make analyze-environment              DATA_DIR=$(DATA_DIR); read x"
-	screen -S analyze-position-evaluation-mode  -d -m bash -c "make analyze-position-evaluation-mode DATA_DIR=$(DATA_DIR); read x"
-	screen -S analyze-side-effects              -d -m bash -c "make analyze-side-effects             DATA_DIR=$(DATA_DIR); read x"
-	screen -S compute-interference              -d -m bash -c "make compute-interference 		 DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-promise-lifespan          -d -m bash -c "make analyze ANALYSIS=promise-lifespan         DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-argument-promise-mode     -d -m bash -c "make analyze ANALYSIS=argument-promise-mode    DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-promise-memory-usage      -d -m bash -c "make analyze ANALYSIS=promise-memory-usage     DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-environment               -d -m bash -c "make analyze ANALYSIS=environment              DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-position-evaluation-mode  -d -m bash -c "make analyze ANALYSIS=position-evaluation-mode DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-side-effects              -d -m bash -c "make analyze ANALYSIS=side-effects             DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-specific-calls            -d -m bash -c "make analyze ANALYSIS=specific-calls 		      DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-jumps                     -d -m bash -c "make analyze ANALYSIS=jumps 		                DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-accesses                  -d -m bash -c "make analyze ANALYSIS=accesses 		            DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-function-returns          -d -m bash -c "make analyze ANALYSIS=function-returns 		    DATA_DIR=$(DATA_DIR); read x"
+	screen -S analyze-general-info              -d -m bash -c "make analyze ANALYSIS=general-info 		        DATA_DIR=$(DATA_DIR); read x"
+	#screen -S compute-interference              -d -m bash -c "make analyze ANALYSIS=compute-interference 		         DATA_DIR=$(DATA_DIR); read x"
+	#screen -S analyze-interference              -d -m bash -c "make analyze ANALYSIS=interference             DATA_DIR=$(DATA_DIR); read x"
 
 paper-components:
 	mkdir -p $(DATA_DIR)/paper-components
 	mkdir -p $(DATA_DIR)/paper-components/figures
 	cat $(OUTPUT_DIR)/*/variables.sty > $(DATA_DIR)/paper-components/variables.sty
-	cp $(OUTPUT_DIR)/*/graph/*.pdf $(DATA_DIR)/paper-components/figures/
+	cp $(OUTPUT_DIR)/*/visualizations/*.pdf $(DATA_DIR)/paper-components/figures/
+
+compute-interference:
+	mkdir -p $(OUTPUT_DIR)/interference/summary
+	mkdir -p $(OUTPUT_DIR)/interference/visualizations
+	analysis/interference.py $(DATA_DIR)/data $(OUTPUT_DIR)/interference/table
 
 tests:
 	mkdir -p tests/data

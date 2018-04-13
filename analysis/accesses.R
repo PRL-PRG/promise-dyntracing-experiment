@@ -98,18 +98,17 @@ latex_analyses <- function(analyses) {
   list()
 }
 
-main <- function() {
-
-  drive_analysis("General Info",
-                 analyze_database,
-                 combine_analyses,
-                 summarize_analyses,
-                 export_as_tables,  # exports CSV files automatically
-                 import_as_tables,  # (re-)imports data from CSV files
-                 visualize_analyses,
-                 export_as_images,
-                 latex_analyses,
-                 export_as_latex_defs)
-}
+main <-
+  function() {
+    analyzer <-
+      create_analyzer("Promise Metaprogramming and Accesses",
+                      analyze_database,
+                      combine_analyses,
+                      summarize_analyses,
+                      visualize_analyses,
+                      latex_analyses)
+    drive_analysis(analyzer)
+  }
 
 main()
+warnings()
