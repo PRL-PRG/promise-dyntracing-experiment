@@ -1,0 +1,10 @@
+# REORDERING PROMISES
+# p1 -> 1
+# p0 -> 2
+cre 1
+cre 2
+ent 2
+ext 2
+ent 1
+val 2
+ext 1

@@ -1,0 +1,82 @@
+# Side Effects
+
+This section describes the kind of operations performed by promises.
+This gives an insight into how many promises are pure and how many
+perform side effects.
+
+## Action Count
+
+There are four types of environment actions -
+
+1. **asn** - assigning to a variable in an environment
+2. **rea** - reading a variable from an environment
+3. **def** - defining a new variable in an environment
+4. **rem** - removing a variable from the environment
+
+The graph below shows the number of times these actions are
+performed by promises.
+
+```{r echo=FALSE, message=FALSE}
+show_graph("side-effects", "action_count_distribution.png")
+```
+
+### Data (Summarized)
+
+```{r echo=FALSE, message=FALSE}
+show_table("side-effects", "action_count_distribution_total.csv")
+```
+
+### Data
+
+```{r echo=FALSE, message=FALSE}
+show_table("side-effects", "action_count_distribution.csv")
+```
+
+## Promise count by action
+
+This section shows the number of distinct promises that perform
+a particular environment action.
+Another category **none** gives the number of promises
+that are evaluated but don't even perform a read operation.
+
+```{r echo=FALSE, message=FALSE}
+show_graph("side-effects", "action_promise_count_distribution.png")
+```
+
+### Raw Data (Summarized)
+
+```{r echo=FALSE, message=FALSE}
+show_table("side-effects", "action_promise_count_distribution_total.csv")
+```
+
+### Raw Data
+
+```{r echo=FALSE, message=FALSE}
+show_table("side-effects", "action_promise_count_distribution.csv")
+```
+
+## Promise count by purity
+
+This section distinguishes between promises that perform 
+side effects and promises that are pure.
+Pure promises are those that only perform the **rea** 
+environment action.
+Benign promises are those that don't even perform the 
+**rea** operation.
+
+
+```{r echo=FALSE, message=FALSE}
+show_graph("side-effects", "promise_purity_distribution.png")
+```
+
+### Raw Data (Summarized)
+
+```{r echo=FALSE, message=FALSE}
+show_table("side-effects", "promise_purity_distribution_total.csv")
+```
+
+### Raw Data
+
+```{r echo=FALSE, message=FALSE}
+show_table("side-effects", "promise_purity_distribution.csv")
+```

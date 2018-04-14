@@ -1,0 +1,102 @@
+# Environment
+
+This section discusses the usage of functions which manipulate environments.
+
+## baseenv()
+
+This is the environment of the base package.
+
+```{r echo=FALSE, message=FALSE, out.width = "575px"}
+show_graph("environment", "baseenv.png")
+show_graph("environment", "baseenv-relative.png")
+```
+
+## emptyenv()
+
+This is the empty environment, the topmost environment.
+
+```{r echo=FALSE, message=FALSE, out.width = "575px"}
+show_graph("environment", "emptyenv.png")
+show_graph("environment", "emptyenv-relative.png")
+```
+
+## new.env(hash = TRUE, parent = parent.frame(), size = 29L)
+
+`new.env` returns a new (empty) environment with (by default) enclosure the parent frame.
+
+```{r echo=FALSE, message=FALSE, out.width = "575px"}
+show_graph("environment", "new.env.png")
+show_graph("environment", "new.env-relative.png")
+```
+
+## NewEnvironment
+
+This is the C level function which gets called when a new environment is created.
+
+```{r echo=FALSE, message=FALSE, out.width = "575px"}
+show_graph("environment", "NewEnvironment.png")
+show_graph("environment", "NewEnvironment-relative.png")
+```
+
+## environment(fun = NULL)
+
+If fun is a function or a formula then `environment(fun)` returns the environment associated with that function or formula. If fun is NULL then the current evaluation environment is returned.
+
+```{r echo=FALSE, message=FALSE, out.width = "575px"}
+show_graph("environment", "environment.png")
+show_graph("environment", "environment-relative.png")
+```
+
+## environment(fun) <- value
+
+`environment(fun) <- value` sets the environment of the function or formula fun to the value given.
+
+```{r echo=FALSE, message=FALSE, out.width = "575px"}
+show_graph("environment", "environment<-.png")
+show_graph("environment", "environment<--relative.png")
+```
+
+## parent.env
+
+`parent.env` returns the enclosing environment of its argument.
+
+```{r echo=FALSE, message=FALSE, out.width = "575px"}
+show_graph("environment", "parent.env.png")
+show_graph("environment", "parent.env-relative.png")
+```
+
+## parent.env(env) <- value
+
+`parent.env<-` sets the enclosing environment of its first argument.
+The replacement function parent.env<- is extremely dangerous as it can be used to destructively change environments in ways that violate assumptions made by the internal C code. It may be removed in the near future.
+
+```{r echo=FALSE, message=FALSE, out.width = "575px"}
+show_graph("environment", "parent.env<-.png")
+show_graph("environment", "parent.env<--relative.png")
+```
+
+## Data (Quartiles)
+```{r echo=FALSE, message=FALSE}
+get_table("environment", "environment_function_usage.csv") %>%
+select(-`SCRIPT`) %>%
+group_by(`FUNCTION NAME`) %>%
+summarize(`MEAN` = mean(`COUNT`),
+          `MEDIAN` = median(`COUNT`),
+          `LOWER QUANTILE (25%)` = unname(stats::quantile(sort(`COUNT`), 0.25)),
+          `UPPER QUANTILE (75%)` = unname(stats::quantile(sort(`COUNT`), 0.75))) %>%
+datatable(rownames=FALSE)
+```
+
+## Data (Summarized)
+```{r echo=FALSE, message=FALSE}
+get_table("environment", "environment_function_usage.csv") %>%
+group_by(`FUNCTION NAME`) %>%
+summarize(`COUNT` = sum(`COUNT`)) %>%
+datatable(rownames = FALSE)
+```
+
+## Data (Unsummarized)
+
+```{r echo=FALSE, message=FALSE}
+show_table("environment", "environment_function_usage.csv")
+```
