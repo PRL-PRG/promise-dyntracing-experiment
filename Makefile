@@ -11,6 +11,7 @@ VANILLA_R=R
 VANILLA_RSCRIPT=Rscript
 SITE_DIR=~/public_html
 ANALYSIS=promise-memory-usage
+
 trace:
 	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(MINIMUM_DISK_SIZE) $(PACKAGES)
 
@@ -59,7 +60,7 @@ analysis-report:
 	$(VANILLA_RSCRIPT) -e "rmarkdown::render('analysis/analysis.Rmd', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"
 
 install-dependencies:
-	$(VANILLA_RSCRIPT) install-dependencies.Rmd
+	$(VANILLA_RSCRIPT) corpus/install-dependencies.R
 
 analyze-in-screens:
 	screen -S analyze-promise-lifespan          -d -m bash -c "make analyze ANALYSIS=promise-lifespan         DATA_DIR=$(DATA_DIR); read x"

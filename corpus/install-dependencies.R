@@ -1,13 +1,15 @@
 dependencies <- c('gdata', 'optparse', 'tidyverse',
-                   'stringi', 'ggthemes', 'scales',
-                   'crayon', 'magrittr', 'lubridate',
-                   'broom', 'stringr', 'hashmap',
-                   'gridExtra', 'kableExtra', 'png',
-                   'ggplot2', 'knitr', 'bookdown',
-                   'RSQLite', 'dbplyr', 'DT',
-                   'tidyr', 'dplyr')
+                  'stringi', 'ggthemes', 'scales',
+                  'crayon', 'magrittr', 'lubridate',
+                  'broom', 'stringr', 'hashmap',
+                  'gridExtra', 'kableExtra', 'png',
+                  'ggplot2', 'knitr', 'bookdown',
+                  'RSQLite', 'dbplyr', 'DT', 'tidyr',
+                  'dplyr', 'ggsci', 'rvest', 'httr',
+                  'progress', 'htmltidy')
 
 packages_to_install <- setdiff(dependencies, installed.packages())
+
 install.packages(packages_to_install,
                  repos='http://cran.us.r-project.org',
                  ##Ncpus=20,                           # run in parallel using 20 cores
