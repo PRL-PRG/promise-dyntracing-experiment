@@ -11,6 +11,7 @@ VANILLA_R=R
 VANILLA_RSCRIPT=Rscript
 SITE_DIR=~/public_html
 ANALYSIS=promise-memory-usage
+BIOCONDUCTOR_DIR="bioconductor"
 
 trace:
 	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(MINIMUM_DISK_SIZE) $(PACKAGES)
@@ -76,6 +77,9 @@ analyze-in-screens:
 	screen -S analyze-general-info              -d -m bash -c "make analyze ANALYSIS=general-info 		        DATA_DIR=$(DATA_DIR); read x"
 	#screen -S compute-interference              -d -m bash -c "make analyze ANALYSIS=compute-interference 		         DATA_DIR=$(DATA_DIR); read x"
 	#screen -S analyze-interference              -d -m bash -c "make analyze ANALYSIS=interference             DATA_DIR=$(DATA_DIR); read x"
+
+download-bioconductor-packages:
+	corpus/download-bioconductor-packages.R $(BIOCONDUCTOR_DIR)/experiment-data $(BIOCONDUCTOR_DIR)/experiment-data-urls.txt $(BIOCONDUCTOR_DIR)/annotation-data $(BIOCONDUCTOR_DIR)/annotation-data-urls.txt $(BIOCONDUCTOR_DIR)/software $(BIOCONDUCTOR_DIR)/software-urls.txt $(BIOCONDUCTOR_DIR)/html-compliance-errors.txt
 
 paper-components:
 	mkdir -p $(DATA_DIR)/paper-components
