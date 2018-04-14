@@ -50,7 +50,7 @@ report:
 #	mv graphs/report.html $(DATA_DIR)
 
 analyze:
-	analysis/$(ANALYSIS).R $(USE_CACHE) --stage=$(STAGE) $(DATA_DIR)/data $(OUTPUT_DIR)/$(ANALYSIS)/summary $(OUTPUT_DIR)/$(ANALYSIS)/visualizations $(OUTPUT_DIR)/$(ANALYSIS)/variables.sty $(OUTPUT_DIR)/$(ANALYSIS)/cache 2>&1 | tee $(OUTPUT_DIR)/$(ANALYSIS)/logs/$(LOG_FILE)
+	analysis/$(ANALYSIS).R $(USE_CACHE) --stage=$(STAGE) $(DATA_DIR)/data $(OUTPUT_DIR)/$(ANALYSIS)/summary $(OUTPUT_DIR)/$(ANALYSIS)/visualizations $(OUTPUT_DIR)/$(ANALYSIS)/latex $(OUTPUT_DIR)/$(ANALYSIS)/cache 2>&1 | tee $(OUTPUT_DIR)/$(ANALYSIS)/logs/$(LOG_FILE) || /bin/true
 
 analysis-book:
 	cd analysis/report; $(VANILLA_RSCRIPT) -e "bookdown::render_book(list.files('.'), 'bookdown::gitbook', output_dir='$(SITE_DIR)', config_file='_bookdown.yml', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"
