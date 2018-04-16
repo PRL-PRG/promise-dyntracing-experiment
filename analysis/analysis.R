@@ -108,7 +108,10 @@ create_latex_defs <-
 
 
 export_as_latex_defs <-
-  function(def_pairs, analysis_name, latex_filename, logger) {
+  function(def_pairs, analysis_name, latex_dir, logger) {
+    dir.create(latex_dir, showWarnings = FALSE, recursive = TRUE)
+
+    latex_filename <- file.path(latex_dir, "variables.sty")
 
     latex_file <- file(latex_filename, "wt")
 
