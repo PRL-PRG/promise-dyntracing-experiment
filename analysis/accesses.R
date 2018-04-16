@@ -73,7 +73,7 @@ visualize_analyses <- function(analyses) {
       ggplot(analyses$accesses, aes(x=classification, y=number)) +
       ggtitle("Accesses") +
       geom_col() +
-      scale_y_continuous(labels=pp_trunc) +
+      scale_y_continuous(labels=count_labels) +
       theme(legend.position="none", axis.title.x=element_blank()) +
       xlab("Classification"),
 
@@ -81,7 +81,7 @@ visualize_analyses <- function(analyses) {
       ggplot(analyses$metaprogramming, aes(x=metaprogramming, y=number)) +
       ggtitle("Metaprogramming") +
       geom_col() +
-      scale_y_continuous(labels=pp_trunc) +
+      scale_y_continuous(labels=count_labels) +
       theme(legend.position="none", axis.title.x=element_blank()) +
       xlab("Classification"),
 
@@ -89,7 +89,7 @@ visualize_analyses <- function(analyses) {
       ggplot(analyses$accesses_and_metaprogramming, aes(x=label, y=number)) +
       ggtitle("Accesses/metaprogramming") +
       geom_col() +
-      scale_y_continuous(labels=pp_trunc) +
+      scale_y_continuous(labels=count_labels) +
       theme(legend.position="none", axis.title.x=element_blank()) +
       xlab("Classification"))
 }

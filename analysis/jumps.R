@@ -40,28 +40,28 @@ visualize_analyses <- function(analyses) {
       ggplot(analyses$call_depth, aes(x=call_depth, y=n)) +
       ggtitle("Jump depth by call") +
       geom_col() +
-      scale_y_continuous(labels=pp_trunc) +
+      scale_y_continuous(labels=count_labels) +
       theme(legend.position="none", axis.title.x=element_blank()) +
       xlab("Jump depth (measured in calls)"),
     promise_depth =
       ggplot(analyses$promise_depth, aes(x=promise_depth, y=n)) +
       ggtitle("Jump depth by promises") +
       geom_col() +
-      scale_y_continuous(labels=pp_trunc) +
+      scale_y_continuous(labels=count_labels) +
       theme(legend.position="none", axis.title.x=element_blank()) +
       xlab("Jump depth (measured in promises)"),
     depth =
       ggplot(analyses$depth, aes(x=depth, y=n)) +
       ggtitle("Jump depth by promises/calls") +
       geom_col() +
-      scale_y_continuous(labels=pp_trunc) +
+      scale_y_continuous(labels=count_labels) +
       theme(legend.position="none", axis.title.x=element_blank()) +
       xlab("Jump depth (measured in promises)"),
     restarts = 
       ggplot(analyses$restarts, aes(x=restart, y=n)) +
       ggtitle("Jump restarts") +
       geom_col() +
-      scale_y_continuous(labels=pp_trunc) +
+      scale_y_continuous(labels=count_labels) +
       theme(legend.position="none", axis.title.x=element_blank()) +
       xlab("Jump restarted computation")
    )

@@ -49,21 +49,21 @@ visualize_analyses <- function(analyses) {
       ggplot(analyses$call_return_types, aes(x=return_value_type, y=number)) +
       ggtitle("Call return types") +
       geom_col() +
-      scale_y_continuous(labels=pp_trunc) +
+      scale_y_continuous(labels=count_labels) +
       theme(legend.position="none", axis.title.x=element_blank()) +
       xlab("Return type"),
     separate_function_return_types = 
       ggplot(analyses$separate_function_return_types, aes(x=return_value_type, y=number)) +
       ggtitle("Function return types (separate)") +
       geom_col() +
-      scale_y_continuous(labels=pp_trunc) +
+      scale_y_continuous(labels=count_labels) +
       theme(legend.position="none", axis.title.x=element_blank()) +
       xlab("Return type"),
     joint_function_return_types = 
       ggplot(analyses$joint_function_return_types, aes(x=return_value_types, y=number)) +
       ggtitle("Function return types (joint)") +
       geom_col() +
-      scale_y_continuous(labels=pp_trunc) +
+      scale_y_continuous(labels=count_labels) +
       theme(legend.position="none", axis.title.x=element_blank()) +
       xlab("Return type")
     )

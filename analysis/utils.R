@@ -94,24 +94,28 @@ memory_size_labels <-
   }
 
 count_labels <-
-  Vectorize(function(x) {
+  Vectorize(function(x, digits = 2) {
+
+    paste_round <- function(value, div, suffix, sep)
+        paste(round(value/div, digits), suffix, sep = sep)
+
     if(is.na(x)) {
       "NA"
     } else if(x < 10^3) {
       paste0(x)
     } else if(x < 10^6) {
-      paste(x/1000, "K", sep=" ")
+      paste_round(x, 1000, "K", sep=" ")
     } else if(x < 10^9) {
-      paste(x/(10^6), "M", sep=" ")
+      paste_round(x, 10^6, "M", sep=" ")
     } else {
-      paste(x/(10^9), "B", sep=" ")
+      paste_round(x, 10^9, "B", sep=" ")
     }
   },
   "x")
 
 relative_labels <-
   function(x) {
-    percent_labels(x * 1000)
+    percent_labels(x * 100)
   }
 
 percent_labels <-
@@ -129,26 +133,6 @@ is_value <-
               ## SYM PROM LANG  DOT EXPR  FUN
     !(type %in% c(1,  5,   6,   17,  20,  99))
   }
-
-pp <-
-  function(number) {
-    format(number, big.mark=",", scientific=FALSE, trim=FALSE, digits=2)
-  }
-
-pp_trunc <-
-  function(x) {
-    ifelse(x==0, paste(format(x, digits=2, scientific=FALSE)),
-    ifelse(x < 1000, format(x, digits=2, scientific=FALSE),
-    ifelse(x < 1000000, paste(format(floor((x/1000)*10)/10, digits=2, scientific=FALSE), "k", sep=""),
-    ifelse(x < 1000000000, paste(format(floor((x/1000000)*10)/10, digits=2, scientific=FALSE), "m", sep=""),
-           paste(format(floor((x/1000000000)*10)/10, digits=2, scientific=FALSE), "b", sep="")))))
-  }
-
-pp_perc <-
-  function(x) {
-    dollar_format(prefix="", suffix="%")(x)
-  }
-
 
 to_named_values <-
   function(df, column_name) {
