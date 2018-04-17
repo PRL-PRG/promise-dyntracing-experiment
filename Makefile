@@ -52,6 +52,7 @@ report:
 #	mv graphs/report.html $(DATA_DIR)
 
 analyze:
+	mkdir -p $(OUTPUT_DIR)/$(ANALYSIS)/logs/
 	analysis/$(ANALYSIS).R $(USE_CACHE) --stage=$(STAGE) $(DATA_DIR)/data $(OUTPUT_DIR)/$(ANALYSIS)/summary $(OUTPUT_DIR)/$(ANALYSIS)/visualizations $(OUTPUT_DIR)/$(ANALYSIS)/latex $(OUTPUT_DIR)/$(ANALYSIS)/cache 2>&1 | tee $(OUTPUT_DIR)/$(ANALYSIS)/logs/$(LOG_FILE) || /bin/true
 
 analysis-book:
