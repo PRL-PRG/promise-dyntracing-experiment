@@ -2,55 +2,58 @@
 PACKAGE="$1"
 N_PROCESSES=1
 
+DATA_DIR=$OUTPUT_DIR/data
+mkdir -p $DATA_DIR
+
 LOGS_DIR=$OUTPUT_DIR/logs/
 mkdir -p $LOGS_DIR
-mkdir -p $OUTPUT_DIR/data/
+
+elapsed_time () {
+    echo $((($2 - $1)/60)) "minutes"
+}
 
 echo "Processing $PACKAGE" | tee -a "${LOGS_DIR}/_time.log"
-STARTS=`date +%s`
+START=`date +%s`
+
 if $TRACE; then
     echo "Tracing $PACKAGE" | tee -a "${LOGS_DIR}/_time.log"
-    echo \
-    ../R-dyntrace/bin/R --slave --no-restore --file=dyntrace/vignettes.R \
-                        --args --output-dir="${OUTPUT_DIR}" $compile $PACKAGE
+    TRACING_START=`date +%s`
 
-    if $RDT_COMPILE_VIGNETTE; then
-       compile="--compile"
-    fi
-
-    TRACING_STARTS=`date +%s`
+    # Run the tracer.
+    if $RDT_COMPILE_VIGNETTE; then compile="--compile"; fi
     ../R-dyntrace/bin/R --slave --no-restore --file=dyntrace/vignettes.R \
                         --args --output-dir="${OUTPUT_DIR}" $compile \
                         $PACKAGE 2>&1 | tee -a "${LOGS_DIR}/${PACKAGE}.log"
-    TRACING_ENDS=`date +%s`
 
+    TRACING_END=`date +%s`
     echo "Done tracing $PACKAGE in" \
-         $((($TRACING_ENDS - $TRACING_STARTS)/60)) "minutes" | \
+         `elapsed_time $TRACING_START $TRACING_END` | \
          tee -a "${LOGS_DIR}/_time.log"
 
-    for db in `ls $OUTPUT_DIR/data/$PACKAGE-*.sqlite`; do
-        du -sh $db | tee -a $OUTPUT_DIR/logs/_space.log
-    done
+    # Add up the size of all databse files from vignettes, write it to a log.
+    du -s $DATA_DIR/$PACKAGE-* | cut -f 1 | paste -sd+ | bc | \
+        xargs -I{} echo $PACKAGE\;{} | tee -a $LOGS_DIR/_space.log | \
+        cut -f 2 -d\; | echo Trace size: 
 
     # FIXME add indexes
     
 fi
 
+# Unsetting R_LIBS so the analysis doesn't use instrumented libraries.
 export R_LIBS=
-print $ANALYSES
 if $ANALYZE; then
-    echo "Analyzing $PACKAGE" | tee -a "${LOGS_DIR}/_time.log"
+    echo "Analyzing $PACKAGE using $ANALYSES" | tee -a "${LOGS_DIR}/_time.log"
+    ANALYSIS_START=`date +%s`
 
-    for analysis in "$ANALYSES"; do
-        echo \
-        make analyze ANALYSIS=${analysis} DATA_DIR="$OUTPUT_DIR" STAGE=analyze 
-
+    # Run individual analyses one-by-one.
+    for analysis in $ANALYSES; do
         make analyze ANALYSIS=${analysis} DATA_DIR="$OUTPUT_DIR" STAGE=analyze 2>&1 | \
              tee -a "${LOGS_DIR}/${PACKAGE}.log"
     done
 
-    echo "Done analyzing $PACKAGE in" \
-         $((($TRACING_ENDS - $TRACING_STARTS)/60)) "minutes" | \
+    ANALYSIS_END=`date +%s`
+    echo "Done analyzing $PACKAGE using $ANALYSES in" \
+         `elapsed_time $ANALYSIS_START $ANALYSIS_END` | \
          tee -a "${LOGS_DIR}/_time.log"
 fi
 
@@ -64,6 +67,6 @@ fi
 
 END=`date +%s`
 echo "Done processing $PACKAGE in" \
-     $((($TRACING_ENDS - $TRACING_STARTS)/60)) "minutes" | \
+     `elapsed_time $START $END` | \
      tee -a "${LOGS_DIR}/_time.log"
 

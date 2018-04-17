@@ -42,7 +42,6 @@ PACKAGES=
 
 # We crawl the analysis directory for all executable R sripts to use as the default.
 ANALYSES=`find analysis -name '*.R' -executable | xargs -I{} basename {} .R | tr '\n' ' '`
-echo analysis: $ANALYSES
 
 # Set the parsed command options and interpret the settings.
 eval set -- "$options" 
@@ -110,8 +109,6 @@ do
     *) syserr "Unknown option $1"; usage; exit 3;; 
     esac 
 done 
-
-echo done
 
 # Sort out the package list: clip and sort.
 if $RANDOMIZE; then 
