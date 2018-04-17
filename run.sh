@@ -13,8 +13,8 @@ syserr() {
 }
 
 # Specification of parse options.
-options=$(getopt -odpfhrstaPcC \
-    --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace,analyze::,processes:,copy-traces-to:,compress-traces,rlibs:\
+options=$(getopt -odpfhrstaPcCU \
+    --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace,analyze::,processes:,copy-traces-to:,compress,uncompress,rlibs:\
     -n $0 -- "$@")
 
 # Stop if optparse encountered a problem.
@@ -32,6 +32,7 @@ SORT_BY_SIZE=false
 RANDOMIZE=false
 COPY_TRACES=false
 COMPRESS_TRACES=false
+UNCOMPRESS_TRACES=false
 PROCESSES=1
 
 R_LIBS=/home/kondziu/R_LIBS
@@ -104,7 +105,8 @@ do
             fi
         fi
         shift 2;;
-    -C|--compress-traces) COMPRESS_TRACES=true; shift 1;;
+    -C|--compress) COMPRESS_TRACES=true; shift 1;;
+    -U|--uncompress) UNCOMPRESS_TRACES=true; shift 1;;
     --) shift; break;; 
     *) syserr "Unknown option $1"; usage; exit 3;; 
     esac 
@@ -127,6 +129,7 @@ export ANALYZE
 export ANALYSES
 export COPY_TRACES
 export COMPRESS_TRACES
+export UNCOMPRESS_TRACES
 export OUTPUT_DIR
 export ARCHIVE_DIR
 export R_LIBS

@@ -9,11 +9,27 @@ LOGS_DIR=$OUTPUT_DIR/logs/
 mkdir -p $LOGS_DIR
 
 elapsed_time () {
-    echo $((($2 - $1)/60)) "minutes"
+    echo $((($2 - $1)/60/60)) "hours"  \
+         $((($2 - $1)%3600/60)) "minutes and" \
+         $((($2 - $1)%60)) "seconds"
 }
 
 echo "Processing $PACKAGE" | tee -a "${LOGS_DIR}/_time.log"
 START=`date +%s`
+
+if $UNCOMPRESS_TRACES; then
+    echo "Uncompressing results from $PACKAGE" | tee -a "${LOGS_DIR}/_time.log"
+    COMPRESS_START=`date +%s`
+
+    # Uncompress all files except from this package.
+    ls $DATA_DIR/$PACKAGE-*.gz | grep gz$ | xargs gunzip -v
+
+    COMPRESS_END=`date +%s`
+    echo "Done uncompressing results from $PACKAGE in" \
+         `elapsed_time $COMPRESS_START $COMPRESS_END` | \
+         tee -a "${LOGS_DIR}/_time.log"
+fi
+
 
 if $TRACE; then
     echo "Tracing $PACKAGE" | tee -a "${LOGS_DIR}/_time.log"
@@ -39,6 +55,7 @@ if $TRACE; then
     
 fi
 
+
 # Unsetting R_LIBS so the analysis doesn't use instrumented libraries.
 export R_LIBS=
 if $ANALYZE; then
@@ -57,12 +74,22 @@ if $ANALYZE; then
          tee -a "${LOGS_DIR}/_time.log"
 fi
 
-#if $COMPRESS_TRACES; then
-    
-#fi
+if $COMPRESS_TRACES; then
+    echo "Compressing results from $PACKAGE" | tee -a "${LOGS_DIR}/_time.log"
+    COMPRESS_START=`date +%s`
+
+    # Compress all files except OK files and except files that are already 
+    # compressed.
+    ls $DATA_DIR/$PACKAGE-* | grep -v OK$ | grep -v gz$ | xargs gzip -v
+
+    COMPRESS_END=`date +%s`
+    echo "Done compressing results from $PACKAGE in" \
+         `elapsed_time $COMPRESS_START $COMPRESS_END` | \
+         tee -a "${LOGS_DIR}/_time.log"
+fi
 
 #if $COPY_TRACES; then
-
+#    
 #fi
 
 END=`date +%s`
