@@ -1,6 +1,28 @@
 #!/bin/bash
 #
+# Main run script for bulk tracing and analysis of R.
 # 
+# USAGE:
+#   run [OPTIONS]
+#
+# OPTIONS:
+#   -t, --trace
+#   -a, --analyze[=LIST]
+#   -d, --output-dir=PATH
+#   -f, --packages-from-file=PATH
+#   -p, --packages=LIST
+#   -T, --top N
+#   -r, --randomize
+#   -s, --sort-by-size
+#   -P, --processes N
+#   -c, --copy-traces-to=PATH
+#   -C, --compress
+#   -U, --uncompress
+#   --rlibs=PATH
+#   -h, --help
+#
+# EXAMPLES:
+#
 
 # Parse this very file and print the entire first comment as usage information.
 usage () {
@@ -13,8 +35,8 @@ syserr() {
 }
 
 # Specification of parse options.
-options=$(getopt -odpfhrstaPcCU \
-    --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace,analyze::,processes:,copy-traces-to:,compress,uncompress,rlibs:\
+options=$(getopt -odpfTrstaPcCUh \
+    --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace,analyze::,processes:,copy-traces-to:,compress,uncompress,rlibs:,help\
     -n $0 -- "$@")
 
 # Stop if optparse encountered a problem.
@@ -81,9 +103,16 @@ do
         # possibly have comments and other information after semicolons.
         PACKAGES=`cat "$2" | grep -v '^#' | grep . | cut -f 1 -d \;`
         shift 2;;        
-    -h|--top) TOP=true; TOP_N=$2; shift 2;;
-    -r|--randomize) RANDOMIZE=true; shift 1;;
-    -s|--sort-by-size) SORT_BY_SIZE=true; shift 1;;
+    -h|--top) 
+        TOP=true 
+        TOP_N=$2 
+        shift 2;;
+    -r|--randomize) 
+        RANDOMIZE=true
+        shift 1;;
+    -s|--sort-by-size) 
+        SORT_BY_SIZE=true
+        shift 1;;
     -o|--output-dir)
         OUTPUT_DIR="$2"
         if [ ! -d "$OUTPUT_DIR" ]; then
@@ -105,8 +134,13 @@ do
             fi
         fi
         shift 2;;
-    -C|--compress) COMPRESS_TRACES=true; shift 1;;
-    -U|--uncompress) UNCOMPRESS_TRACES=true; shift 1;;
+    -C|--compress) 
+        COMPRESS_TRACES=true
+        shift 1;;
+    -U|--uncompress) 
+        UNCOMPRESS_TRACES=true
+        shift 1;;
+    -h|--help) usage; exit 4;;
     --) shift; break;; 
     *) syserr "Unknown option $1"; usage; exit 3;; 
     esac 
