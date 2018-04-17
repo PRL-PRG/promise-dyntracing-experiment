@@ -14,6 +14,21 @@ elapsed_time () {
          $((($2 - $1)%60)) "seconds"
 }
 
+if $IMPORT_TRACES; then
+    echo "Importing traces of $PACKAGE" from $ARCHIVE_DIR | tee -a "${LOGS_DIR}/_time.log"
+    IMPORT_START=`date +%s`
+
+    # Copy all files except OK files to archive.
+    ls $ARCHIVE_DIR/$PACKAGE-* | xargs -I{} cp -v {} $DATA_DIR
+
+    IMPORT_END=`date +%s`
+    echo "Done importing traces results from $PACKAGE to $ARCHIVE_DIR in" \
+         `elapsed_time $IMPORT_START $IMPORT_END` | \
+         tee -a "${LOGS_DIR}/_time.log"
+
+fi
+
+
 echo "Processing $PACKAGE" | tee -a "${LOGS_DIR}/_time.log"
 START=`date +%s`
 
@@ -88,9 +103,19 @@ if $COMPRESS_TRACES; then
          tee -a "${LOGS_DIR}/_time.log"
 fi
 
-#if $COPY_TRACES; then
-#    
-#fi
+if $COPY_TRACES || $MOVE_TRACES; then
+    echo "Relocating traces of $PACKAGE" to $ARCHIVE_DIR | tee -a "${LOGS_DIR}/_time.log"
+    COPY_START=`date +%s`
+
+    # Copy all files except OK files to archive.
+    ls $DATA_DIR/$PACKAGE-* | grep -v OK$ | if $COPY_TRACES; then xargs -I{} cp -v {} $ARCHIVE_DIR; else xargs -I{} mv -v {} $ARCHIVE_DIR; fi
+
+    COPY_END=`date +%s`
+    echo "Done relocating traces results from $PACKAGE to $ARCHIVE_DIR in" \
+         `elapsed_time $COPY_START $COPY_END` | \
+         tee -a "${LOGS_DIR}/_time.log"
+
+fi
 
 END=`date +%s`
 echo "Done processing $PACKAGE in" \

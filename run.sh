@@ -16,6 +16,8 @@
 #   -s, --sort-by-size
 #   -P, --processes N
 #   -c, --copy-traces-to=PATH
+#   --copy-traces-from=PATH
+#   -m, --move-traces-to=PATH
 #   -C, --compress
 #   -U, --uncompress
 #   --rlibs=PATH
@@ -35,8 +37,8 @@ syserr() {
 }
 
 # Specification of parse options.
-options=$(getopt -odpfTrstaPcCUh \
-    --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace,analyze::,processes:,copy-traces-to:,compress,uncompress,rlibs:,help\
+options=$(getopt -odpfTrstaPcCUhm \
+    --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace,analyze::,processes:,copy-traces-to:,copy-traces-from:,compress,uncompress,move-traces-to:,rlibs:,help\
     -n $0 -- "$@")
 
 # Stop if optparse encountered a problem.
@@ -52,7 +54,9 @@ ANALYZE=false
 TOP=false
 SORT_BY_SIZE=false
 RANDOMIZE=false
+IMPORT_TRACES=false
 COPY_TRACES=false
+MOVE_TRACES=false
 COMPRESS_TRACES=false
 UNCOMPRESS_TRACES=false
 PROCESSES=1
@@ -123,6 +127,17 @@ do
             fi
         fi
         shift 2;;
+    -m|--move-traces-to)
+        MOVE_TRACES=true
+        ARCHIVE_DIR="$2"
+        if [ ! -d "$ARCHIVE_DIR" ]; then
+            mkdir -p "$ARCHIVE_DIR"
+            if [ $? -ne 0 ]; then
+                syserr "Archive dir $ARCHIVE_DIR cannot be created."
+                exit 1
+            fi
+        fi
+        shift 2;;
     -c|--copy-traces-to) 
         COPY_TRACES=true
         ARCHIVE_DIR="$2"
@@ -133,6 +148,10 @@ do
                 exit 1
             fi
         fi
+        shift 2;;
+    --copy-traces-from)
+        IMPORT_TRACES=true
+        ARCHIVE_DIR="$2"
         shift 2;;
     -C|--compress) 
         COMPRESS_TRACES=true
@@ -162,6 +181,8 @@ export TRACE
 export ANALYZE
 export ANALYSES
 export COPY_TRACES
+export MOVE_TRACES
+export IMPORT_TRACES
 export COMPRESS_TRACES
 export UNCOMPRESS_TRACES
 export OUTPUT_DIR
