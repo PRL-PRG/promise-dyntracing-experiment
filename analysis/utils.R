@@ -1,3 +1,5 @@
+library(hashmap)
+
 typename <- function(type) {
     switch(toString(type),
            "0" = "NIL",
@@ -30,6 +32,27 @@ typename <- function(type) {
            "99" = "FUN",
            "NA" = "NA",
            "?")
+}
+
+SEXP_TYPE_NAMES <- c(
+    "NIL", "SYM", "LIST", "CLOS", "ENV",  "PROM", # 0-5
+    "LANG", "SPECIAL", "BUILTIN", "CHAR",  "LGL", # 6-10
+    "INT", "REAL", "CPLX", "STR", "DOT", "ANY",   # 13-18
+    "VEC", "EXPR", "BCODE", "EXTPTR", "WEAKREF",  # 19-23
+    "RAW", "S4",                                  # 24-25
+    "actbind", "...")                             # 42, 69 
+SEXP_TYPE_CODES <- c(0:10,13:25,42,69) 
+SEXP_TYPES <- hashmap(keys=SEXP_TYPE_CODES, values=SEXP_TYPE_NAMES)
+SEXP_TYPES_REV <- hashmap(keys=SEXP_TYPE_NAMES, values=SEXP_TYPE_CODES)
+guard_against_na <- function(key, map) ifelse(is.na(key), "NA", map[[key]])
+humanize_promise_type <- function(type) guard_against_na(type, SEXP_TYPES) 
+dehumanize_promise_type <- function(type) guard_against_na(type, SEXP_TYPES_REV)
+humanize_full_promise_type = function(full_type) {
+  strsplit(full_type, ',', fixed=TRUE) %>% 
+    sapply(., as.numeric) %>% 
+    sapply(., function(type) humanize_promise_type(type)) %>% 
+    #lapply(., function(vec) paste(vec, collapse = "→"))
+    paste(., collapse = ">")
 }
 
 eventname <- function(event) {
@@ -94,24 +117,28 @@ memory_size_labels <-
   }
 
 count_labels <-
-  Vectorize(function(x) {
+  Vectorize(function(x, digits = 2) {
+
+    paste_round <- function(value, div, suffix, sep)
+        paste(round(value/div, digits), suffix, sep = sep)
+
     if(is.na(x)) {
       "NA"
     } else if(x < 10^3) {
       paste0(x)
     } else if(x < 10^6) {
-      paste(x/1000, "K", sep=" ")
+      paste_round(x, 1000, "K", sep=" ")
     } else if(x < 10^9) {
-      paste(x/(10^6), "M", sep=" ")
+      paste_round(x, 10^6, "M", sep=" ")
     } else {
-      paste(x/(10^9), "B", sep=" ")
+      paste_round(x, 10^9, "B", sep=" ")
     }
   },
   "x")
 
 relative_labels <-
   function(x) {
-    percent_labels(x * 1000)
+    percent_labels(x * 100)
   }
 
 percent_labels <-
@@ -129,26 +156,6 @@ is_value <-
               ## SYM PROM LANG  DOT EXPR  FUN
     !(type %in% c(1,  5,   6,   17,  20,  99))
   }
-
-pp <-
-  function(number) {
-    format(number, big.mark=",", scientific=FALSE, trim=FALSE, digits=2)
-  }
-
-pp_trunc <-
-  function(x) {
-    ifelse(x==0, paste(format(x, digits=2, scientific=FALSE)),
-    ifelse(x < 1000, format(x, digits=2, scientific=FALSE),
-    ifelse(x < 1000000, paste(format(floor((x/1000)*10)/10, digits=2, scientific=FALSE), "k", sep=""),
-    ifelse(x < 1000000000, paste(format(floor((x/1000000)*10)/10, digits=2, scientific=FALSE), "m", sep=""),
-           paste(format(floor((x/1000000000)*10)/10, digits=2, scientific=FALSE), "b", sep="")))))
-  }
-
-pp_perc <-
-  function(x) {
-    dollar_format(prefix="", suffix="%")(x)
-  }
-
 
 to_named_values <-
   function(df, column_name) {

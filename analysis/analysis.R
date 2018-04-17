@@ -60,6 +60,21 @@ export_as_images <- function(visualizations, graph_dir, logger, extension = "pdf
       })
 }
 
+infer_colspec <- function(df) {
+  map2_dfc(df,
+           colnames(df),
+           function(col, colname)
+             str_c("\"", colname, "\"", "=",
+                   " col_", guess_parser(col), "()")) %>%
+    paste0(collapse=",\n  ") %>%
+    paste0("cols(\n  ", ., "\n)")
+}
+
+write_csv_with_col_spec <- function(table, table_filename, colspec_filename) {
+  write_file(infer_colspec(table), colspec_filename)
+  write_csv(table, table_filename)
+}
+
 export_as_tables <- function(analyses, table_dir, logger, extension = "csv") {
 
   dir.create(table_dir, showWarnings = FALSE, recursive = TRUE)
@@ -69,10 +84,14 @@ export_as_tables <- function(analyses, table_dir, logger, extension = "csv") {
         function(table, tablename) {
           filename <- file.path(table_dir, paste0(tablename, ".", extension))
           info("  • Exporting ", filename, "\n")
-          write_csv(table, filename)
+          write_csv_with_col_spec(table, filename, replace_extension(filename, "spec"))
         })
 }
 
+read_csv_with_colspec <- function(table_filename, colspec_filename) {
+  read_csv(table_filename,
+           col_types = eval(parse(colspec_filename)))
+}
 
 import_as_tables <- function(table_dir, logger, extension = "csv") {
   table_files <- list_files_with_exts(table_dir, extension)
@@ -82,7 +101,7 @@ import_as_tables <- function(table_dir, logger, extension = "csv") {
     map(
       function(table_file) {
           info("  • Importing ", table_file, "\n")
-          read_csv(table_file)
+          read_csv_with_colspec(table_file, replace_extension(table_file, "spec"))
       }) %>%
     setNames(table_names)
 
@@ -108,7 +127,10 @@ create_latex_defs <-
 
 
 export_as_latex_defs <-
-  function(def_pairs, analysis_name, latex_filename, logger) {
+  function(def_pairs, analysis_name, latex_dir, logger) {
+    dir.create(latex_dir, showWarnings = FALSE, recursive = TRUE)
+
+    latex_filename <- file.path(latex_dir, "variables.sty")
 
     latex_file <- file(latex_filename, "wt")
 
@@ -231,9 +253,8 @@ analyze_stage <-
               analyzer$export_analysis(result, cache_path, logger)
           }
         } else {
-          info("• Skipping ", source_path, " (", file_size(source_path), ") ",
-               "partial data already exists at ", cache_path,
-               " and overwrite is not set", "\n")
+          info("• Reading ", source_path, " (", file_size(source_path), ") ",
+               "cached data from ", cache_path, "\n")
           result <- analyzer$import_analysis(cache_path, logger)
         }
         result
