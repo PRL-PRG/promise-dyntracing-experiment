@@ -8,12 +8,13 @@
 # OPTIONS:
 #   -t, --trace
 #   -a, --analyze[=LIST]
+#   -s, --summarize[=LIST]
 #   -d, --output-dir=PATH
 #   -f, --packages-from-file=PATH
 #   -p, --packages=LIST
 #   -T, --top N
 #   -r, --randomize
-#   -s, --sort-by-size
+#   -S, --sort-by-size
 #   -P, --processes N
 #   -c, --copy-traces-to=PATH
 #   --copy-traces-from=PATH
@@ -37,8 +38,8 @@ syserr() {
 }
 
 # Specification of parse options.
-options=$(getopt -odpfTrstaPcCUhm \
-    --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace,analyze::,processes:,copy-traces-to:,copy-traces-from:,compress,uncompress,move-traces-to:,rlibs:,help\
+options=$(getopt -odspfTrStaPcCUhm \
+    --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace,analyze::,summarize::,processes:,copy-traces-to:,copy-traces-from:,compress,uncompress,move-traces-to:,rlibs:,help\
     -n $0 -- "$@")
 
 # Stop if optparse encountered a problem.
@@ -51,6 +52,7 @@ fi
 # Default settings
 TRACE=false
 ANALYZE=false
+SUMMARIZE=false
 TOP=false
 SORT_BY_SIZE=false
 RANDOMIZE=false
@@ -84,9 +86,21 @@ do
     -t|--trace) 
         TRACE=true
         shift 1;;
+    -s|--summarize)
+        SUMMARIZE=true
+        if [ -z "$2" ]; then
+            echo $2
+            # If analyses were not specified, then we use the default value
+            shift 2        
+        else
+            echo 3
+            # Otherwise we take in the comma separated list and convert
+            # to a space-separated list.
+            ANALYSES=`echo "$2" | tr , \ `
+            shift 2
+        fi;;
     -a|--analyze) 
         ANALYZE=true
-        echo $1 x $2 x
         if [ -z "$2" ]; then
             echo $2
             # If analyses were not specified, then we use the default value
@@ -114,7 +128,7 @@ do
     -r|--randomize) 
         RANDOMIZE=true
         shift 1;;
-    -s|--sort-by-size) 
+    -S|--sort-by-size) 
         SORT_BY_SIZE=true
         shift 1;;
     -o|--output-dir)
@@ -179,6 +193,7 @@ fi
 # Export variables needed in run_one.sh
 export TRACE
 export ANALYZE
+export SUMMARIZE
 export ANALYSES
 export COPY_TRACES
 export MOVE_TRACES
@@ -198,3 +213,4 @@ if [ -z $RDT_COMPILE_VIGNETTE ]; then export RDT_COMPILE_VIGNETTE=false; fi
 
 # We start running things now.
 echo "$PACKAGES" | xargs -P $PROCESSES -I{} ./run_one.sh {}
+./run_all.sh
