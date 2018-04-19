@@ -1,0 +1,81 @@
+# Interactions among promises
+
+```{r, "interactions among promises", echo=FALSE, comment="", fig.width=10, fig.height=4.5}
+# Graph one
+promises_forced_by_another_promise <-   
+  load_local_csv("promises_forced_by_another_promise.csv", tibble(forced_by_another=logical(), number=numeric(), percent=numeric())) %>% 
+  group_by(forced_by_another) %>% 
+  summarise(number=sum(as.numeric(number))) %>% 
+  mutate(percent=100*number/sum(number))
+
+g_receive <- 
+  ggplot(promises_forced_by_another_promise, 
+         aes(x=forced_by_another, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  theme(legend.position="none") +
+  ylab("No. of promises") + 
+  xlab("This promise forced\nby another promise")
+
+# Graphs two and three
+promises_forcing_other_promises <- 
+  load_local_csv("promises_forcing_other_promises.csv", tibble(number_of_forced_promises=numeric(), number=numeric(), percent=numeric()))
+
+promises_forcing_other_promises_summarized <- 
+  promises_forcing_other_promises %>%
+  group_by(number_of_forced_promises) %>% 
+  summarise(number=sum(as.numeric(number))) %>% 
+  mutate(percent=100*number/sum(number))
+
+# Graph two
+promises_forcing_other_promises_small <-
+  promises_forcing_other_promises_summarized %>% 
+  mutate(number_of_forced_promises=ifelse(number_of_forced_promises>=3, "3+", 
+                                          number_of_forced_promises)) %>%
+  group_by(number_of_forced_promises) %>%
+  summarise(number=sum(as.numeric(number))) %>% 
+  mutate(percent=100*number/sum(number))
+
+g_cause_small <- 
+  ggplot(promises_forcing_other_promises_small, aes(x=number_of_forced_promises, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  ylab("No. of promises") + 
+  xlab("No. of promises forced\nby this promise") +
+  theme(legend.position="none", axis.title.y=element_blank())
+
+# Graph three
+promises_forcing_other_promises_big <-
+  promises_forcing_other_promises_summarized %>% 
+  filter(number_of_forced_promises >= 3) %>%
+  group_by(number_of_forced_promises) %>%
+  summarise(number=sum(number)) %>% 
+  mutate(percent=100*number/sum(number))
+
+g_cause_big <- 
+  ggplot(promises_forcing_other_promises_big, aes(x=number_of_forced_promises, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  ylab("No. of promises") + 
+  xlab("No. of promises forced\nby this promise (3+)") +
+  theme(legend.position="none", axis.title.y=element_blank())
+
+# Drawing
+g <- grid.arrange(g_receive, g_cause_small, g_cause_big, ncol=3, widths=c(4,5,9))
+g
+save_graph("interactions-among-promises.pdf", g)
+save_graph("promise-interactions-receive.pdf", g_receive)
+save_graph("promise-interactions-cause-small.pdf", g_cause_small)
+save_graph("promise-interactions-cause-big.pdf", g_cause_big)
+
+# Printout
+promises_forced_by_another_promise %>% prettify %>% kable(col.names=c("forced by another promise","number","percentage"), align="lrr")
+promises_forcing_other_promises_summarized %>% prettify %>% kable(col.names=c("promises that force this many promises","number","percentage"), align="lrr")
+```
+
+<div style="font-size: 50%">
+  Promises forced by other promises:  
+  `TRUE` is when a promise was created within some promise x but was forced within a different promise y.   
+`FALSE` is when a promise was forced within the same promise as it was created.  
+`NA` means the promise was not forced.  
+</div>

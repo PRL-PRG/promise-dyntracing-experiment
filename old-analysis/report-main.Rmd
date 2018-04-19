@@ -1,0 +1,199 @@
+---
+title: "R dyntrace report"
+author: "K. Siek, A. Goel"
+output: 
+  html_document:
+    theme: flatly # default cerulean journal flatly readable 
+                  # spacelab united cosmo lumen paper sandstone simplex yeti
+    highlight: tango
+    toc: true
+    toc_depth: 3
+    number_sections: true
+params:
+  CSV_DIR: "/home/kondziu/workspace/promise-dyntracing-experiment/graphs/csv/"
+  PRINT_DATA: TRUE
+---
+
+<style>
+  .col2 {
+    columns: 2 200px;         /* number of columns and width in pixels*/
+    -webkit-columns: 2 200px; /* chrome, safari */
+    -moz-columns: 2 200px;    /* firefox */
+  }
+  
+  div.together {
+    display: inline-block;
+    width: 100%;
+  }
+</style>
+
+
+
+``` {r, "initial setup", include=FALSE}
+#rmarkdown::render("graphs_from_csv.Rmd", params = list(CSV_DIR = "/home/kondziu/workspace/R-dyntrace/reports/aggregate/", PRINT_DATA = TRUE))
+#params <- data.frame(PRINT_DATA=TRUE, CSV_DIR="/home/kondziu/workspace/promise-dyntracing-experiment/graphs/csv/")
+
+#knitr::opts_chunk$set(cache=TRUE)
+
+library(dplyr)
+library(hashmap)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(scales)
+library(gridExtra)
+library(png)
+
+SEXP_TYPE_NAMES = c(
+    "NIL", "SYM", "LIST", "CLOS", "ENV",  "PROM", # 0-5
+    "LANG", "SPECIAL", "BUILTIN", "CHAR",  "LGL", # 6-10
+    "INT", "REAL", "CPLX", "STR", "DOT", "ANY",   # 13-18
+    "VEC", "EXPR", "BCODE", "EXTPTR", "WEAKREF",  # 19-23
+    "RAW", "S4")                                  # 24-25
+
+pp <- function(number) format(number, big.mark=",", scientific=FALSE, trim=FALSE, digits=2)
+load_local_csv <- function (csv_file, backup=NULL) {
+    path <- file.path(params$CSV_DIR, csv_file)
+    write(paste("reading", path), stderr())
+    tryCatch( 
+      as_tibble(read.csv(path, stringsAsFactors=FALSE)),
+      error=function(e) backup
+    )
+}
+save_graph <- function(pdf_file, graph) {
+    path <- file.path(params$CSV_DIR, pdf_file)
+    write(paste("writing graph to", path), stderr())
+    ggsave(path, graph, device="pdf")
+}
+print_data <- function (x) if(params$PRINT_DATA) print(x, row.names=FALSE)
+prettify <- function(x) x %>% mutate(number=pp_trunc(number), percent=pp_perc(percent)) %>% as.data.frame
+pp_trunc <- function(x) ifelse(x==0, paste(format(x, digits=2, scientific=FALSE)),
+                               ifelse(x < 1000, format(x, digits=2, scientific=FALSE), 
+                                      ifelse(x < 1000000, 
+                                             paste(format(floor((x/1000)*10)/10, digits=2, scientific=FALSE), "k", sep=""),
+                                             ifelse(x < 1000000000,
+                                                    paste(format(floor((x/1000000)*10)/10, digits=2, scientific=FALSE), "m", sep=""),
+                                                    paste(format(floor((x/1000000000)*10)/10, digits=2, scientific=FALSE), "b", sep="")))))
+pp_perc <- function(x) dollar_format(prefix="", suffix="%")(x)
+is_outlier <- function(x) x < quantile(x, 0.25) - 1.5 * IQR(x) | x > quantile(x, 0.75) + 1.5 * IQR(x)
+
+#http://mathematicalcoffee.blogspot.cz/2014/06/ggpie-pie-graphs-in-ggplot2.html
+ggpie <- function (dat, by, totals, labels=by) {
+    ggplot(dat, aes_string(x=factor(1), y=totals, fill=by)) +
+        geom_bar(stat='identity', color='black') +
+        guides(fill=guide_legend(override.aes=list(colour=NA))) + # removes black borders from legend
+        coord_polar(theta='y') +
+        theme(axis.ticks=element_blank(),
+            axis.text.y=element_blank(),
+            axis.text.x=element_text(colour='black'),
+            axis.title=element_blank(),
+            legend.position='none') +
+    scale_y_continuous(breaks=cumsum(dat[[totals]]) - dat[[totals]] / 2, labels=dat[[labels]])
+}
+
+make_graphs_for_packages <- function(data, f, max.col=10) {
+  graphs <- lapply((data %>% select(name) %>% distinct %>% pull(name)), f(data))
+  do.call("grid.arrange", c(graphs, ncol=min(max.col, ceiling(sqrt(length(graphs))))))
+}
+
+make_graphs_for_range <- function(data, range_column, f, max.col=10) {
+  graphs <- lapply(data %>% select(!!range_column) %>% distinct %>% pull(!!range_column),
+                   function(x) f(data %>% filter_(paste(range_column,"==",quote(x)))))
+  do.call("grid.arrange", c(graphs, ncol=min(length(graphs), max.col)))
+}
+
+# hard-coded columns: number
+make_graphs_by_split <- function(data, key, split="name", max_columns=10, graphing_function=NA) {
+  if (is.na(graphing_function))
+    graphing_function <- 
+      function(package, data) 
+        ggplot(data, aes_string(x=key, y="number")) + 
+        geom_bar(stat="identity") +
+        scale_y_continuous(
+          labels=pp_trunc, 
+          breaks=c(max(data$number))) +
+        theme(
+          axis.title.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.text.y=element_text(angle=90, size=5, vjust=.5),
+          axis.text.x=element_text(angle=90, size=5, vjust=.5),
+          axis.title.x=element_text(size=5),
+          legend.position="none") +
+        xlab(package)
+    
+  packages <- data %>% select_(split) %>% distinct %>% pull(split)
+  key_range <- data %>% select_(key) %>% distinct %>% collect
+  
+  splitter <- function (package)
+    graphing_function(
+      package,
+      data %>% 
+        filter(UQ(rlang::sym(split)) == !!package) %>% 
+        group_by_(key) %>%
+        summarise(number=sum(number)) %>% 
+        right_join(key_range, by=key) %>%
+        mutate(number=ifelse(is.na(number), 0, number)))
+  
+  graphs <- lapply(packages, splitter)
+  do.call("grid.arrange", c(graphs, ncol=min(max_columns, ceiling(sqrt(length(graphs))))))
+}
+
+# hard coded: percent
+make_graphs_by_range <- function(data, range_column, max_columns=10, graphing_function=NA) {
+  if(is.na(graphing_function))
+    graphing_function <- function(data)
+      ggplot(data, aes_string(range_column, "percent")) + 
+      geom_violin() +
+      scale_y_continuous(labels=pp_perc) +
+      theme(axis.title.x=element_blank(),
+            axis.title.y=element_blank(),
+            legend.position="none")
+  
+  splitter <- function(x) 
+    graphing_function(clean_data %>% filter_(paste(range_column, "==", quote(x))))
+  
+  range <- data %>% select_(range_column) %>% distinct %>% pull(range_column)
+  clean_data <- data %>% mutate(percent = ifelse(is.na(percent), 0, percent))
+  graphs <- lapply(range, splitter)
+  do.call("grid.arrange", c(graphs, ncol=min(length(graphs), max_columns)))
+}
+```
+
+```{r child = 'report-basic-info.Rmd', params=params}				      
+```
+
+```{r child = 'report-promise-accesses.Rmd', params=params}				      
+```
+
+```{r child = 'report-number-of-accesses-to-a-promise.Rmd', params=params}				      
+```
+
+```{r child = 'report-promise-code-types.Rmd', params=params}				      
+```
+
+```{r child = 'report-type-traces.Rmd', params=params}				      
+```
+
+```{r child = 'report-promise-return-types.Rmd', params=params}				      
+```
+
+```{r child = 'report-what-do-specific-promises-return.Rmd', params=params}				      
+```
+
+```{r child = 'report-promise-forces-by-types.Rmd', params=params}				      
+```
+
+```{r child = 'report-promise-evaluation-distances.Rmd', params=params}				      
+```
+
+```{r child = 'report-interactions-among-promises.Rmd', params=params}				      
+```
+
+```{r child = 'report-calls-and-fucntions-by-type.Rmd', params=params}				      
+```
+
+```{r child = 'report-byte-code-compilation.Rmd', params=params}				      
+```
+
+```{r child = 'report-call-and-function-definition-strictness.Rmd', params=params}				      
+```

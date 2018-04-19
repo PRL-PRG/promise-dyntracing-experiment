@@ -1,0 +1,154 @@
+# Lifespan
+
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 1200)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(methods) ## including this prevents a warning - "executing load actions ..."
+library(DT)
+library(tidyverse)
+library(knitr)
+library(png)
+library(grid)
+library(gridExtra)
+```
+
+```{r echo=FALSE, message=FALSE}
+# https://www.rdocumentation.org/packages/knitr/versions/1.17/topics/include_graphics
+
+get_graph <- function(analysis_name, graph_filename) {
+    file.path(params$analysis_output_dir, analysis_name, "graph", graph_filename)
+}
+
+show_graph <- function(analysis_name, graph_filename) {
+    get_graph(analysis_name, graph_filename) %>%
+    include_graphics()
+}
+
+get_table <- function(analysis_name, table_filename) {
+    file.path(params$analysis_output_dir, analysis_name, "table", table_filename) %>%
+    read_csv()
+}
+
+show_table <- function(analysis_name, table_filename) {
+    get_table(analysis_name, table_filename) %>%
+    datatable(rownames = FALSE)
+}
+```
+
+```{r echo=FALSE, message=FALSE}
+lifespan_summary <- get_table("promise-lifespan", "lifespan_summary.csv")
+required_lifespan_summary <- get_table("promise-lifespan", "required_lifespan_summary.csv")
+```
+
+This section discusses the lifespan of promises in terms of the number of GC Cycles.
+The lifespan of a promise is defined as the number of GC cycles for which the 
+promise is alive.
+
+## Promise Categories
+
+We categorize the promises observed while tracing as follows:
+
+1. **Foreign Promises** are created before the tracing starts. Since we don't see their creation, 
+   we can't study their lifespan in terms of GC cycles. They are **excluded from the analysis**
+2. **Immortal Promises** are created but not garbage collected while tracing. They are 
+   **excluded from the analysis** because we can't compute their lifespan.
+3. **Mortal Promises** are created and garbage collected while tracing.
+   They are the only promises that are **included in the analysis**.
+   They are further classified as follows:
+   i. **Forced Promises** are the mortal promises that are looked up at least once.
+   ii. **Unforced Promises** are mortal promises that are never looked up.
+
+- **TOTAL PROMISE COUNT** = **FOREIGN PROMISE COUNT** + **IMMORTAL PROMISE COUNT** + **MORTAL PROMISE COUNT**
+
+- **IMMORTAL PROMISE COUNT** = **UNFORCED PROMISE COUNT** + **FORCED PROMISE COUNT**
+
+```{r echo=FALSE, message=FALSE, fig.width=10, fig.height=4.5}
+show_graph("promise-lifespan", "category_counts.png")
+```
+
+### Summarized Data
+
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "count_summary.csv")
+```
+
+### Raw Data
+
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "counts.csv")
+```
+
+## Mean GC Cycles Distribution
+
+Following graph shows the weighted mean of the number GC cycles 
+for which promises are (should be) alive in the scripts.
+
+```{r echo=FALSE, message=FALSE, out.width="500px"}
+show_graph("promise-lifespan", "lifespan_mean_gc_cycles.png")
+show_graph("promise-lifespan", "required_lifespan_mean_gc_cycles.png")
+show_graph("promise-lifespan", "extra_lifespan_mean_gc_cycles.png")
+```
+
+## Median GC Cycles Distribution
+
+Following graph shows the median number GC cycles for which 
+promises are (should be) alive in the scripts.
+
+```{r echo=FALSE, message=FALSE, out.width="500px"}
+show_graph("promise-lifespan", "lifespan_median_gc_cycles.png")
+show_graph("promise-lifespan", "required_lifespan_median_gc_cycles.png")
+show_graph("promise-lifespan", "extra_lifespan_median_gc_cycles.png")
+```
+
+## Min GC Cycles Distribution
+
+Following graph shows the minimum number GC cycles for which 
+promises are (should be) alive in the scripts.
+
+```{r echo=FALSE, message=FALSE, out.width="500px"}
+show_graph("promise-lifespan", "lifespan_min_gc_cycles.png")
+show_graph("promise-lifespan", "required_lifespan_min_gc_cycles.png")
+show_graph("promise-lifespan", "extra_lifespan_min_gc_cycles.png")
+```
+
+## Max GC Cycles Distribution
+
+Following graph shows the maximum number GC cycles for which 
+promises are (should be) alive in the scripts.
+
+```{r echo=FALSE, message=FALSE, out.width="500px"}
+show_graph("promise-lifespan", "lifespan_max_gc_cycles.png")
+show_graph("promise-lifespan", "required_lifespan_max_gc_cycles.png")
+show_graph("promise-lifespan", "extra_lifespan_max_gc_cycles.png")
+```
+
+## Lifespan Data (Summarized)
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "lifespan_summary.csv")
+```
+
+## Required Lifespan Data (Summarized)
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "required_lifespan_summary.csv")
+```
+
+## Extra Lifespan Data (Summarized)
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "extra_lifespan_summary.csv")
+```
+
+
+## Lifespan Data (Raw)
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "lifespan_summary.csv")
+```
+
+## Required Lifespan Data (Raw)
+```{r echo=FALSE, message=FALSE}
+show_table("promise-lifespan", "required_lifespan.csv")
+```
+
+<!--chapter:end:01-lifespan.Rmd-->
+

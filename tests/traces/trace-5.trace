@@ -1,0 +1,18 @@
+# SIMPLE CASE
+# We cannot force promise bound to a at the point
+# of creation because x is not defined at that point
+# f <- function(
+# function(a = {x}) {
+#    x <- 1
+#    a
+# }
+# {x} -> 1
+# a -> 2
+# x -> 3
+cre 1
+def 2
+def 3
+rea 2
+ent 1
+rea 3
+ext 1

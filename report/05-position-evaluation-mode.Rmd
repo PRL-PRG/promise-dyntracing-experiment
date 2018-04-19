@@ -1,0 +1,33 @@
+# Position Evaluation Mode
+
+This section discusses the strictness of function parameter
+positions.
+For each function, strictness of its parameter position is 
+computed by observing the evaluation state of all promises
+that occupy that position. If the promises at a given
+parameter position are always evaluated, then that position
+is strict. If they are never evaluated, then that position is
+lazy. If they are sometimes evaluated then that position 
+is mixed. The graph below summarizes this information across
+all functions.
+
+
+```{r echo=FALSE, message=FALSE}
+show_graph("position-evaluation-mode", "evaluation_mode_distribution_by_function.png")
+```
+
+```{r echo=FALSE, message=FALSE}
+show_graph("position-evaluation-mode", "evaluation_mode_distribution_by_formal_parameter_position.png")
+```
+
+## Data (Summarized)
+
+```{r echo=FALSE, message=FALSE}
+show_table("position-evaluation-mode", "evaluation_mode_summarized.csv")
+```
+
+## Data
+
+```{r echo=FALSE, message=FALSE}
+show_table("position-evaluation-mode", "evaluation_mode.csv")
+```

@@ -1,0 +1,29 @@
+# Promise evaluation distances
+
+<!--Effective distance is the distance from the call where a promise originated to the call in which it was evaluated. It is measured along the call graph (along inbound edges).  Since the data is gathered from a trace, the call graph is a tree.-->
+  
+```{r, "promise actual distances, aggregate", echo=FALSE, fig.width=10, fig.height=4.5}
+actual_distances <- 
+  load_local_csv("actual_distances.csv", tibble(distance=character(), number=numeric(), percent=numeric())) %>% 
+  group_by(actual_distance) %>% 
+  summarise(number=sum(as.numeric(number), na.rm=TRUE)) %>% 
+  mutate(percent=100*number/sum(number))
+
+g <- ggplot(actual_distances, aes(x=actual_distance, y=number)) + 
+  geom_col() +
+  scale_x_discrete(limits=c(NA,0:20,">20",-1)) +
+  scale_y_continuous(labels=pp_trunc) +
+  ylab("No. of promises") + 
+  theme(axis.title.x=element_blank())
+
+g
+save_graph("promise-actual-distances.pdf", g)
+
+actual_distances %>% prettify %>% kable(col.names=c("distance","number","percentage"), align="lrr")
+```
+
+<div style="font-size: 50%">
+  **n** - distance from the function for which a promise was created and the function in which it was evaluated    
+**NA** - promise was not executed, there is no distance measure (a virgin promise)  
+**-1** - promise was executed but there is no path from the origin to the point of evaluation (an escaped promise)    
+</div>

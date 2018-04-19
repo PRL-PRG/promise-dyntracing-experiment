@@ -1,0 +1,22 @@
+# NESTED INTERFERING PROMISES
+# We can only force promises in order - promise 2 then promise 1
+# If we force them out of order, then var_7 will be undefined.
+# { var_7 <- 34; var_6 } is promise 1
+# { var_7 } is promise 2
+# f <- function(var_5 = { var_7 },
+#               var_6 = { var_7 <- 34; var_5 }) {
+#     var_6
+# }
+#
+cre 1
+def 5
+cre 2
+def 6
+rea 6
+ent 2
+def 7
+rea 5
+ent 1
+rea 7
+ext 1
+ext 2

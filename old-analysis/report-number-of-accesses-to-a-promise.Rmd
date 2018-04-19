@@ -1,0 +1,30 @@
+# Number of accesses to a promise
+
+``` {r, "number of accesses to a promise, aggregate", echo=FALSE, warning=FALSE, fig.width=10, fig.height=5}
+evaluations <- 
+  load_local_csv("promise_evaluations.csv") %>%
+  group_by(no.of.evaluations) %>% 
+  summarise(number=sum(as.numeric(number), na.rm=TRUE)) %>% 
+  mutate(percent=100*number/sum(number)) %>%
+  mutate(labels=no.of.evaluations) %>%
+  mutate(no.of.evaluations=as.numeric(as.character(no.of.evaluations)))  %>%
+  mutate(no.of.evaluations=ifelse(is.na(no.of.evaluations),
+                        	  	    max(no.of.evaluations, na.rm=TRUE)+1, 
+				                          no.of.evaluations)) %>% 
+	arrange(no.of.evaluations)
+										      
+g <- ggplot(evaluations, aes(x=no.of.evaluations, y=number)) + 
+  geom_col() +
+  scale_y_continuous(labels=pp_trunc) +
+  scale_x_discrete(limit=0:11, labels=evaluations %>% pull(labels)) +
+  theme(axis.title.x=element_blank(), legend.position="none") +
+	ylab("No. of promises") + xlab("No. of accesses")
+g
+save_graph("promise-evaluations.pdf", g)
+
+evaluations %>% select(labels, number, percent) %>% prettify %>% kable(col.names=c("no. of evaluations","number","percentage"), align="lrr")
+``` 
+
+<div style="font-size: 50%">
+Promise types follow the type designations in ``Rinternals.h``.  
+</div>

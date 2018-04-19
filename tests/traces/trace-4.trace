@@ -1,0 +1,22 @@
+# INCORRECT LOOKUP on REORDERING
+# We cannot force promise bound to a at the point
+# of creation because even though x is defined at
+# that point we need a different x for the function
+# to work properly
+# x <- 100
+# function(a = {x}) {
+#    x <- 1
+#    a
+# }
+# x -> 0
+# {x} -> 1
+# a -> 2
+# x -> 3
+def 0
+cre 1
+def 2
+def 3
+rea 2
+ent 1
+rea 3
+ext 1
