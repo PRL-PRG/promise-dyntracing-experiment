@@ -20,8 +20,8 @@ if $SUMMARIZE; then
     ANALYSIS_START=`date +%s`
 
     # Run individual analyses in n threads.
-    echo $ANALYSES | xargs -P $PROCESSES -I{} \
-        make analyze ANALYSIS=${} DATA_DIR="$OUTPUT_DIR" STAGE=analyze 2>&1 | \
+    echo $ANALYSES | xargs -I{} -P $PROCESSES \
+        make analyze ANALYSIS={} DATA_DIR="$OUTPUT_DIR" STAGE=all 2>&1 | \
              tee -a "${LOGS_DIR}/_summary_{}.log"
 
     ANALYSIS_END=`date +%s`
