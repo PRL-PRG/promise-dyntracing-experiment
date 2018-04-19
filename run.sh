@@ -202,6 +202,7 @@ export COMPRESS_TRACES
 export UNCOMPRESS_TRACES
 export OUTPUT_DIR
 export ARCHIVE_DIR
+export PROCESSES
 export R_LIBS
 
 # Set R environment variables (if not set)
