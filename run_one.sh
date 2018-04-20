@@ -67,7 +67,6 @@ if $TRACE; then
         cut -f 2 -d\; | echo Trace size: 
 
     # FIXME add indexes
-    
 fi
 
 

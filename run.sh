@@ -184,7 +184,13 @@ if $RANDOMIZE; then
     PACKAGES=`echo $PACKAGES | sort -R`
 fi
 if $SORT_BY_SIZE; then
-    PACKAGES=`echo $PACKAGES | sort` # TODO
+    SORTED_PACKAGES=`<"$OUTPUT_DIR/logs/_space.log" tr \; \  |  sort -k 2 -n | grep -f <(echo $PACKAGES | tr \  '\n') | cut -f 1 -d \ `
+    UNSORTED_PACKAGES=`echo $PACKAGES | tr ' ' '\n' | grep -v -f <(echo $SORTED_PACKAGES | tr ' ' '\n')`
+
+    echo SORTED_PACKAGES=$SORTED_PACKAGES
+    echo UNSORTED_PACKAGES=$UNSORTED_PACKAGES
+
+    PACKAGES=`echo $SORTED_PACKAGES $UNSORTED_PACKAGES`
 fi
 if $TOP; then
     PACKAGES=`echo $PACKAGES | head -n $TOP_N`

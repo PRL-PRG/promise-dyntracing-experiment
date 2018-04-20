@@ -20,8 +20,8 @@ analyze_database <- function(database_file_path) {
     filter(timing | occurance) %>%
     # mutate(segment=ifelse(timing|occurance, "segment", "probe"),
     #        measurement=ifelse(timing|probe, "timing", "occurance")) %>%
-    mutate(segment=sapply(str_split(mapply(trim, key), "/"),`[`, 2),
-           probe=sapply(str_split(mapply(trim, key), "/"),`[`, 1)) %>%
+    mutate(segment=sapply(str_split(mapply(trim, key), "/", n=2),`[`, 2),
+           probe=sapply(str_split(mapply(trim, key), "/", n=2),`[`, 1)) %>%
     mutate(segment=ifelse(is.na(segment), "TOTAL", segment)) %>%
     select(-key)
 
@@ -42,22 +42,26 @@ summarize_analyses <- function(analyses) {
   list(all=timing, 
     total=timing %>% 
       filter(grepl("TOTAL", segment)) %>% select(-segment) %>%
-      mutate(percent=(100*number/sum(number))), 
+      mutate(percent=(100*number/sum(number))) %>%
+      arrange(desc(percent)), 
     probes_and_segments=timing %>% 
       filter(!grepl("TOTAL", segment)) %>%
-      mutate(percent=(100*number/sum(number))),
+      mutate(percent=(100*number/sum(number))) %>%
+      arrange(desc(percent)),
     segments=timing %>% 
       filter(!grepl("TOTAL", segment)) %>%
       group_by(segment) %>%
       summarize(number=sum(number)) %>%
       ungroup %>%
-      mutate(percent=(100*number/sum(number))),
+      mutate(percent=(100*number/sum(number))) %>%
+      arrange(desc(percent)),
     probes=timing %>% 
       filter(!grepl("TOTAL", segment)) %>%
       group_by(probe) %>%
       summarize(number=sum(number)) %>%
       ungroup %>%
-      mutate(percent=(100*number/sum(number)))
+      mutate(percent=(100*number/sum(number))) %>%
+      arrange(desc(percent))
   )
 }
 
