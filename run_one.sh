@@ -52,7 +52,14 @@ if $TRACE; then
 
     # Run the tracer.
     if $RDT_COMPILE_VIGNETTE; then compile="--compile"; fi
-    ../R-dyntrace/bin/R --slave --no-restore --file=dyntrace/vignettes.R \
+    if $DEBUG; then
+    echo \
+    ../R-dyntrace/bin/R $debug --slave --no-restore --file=dyntrace/vignettes.R \
+                        --args --output-dir="${OUTPUT_DIR}" $compile \
+                        $PACKAGE 2>&1 | tee -a "${LOGS_DIR}/${PACKAGE}.log"
+    fi
+
+    ../R-dyntrace/bin/R $debug --slave --no-restore --file=dyntrace/vignettes.R \
                         --args --output-dir="${OUTPUT_DIR}" $compile \
                         $PACKAGE 2>&1 | tee -a "${LOGS_DIR}/${PACKAGE}.log"
 

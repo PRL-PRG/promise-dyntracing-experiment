@@ -21,6 +21,7 @@
 #   -m, --move-traces-to=PATH
 #   -C, --compress
 #   -U, --uncompress
+#   -D, --debug
 #   --rlibs=PATH
 #   -h, --help
 #
@@ -38,8 +39,8 @@ syserr() {
 }
 
 # Specification of parse options.
-options=$(getopt -odspfTrStaPcCUhm \
-    --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace,analyze::,summarize::,processes:,copy-traces-to:,copy-traces-from:,compress,uncompress,move-traces-to:,rlibs:,help\
+options=$(getopt -odspfTrStaPcCUhmD \
+    --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace,analyze::,summarize::,processes:,copy-traces-to:,copy-traces-from:,compress,uncompress,move-traces-to:,rlibs:,help,debug\
     -n $0 -- "$@")
 
 # Stop if optparse encountered a problem.
@@ -62,6 +63,7 @@ MOVE_TRACES=false
 COMPRESS_TRACES=false
 UNCOMPRESS_TRACES=false
 PROCESSES=1
+DEBUG=false
 
 R_LIBS=/home/kondziu/R_LIBS
 OUTPUT_DIR=
@@ -80,6 +82,9 @@ do
     --rlibs)
         R_LIBS=$2
         shift 2;;
+    -D|--debug)
+        DEBUG=true
+        shift 1;;
     -P|--processes)
         PROCESSES=$2
         shift 2;;
@@ -210,6 +215,7 @@ export OUTPUT_DIR
 export ARCHIVE_DIR
 export PROCESSES
 export R_LIBS
+export DEBUG
 
 # Set R environment variables (if not set)
 if [ -z $R_COMPILE_PKG ]; then export R_COMPILE_PKGS=1; fi
