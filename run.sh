@@ -21,6 +21,7 @@
 #   -m, --move-traces-to=PATH
 #   -C, --compress
 #   -U, --uncompress
+#   -D, --debug
 #   --rlibs=PATH
 #   -h, --help
 #
@@ -40,6 +41,8 @@ syserr() {
 # Specification of parse options.
 options=$(getopt -odspfTrStaPcCUhm \
     --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace,analyze::,summarize::,processes:,copy-traces-to:,copy-traces-from:,compress,uncompress,move-traces-to:,rlibs:,help\
+options=$(getopt -odspfTrStaPcCUhmD \
+    --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace,analyze::,summarize::,processes:,copy-traces-to:,copy-traces-from:,compress,uncompress,move-traces-to:,rlibs:,help,debug\
     -n $0 -- "$@")
 
 # Stop if optparse encountered a problem.
@@ -62,6 +65,7 @@ MOVE_TRACES=false
 COMPRESS_TRACES=false
 UNCOMPRESS_TRACES=false
 PROCESSES=1
+DEBUG=false
 
 R_LIBS=/home/kondziu/R_LIBS
 OUTPUT_DIR=
@@ -80,6 +84,9 @@ do
     --rlibs)
         R_LIBS=$2
         shift 2;;
+    -D|--debug)
+        DEBUG=true
+        shift 1;;
     -P|--processes)
         PROCESSES=$2
         shift 2;;
@@ -184,7 +191,13 @@ if $RANDOMIZE; then
     PACKAGES=`echo $PACKAGES | sort -R`
 fi
 if $SORT_BY_SIZE; then
-    PACKAGES=`echo $PACKAGES | sort` # TODO
+    SORTED_PACKAGES=`<"$OUTPUT_DIR/logs/_space.log" tr \; \  |  sort -k 2 -n | grep -f <(echo $PACKAGES | tr \  '\n') | cut -f 1 -d \ `
+    UNSORTED_PACKAGES=`echo $PACKAGES | tr ' ' '\n' | grep -v -f <(echo $SORTED_PACKAGES | tr ' ' '\n')`
+
+    echo SORTED_PACKAGES=$SORTED_PACKAGES
+    echo UNSORTED_PACKAGES=$UNSORTED_PACKAGES
+
+    PACKAGES=`echo $SORTED_PACKAGES $UNSORTED_PACKAGES`
 fi
 if $TOP; then
     PACKAGES=`echo $PACKAGES | head -n $TOP_N`
@@ -204,6 +217,7 @@ export OUTPUT_DIR
 export ARCHIVE_DIR
 export PROCESSES
 export R_LIBS
+export DEBUG
 
 # Set R environment variables (if not set)
 if [ -z $R_COMPILE_PKG ]; then export R_COMPILE_PKGS=1; fi
