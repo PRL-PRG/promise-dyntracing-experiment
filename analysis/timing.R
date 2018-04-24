@@ -20,8 +20,8 @@ analyze_database <- function(database_file_path) {
     filter(timing | occurance) %>%
     # mutate(segment=ifelse(timing|occurance, "segment", "probe"),
     #        measurement=ifelse(timing|probe, "timing", "occurance")) %>%
-    mutate(segment=sapply(str_split(mapply(trim, key), "/", n=2),`[`, 2),
-           probe=sapply(str_split(mapply(trim, key), "/", n=2),`[`, 1)) %>%
+    mutate(segment=sapply(str_split(mapply(trim, key), "/", n=2), `[`, 2),
+           probe=sapply(str_split(mapply(trim, key), "/", n=2), `[`, 1)) %>%
     mutate(segment=ifelse(is.na(segment), "TOTAL", segment)) %>%
     select(-key)
 
@@ -38,6 +38,13 @@ summarize_analyses <- function(analyses) {
     mutate(number=time/count) %>% 
     select(probe, segment, number) %>% 
     ungroup
+  
+  occurances <- 
+    analyses$timing %>% filter(occurance == TRUE) %>%
+    group_by(probe, segment) %>%
+    summarize(number=sum(as.numeric(value))) %>%
+    select(probe, segment, number) %>%
+    ungroup
 
   list(all=timing, 
     total=timing %>% 
@@ -45,23 +52,32 @@ summarize_analyses <- function(analyses) {
       mutate(percent=(100*number/sum(number))) %>%
       arrange(desc(percent)), 
     probes_and_segments=timing %>% 
-      filter(!grepl("TOTAL", segment)) %>%
+      filter(!grepl("TOTAL", segment)) %>% 
       mutate(percent=(100*number/sum(number))) %>%
       arrange(desc(percent)),
     segments=timing %>% 
-      filter(!grepl("TOTAL", segment)) %>%
+      filter(!grepl("TOTAL", segment)) %>% 
       group_by(segment) %>%
       summarize(number=sum(number)) %>%
       ungroup %>%
       mutate(percent=(100*number/sum(number))) %>%
       arrange(desc(percent)),
     probes=timing %>% 
-      filter(!grepl("TOTAL", segment)) %>%
+      filter(!grepl("TOTAL", segment)) %>% 
       group_by(probe) %>%
       summarize(number=sum(number)) %>%
       ungroup %>%
       mutate(percent=(100*number/sum(number))) %>%
-      arrange(desc(percent))
+      arrange(desc(percent)),
+    occurances_probes_and_segments=occurances,
+    occurances_probes=occurances %>% 
+      group_by(probe) %>%
+      summarize(number=max(number)) %>%
+      arrange(desc(number)),
+    occurances_segments=occurances %>% 
+      group_by(segment) %>%
+      summarize(number=max(number)) %>%
+      arrange(desc(number))
   )
 }
 
