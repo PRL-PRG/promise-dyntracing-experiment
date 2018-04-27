@@ -3,7 +3,7 @@
 source("analysis/utils.R")
 source("analysis/analysis.R")
 
-library(dplyr)
+suppressPackageStartupMessages(library(dplyr))
 
 humanize_classification <- function(vector) 
   ifelse(vector == 1, "multiforce",
