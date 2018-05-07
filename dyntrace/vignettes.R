@@ -9,12 +9,15 @@ root_dir = paste("traces",
                  sep="/")
 
 option_list <- list(
-  make_option(c("-c", "--command"), action="store", type="character", default="~/workspace/R-dyntrace/bin/R CMD BATCH",
+  make_option(c("-c", "--command"), action="store", type="character",
+              default="~/workspace/R-dyntrace/bin/R CMD BATCH",
               help="Command to execute", metavar="command"),
   make_option(c("-o", "--output-dir"), action="store", type="character", default=root_dir,
               help="Output directory for results (*.sqlite, etc) [default].", metavar="output_dir"),
   make_option(c("--compile"), action="store_true", default=FALSE,
-              help="compile vignettes before execution [default]", metavar="compile")
+              help="compile vignettes before execution [default]", metavar="compile"),
+  make_option(c("-a", "--enable-analysis"), action="store_true", default=FALSE,
+              help="Flag to enable analysis", metavar="enable-analysis")
 )
 
 cfg <- parse_args(OptionParser(option_list=option_list), positional_arguments=TRUE)
@@ -33,11 +36,13 @@ rdt.cmd.head <- function(wd)
     "dyntrace_promises({\n",
     sep="")
 
-rdt.cmd.tail<- function(database_filepath, verbose=0, ok_file_path)
-  paste("\n}\n, '", database_filepath, "'\n, verbose=", verbose, ", truncate=TRUE)\n", 
+rdt.cmd.tail<- function(trace_filepath, tracer_output_dir, verbose=0, enable_analysis)
+  paste("\n}\n, '", trace_filepath, "'\n, '", tracer_output_dir,
+        "'\n, verbose=", verbose, ", truncate=TRUE , enable_analysis = ",
+        enable_analysis, ")\n",
         sep="")
 
-remove_error_blocks <- function(lines) { 
+remove_error_blocks <- function(lines) {
   error_on_pattern <- "^ *##.*[eE][rR][rR][oO][rR] *= *T(RUE)?"
   section_pattern <- "^ *##"
   prepend <- FALSE
@@ -46,17 +51,17 @@ remove_error_blocks <- function(lines) {
   for (line in lines) {
     i <- i + 1
     error_on_pattern_found <- str_detect(line, error_on_pattern)
-    
+
     if (!prepend && error_on_pattern_found) 
       prepend <- TRUE
-    
+
     if (prepend && !error_on_pattern_found && str_detect(line, section_pattern)) 
       prepend <- FALSE
-    
+
     if (prepend)
       output[i] <- paste("#-#  ", line)
   }
-  
+
   output
 }
 
@@ -145,30 +150,34 @@ instrument.vignettes <- function(packages) {
         file.copy(from=source, to=destination, recursive=TRUE, overwrite=TRUE)
       }
     }
-    
+
     for (vignette.name in vignettes.in.package) {
-      tracer.output.path <- paste(cfg$options$`output-dir`, "/data/", package, "-", vignette.name, ".sqlite", sep="")
+      trace_filepath <- paste(cfg$options$`output-dir`, "/data/", package, "-", vignette.name, ".trace", sep="")
       tracer.ok.path <- paste(cfg$options$`output-dir`, "/data/", package, "-", vignette.name, ".OK", sep="")
       i.vignettes <- i.vignettes + 1
       total.vignettes <- total.vignettes + 1
-      
+
+      tracer_output_dir <-paste0(cfg$options$`output-dir`, "/output/", package, "/", vignette.name, sep="", collapse="")
+      dir.create(tracer_output_dir, recursive = TRUE, showWarnings = FALSE)
+
       write(paste("[", i.vignettes, "/", n.vignettes, "] Instrumenting vignette: ", vignette.name, " from ", package, sep=""), stdout())
-      
+
       one.vignette <- vignette(vignette.name, package = package)
       vignette.code.path <- paste(one.vignette$Dir, "doc", one.vignette$R, sep="/")
       instrumented.code.path <- paste(instrumented.code.dir, "/", package, "/_instrumented_", vignette.name, ".R", sep="")
-      
+
       write(paste("[", i.vignettes, "/", n.vignettes, "] Writing vignette to: ", instrumented.code.path, sep=""), stdout())
+
 
       vignette.code <- readLines(vignette.code.path)
       instrumented.code <- c(rdt.cmd.head(paste0(instrumented.code.dir, "/", package)),
                              paste0("    ", instrument_error_blocks_with_try(vignette.code)),
-                             rdt.cmd.tail(tracer.output.path, verbose = 0, tracer.ok.path))
-                                                
+                             rdt.cmd.tail(trace_filepath, tracer_output_dir, verbose = 0, cfg$options$`enable-analysis`))
+
       write(instrumented.code, instrumented.code.path)
-      
+
       write(paste("[", i.vignettes, "/", n.vignettes, "] Done instrumenting vignette: ", vignette.name, " from ", package, sep=""), stdout())
-      
+
       if (cfg$options$compile) {
         instrumented.code.path.compiled <- paste(tools::file_path_sans_ext(instrumented.code.path), "Rc", sep=".")
         cmpfile(instrumented.code.path, instrumented.code.path.compiled)

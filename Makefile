@@ -12,9 +12,10 @@ VANILLA_RSCRIPT=Rscript
 SITE_DIR=~/public_html
 ANALYSIS=promise-memory-usage
 BIOCONDUCTOR_DIR="bioconductor"
+ENABLE_ANALYSIS=--enable-analysis
 
 trace:
-	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(MINIMUM_DISK_SIZE) $(PACKAGES)
+	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(MINIMUM_DISK_SIZE) $(ENABLE_ANALYSIS) $(PACKAGES)
 
 check:
 	dyntrace/check_results.sh $(DATA_DIR)

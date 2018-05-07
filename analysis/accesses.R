@@ -5,7 +5,7 @@ source("analysis/analysis.R")
 
 suppressPackageStartupMessages(library(dplyr))
 
-humanize_classification <- function(vector) 
+humanize_classification <- function(vector)
   ifelse(vector == 1, "multiforce",
   ifelse(vector == 2, "force and reuse",
   ifelse(vector == 3, "just force",
