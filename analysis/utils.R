@@ -1,4 +1,5 @@
 library(hashmap)
+library(scales)
 
 typename <- function(type) {
     switch(toString(type),
@@ -117,7 +118,7 @@ memory_size_labels <-
   }
 
 count_labels <-
-  Vectorize(function(x, digits = 2) {
+  Vectorize(function(x, digits = 2) { # Why use non-vector functions and then vectorize instead of using vectorized functions like `ifelse`?
 
     paste_round <- function(value, div, suffix, sep)
         paste(round(value/div, digits), suffix, sep = sep)
@@ -127,11 +128,11 @@ count_labels <-
     } else if(x < 10^3) {
       paste0(x)
     } else if(x < 10^6) {
-      paste_round(x, 1000, "K", sep=" ")
+      paste_round(x, 1000, "K", sep="")
     } else if(x < 10^9) {
-      paste_round(x, 10^6, "M", sep=" ")
+      paste_round(x, 10^6, "M", sep="")
     } else {
-      paste_round(x, 10^9, "B", sep=" ")
+      paste_round(x, 10^9, "B", sep="")
     }
   },
   "x")
@@ -142,9 +143,7 @@ relative_labels <-
   }
 
 percent_labels <-
-  function(x) {
-    paste0(x, "%", sep=" ")
-  }
+  dollar_format(prefix="", suffix="%")
 
 extract_package_name <-
   function(name) {

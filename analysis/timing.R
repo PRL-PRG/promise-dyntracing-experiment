@@ -6,78 +6,61 @@ source("analysis/analysis.R")
 library(dplyr)
 
 analyze_database <- function(database_file_path) {
-  components <- stringr::str_split(
-    basename(tools::file_path_sans_ext(database_file_path)), "-", 2)[[1]]
-  
-  trim <- function(x) 
-    sub("TIMING_", "", sub("OCCURANCE_", "", sub("PROBE_", "", x, fixed=T), fixed=T), fixed=T)
-
   db <- src_sqlite(database_file_path)
-  probe_and_timing_and_occurance_table <-
-    db %>% tbl("metadata") %>% collect %>% 
-    mutate(occurance=grepl('^OCCURANCE', key)) %>%
-    mutate(timing=(grepl('^TIMING', key) | grepl('^PROBE', key))) %>%
-    filter(timing | occurance) %>%
-    # mutate(segment=ifelse(timing|occurance, "segment", "probe"),
-    #        measurement=ifelse(timing|probe, "timing", "occurance")) %>%
-    mutate(segment=sapply(str_split(mapply(trim, key), "/", n=2), `[`, 2),
-           probe=sapply(str_split(mapply(trim, key), "/", n=2), `[`, 1)) %>%
-    mutate(segment=ifelse(is.na(segment), "TOTAL", segment)) %>%
-    select(-key)
 
-  list(timing=probe_and_timing_and_occurance_table)
+  list(timing=
+      db %>% tbl("metadata") %>% collect %>% 
+      mutate(timer=grepl('^TIMER_', key)) %>%
+      filter(timer) %>%
+      mutate(timer=sapply(str_split(key, "_", n=3), `[`, 2),
+             segment=sapply(str_split(key, "_", n=3), `[`, 3),
+             time=as.numeric(sapply(str_split(value, "/", n=2), `[`, 1)),
+             count=as.numeric(sapply(str_split(value, "/", n=2), `[`, 2))) %>%
+      mutate(probe=sapply(str_split(segment, "/", n=3), `[`, 1),
+             sub_segment=sapply(str_split(segment, "/", n=3), `[`, 3),
+             segment=sapply(str_split(segment, "/", n=3), `[`, 2)) %>%
+      select(timer, probe, segment, sub_segment, time, count)
+  )
 }
 
 summarize_analyses <- function(analyses) {
   timing <- 
     analyses$timing %>% 
-    group_by(probe, segment) %>% 
-    summarize(time=sum(as.numeric(ifelse(timing, value, 0))), 
-              count=sum(as.numeric(ifelse(occurance, value, 0)))) %>% 
-    mutate(count=ifelse(count==0, 1, count)) %>%
-    mutate(number=time/count) %>% 
-    select(probe, segment, number) %>% 
-    ungroup
-  
-  occurances <- 
-    analyses$timing %>% filter(occurance == TRUE) %>%
-    group_by(probe, segment) %>%
-    summarize(number=sum(as.numeric(value))) %>%
-    select(probe, segment, number) %>%
-    ungroup
+    group_by(timer, probe, segment, sub_segment) %>% 
+    summarize(time=sum(time), count=sum(count)) %>% 
+    ungroup %>%
+    mutate(percent=time/sum(time)) %>% 
+    select(timer, probe, segment, sub_segment, time, percent, count)
 
-  list(all=timing, 
-    total=timing %>% 
-      filter(grepl("TOTAL", segment)) %>% select(-segment) %>%
-      mutate(percent=(100*number/sum(number))) %>%
-      arrange(desc(percent)), 
-    probes_and_segments=timing %>% 
-      filter(!grepl("TOTAL", segment)) %>% 
-      mutate(percent=(100*number/sum(number))) %>%
-      arrange(desc(percent)),
-    segments=timing %>% 
-      filter(!grepl("TOTAL", segment)) %>% 
-      group_by(segment) %>%
-      summarize(number=sum(number)) %>%
-      ungroup %>%
-      mutate(percent=(100*number/sum(number))) %>%
-      arrange(desc(percent)),
+  list(
+    all=timing %>% 
+      filter(timer=="MAIN"), 
+    
     probes=timing %>% 
-      filter(!grepl("TOTAL", segment)) %>% 
+      filter(timer=="MAIN") %>%
       group_by(probe) %>%
-      summarize(number=sum(number)) %>%
-      ungroup %>%
-      mutate(percent=(100*number/sum(number))) %>%
-      arrange(desc(percent)),
-    occurances_probes_and_segments=occurances,
-    occurances_probes=occurances %>% 
-      group_by(probe) %>%
-      summarize(number=max(number)) %>%
-      arrange(desc(number)),
-    occurances_segments=occurances %>% 
+      summarize(time=sum(time), count=max(count)) %>%
+      mutate(percent=(100*time/sum(time))) %>%
+      arrange(desc(time)), 
+    
+    segments=timing %>% 
+      filter(timer=="MAIN") %>%
       group_by(segment) %>%
-      summarize(number=max(number)) %>%
-      arrange(desc(number))
+      summarize(time=sum(time), count=max(count)) %>%
+      mutate(percent=(100*time/sum(time))) %>%
+      arrange(desc(time)),
+    
+    sql=timing %>% 
+      filter(timer=="SQL") %>%
+      #summarize(time=sum(time), count=max(count)) %>%
+      mutate(percent=(100*time/sum(time))) %>%
+      arrange(desc(time)),
+    
+    recorder=timing %>% 
+      filter(timer=="RECORDER") %>%
+      summarize(time=sum(time), count=max(count)) %>%
+      mutate(percent=(100*time/sum(time))) %>%
+      arrange(desc(time))
   )
 }
 
