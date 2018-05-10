@@ -180,3 +180,9 @@ to_named_values <-
     }
     named_values
   }
+
+split_path_to_components <- function(path) {
+  name <- basename(tools::file_path_sans_ext(path))
+  components <- stringr::str_split(name, "::", 3)[[1]]
+  list(package=components[1], title=components[2], type=components[3])
+}

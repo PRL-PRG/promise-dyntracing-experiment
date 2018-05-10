@@ -6,9 +6,6 @@ source("analysis/analysis.R")
 library(dplyr)
 
 analyze_database <- function(database_file_path) {
-  components <- stringr::str_split(
-    basename(tools::file_path_sans_ext(database_file_path)), "-", 2)[[1]]
-  
   db <- src_sqlite(database_file_path)
   
   list(

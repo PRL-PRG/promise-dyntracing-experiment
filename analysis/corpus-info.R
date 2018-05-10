@@ -6,8 +6,7 @@ source("analysis/analysis.R")
 library(dplyr)
 
 analyze_database <- function(database_file_path) {
-  components <- stringr::str_split(
-    basename(tools::file_path_sans_ext(database_file_path)), "-", 2)[[1]]
+  components <- split_path_to_components(database_file_path)
   
   db <- src_sqlite(database_file_path)
   promises <- tbl(db, sql('SELECT COUNT(*) AS n FROM promises')) %>% pull(n)
@@ -17,8 +16,8 @@ analyze_database <- function(database_file_path) {
   calls <- tbl(db, sql('SELECT COUNT(*) AS n FROM calls')) %>% pull(n)
   functions <- tbl(db, sql('SELECT id FROM functions')) %>% collect
   
-  list(general=data.frame(package = components[1],
-                          vignette = components[2],
+  list(general=data.frame(package = components$package,
+                          runnable = components$title,
                           calls = calls,
                           promises = promises,
                           promise_events = promise_events,
@@ -29,7 +28,7 @@ analyze_database <- function(database_file_path) {
 
 summarize_analyses <- function(analyses) {
   packages <- analyses$general %>% pull(package) %>% unique %>% length
-  vignettes <- analyses$general %>% pull(vignette) %>% unique %>% length
+  runnables <- analyses$general %>% pull(runnable) %>% unique %>% length
   functions <- analyses$functions %>% pull(id) %>% unique %>% length
   calls <- analyses$general %>% pull(calls) %>% sum
   promises <- analyses$general %>% pull(promises) %>% sum
@@ -37,7 +36,7 @@ summarize_analyses <- function(analyses) {
   promise_evaluations <- analyses$general %>% pull(promise_evaluations) %>% sum
   promise_lookups <- analyses$general %>% pull(promise_lookups) %>% sum
   list(general=data.frame(packages = packages,
-                          vignettes = vignettes,
+                          runnables = runnables,
                           functions = functions,
                           calls = calls,
                           promises = promises,

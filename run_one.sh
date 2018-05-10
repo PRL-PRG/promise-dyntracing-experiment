@@ -59,8 +59,13 @@ if $TRACE; then
                         $PACKAGE 2>&1 | tee -a "${LOGS_DIR}/${PACKAGE}.log"
     fi
 
-    ../R-dyntrace/bin/R $debug --slave --no-restore --file=dyntrace/vignettes.R \
+    if $VIGNETTES; then vignettes=--vignettes; fi
+    if $EXAMPLES; then examples=--examples; fi
+    if $TESTS; then tests=--tests; fi
+
+    ../R-dyntrace/bin/R $debug --slave --no-restore --file=dyntrace/trace.R \
                         --args --output-dir="${OUTPUT_DIR}" $compile \
+                        $vignettes $examples $tests \
                         $PACKAGE 2>&1 | tee -a "${LOGS_DIR}/${PACKAGE}.log"
 
     TRACING_END=`date +%s`
@@ -69,7 +74,7 @@ if $TRACE; then
          tee -a "${LOGS_DIR}/_time.log"
 
     # Add up the size of all databse files from vignettes, write it to a log.
-    du -s $DATA_DIR/$PACKAGE-* | cut -f 1 | paste -sd+ | bc | \
+    du -s $DATA_DIR/$PACKAGE::* | cut -f 1 | paste -sd+ | bc | \
         xargs -I{} echo $PACKAGE\;{} | tee -a $LOGS_DIR/_space.log | \
         cut -f 2 -d\; | echo Trace size: 
 
@@ -85,7 +90,9 @@ if $ANALYZE; then
 
     # Run individual analyses one-by-one.
     for analysis in $ANALYSES; do
-        make analyze ANALYSIS=${analysis} DATA_DIR="$OUTPUT_DIR" STAGE=analyze 2>&1 | \
+        make analyze ANALYSIS=${analysis} \
+                     DATA_DIR="$OUTPUT_DIR" \
+                     STAGE=analyze 2>&1 | \
              tee -a "${LOGS_DIR}/${PACKAGE}.log"
     done
 

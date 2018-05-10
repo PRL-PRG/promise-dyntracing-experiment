@@ -11,6 +11,7 @@ suppressPackageStartupMessages(library(magrittr))
 suppressPackageStartupMessages(library(lubridate))
 suppressPackageStartupMessages(library(broom))
 suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(scales))
 
 info <- function(...) cat(green(bold(paste0(...))))
 

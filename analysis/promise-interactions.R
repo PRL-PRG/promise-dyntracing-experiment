@@ -5,33 +5,17 @@ source("analysis/analysis.R")
 
 suppressPackageStartupMessages(library(dplyr))
 
-humanize_classification <- function(vector) 
-  ifelse(vector == 1, "multiforce",
-  ifelse(vector == 2, "force and reuse",
-  ifelse(vector == 3, "just force",
-  ifelse(vector == 4, "unforced", "?"))))
-
-to_bits <- function(x) lapply(x, to_bits_single)
-
-humanize_metaprogramming <- function(vector)
-  sapply(vector, function(x) {
-    e <- as.numeric(intToBits(x))
-    paste(
-      Filter(function(x) x!="",
-             ifelse(sum(e[1:6]),
-                   c(ifelse(sum(e[1:3]), "lookup", ""),
-                      ifelse(e[1], "expr", ""),
-                      ifelse(e[2], "env", ""),
-                      ifelse(e[3], "val", ""),
-                      ifelse(sum(e[4:6]), "set", ""),
-                      ifelse(e[4], "expr", ""),
-                      ifelse(e[5], "env", ""),
-                      ifelse(e[6], "val", "")),
-                    c("clean"))), 
-             collapse=" ")})
-
 analyze_database <- function(database_file_path) {
   db <- src_sqlite(database_file_path)
+  
+  promises %>% 
+    rename(promise_id=id) %>% rename(created_in=in_prom_id) %>% select(promise_id, created_in) %>% 
+    left_join(promise_forces, by="promise_id") %>% 
+    rename(forced_in=in_prom_id) %>% select(promise_id, created_in, forced_in) %>% 
+    mutate(forced_by_another=created_in!=forced_in) %>% 
+    group_by(forced_by_another) %>% summarise(number=n()) %>% ungroup %>% 
+    collect %>% 
+    mutate(forced_by_another=as.logical(forced_by_another), percent=(100*number/n.promises))
 
   data <-
     db %>%
@@ -136,7 +120,7 @@ latex_analyses <- function(analyses) {
 main <-
   function() {
     analyzer <-
-      create_analyzer("Promise Metaprogramming and Accesses",
+      create_analyzer("Interactions Among Promises",
                       analyze_database,
                       combine_analyses,
                       summarize_analyses,

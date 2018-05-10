@@ -6,7 +6,7 @@
 #   run [OPTIONS]
 #
 # OPTIONS:
-#   -t, --trace
+#   -t, --trace[=LIST]
 #   -a, --analyze[=LIST]
 #   -s, --summarize[=LIST]
 #   -d, --output-dir=PATH
@@ -25,6 +25,21 @@
 #   --rlibs=PATH
 #   -h, --help
 #
+# TRACE:
+#
+#   When tracing specify as a list of runnables to trace. Runnables can be
+#   either vignettes, tests, and/or examples from packages. If nothing is
+#   specified, the script traces only vignettes.
+#
+# ANALYZE/SUMMARISE:
+#
+#   Analyses are performed per runnable, summary is performed once for all
+#   results from analyses.
+#   
+#   When analyzing or summarizing specify the list of analyses to run. If none
+#   are given, all analyses represented by executable files in the analysis
+#   directory are run.
+#
 # EXAMPLES:
 #
 
@@ -39,10 +54,8 @@ syserr() {
 }
 
 # Specification of parse options.
-options=$(getopt -odspfTrStaPcCUhm \
-    --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace,analyze::,summarize::,processes:,copy-traces-to:,copy-traces-from:,compress,uncompress,move-traces-to:,rlibs:,help\
 options=$(getopt -odspfTrStaPcCUhmD \
-    --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace,analyze::,summarize::,processes:,copy-traces-to:,copy-traces-from:,compress,uncompress,move-traces-to:,rlibs:,help,debug\
+    --long output-dir:,packages-from-file:,packages:,top:,randomize,sort-by-size,trace::,analyze::,summarize::,processes:,copy-traces-to:,copy-traces-from:,compress,uncompress,move-traces-to:,rlibs:,help,debug\
     -n $0 -- "$@")
 
 # Stop if optparse encountered a problem.
@@ -66,6 +79,9 @@ COMPRESS_TRACES=false
 UNCOMPRESS_TRACES=false
 PROCESSES=1
 DEBUG=false
+VIGNETTES=true
+TESTS=false
+EXAMPLES=false
 
 R_LIBS=/home/kondziu/R_LIBS
 OUTPUT_DIR=
@@ -92,7 +108,28 @@ do
         shift 2;;
     -t|--trace) 
         TRACE=true
-        shift 1;;
+        if [ -n "$2" ]; then
+            list=`echo "$2" | tr , '\n' | tr [:upper:] [:lower:]`
+            vignettes=`echo "$list" | grep -w vignettes | wc -l`
+            tests=`echo "$list" | grep -w tests | wc -l`
+            examples=`echo "$list" | grep -w examples | wc -l`
+
+            if (( $vignettes > 0 ))
+            then VIGNETTES=true
+            else VIGNETTES=false
+            fi
+
+            if (( $tests > 0 ))
+            then TESTS=true
+             else TESTS=false
+            fi
+
+            if (( $examples > 0 )) 
+            then EXAMPLES=true
+            else EXAMPLES=false
+            fi
+        fi
+        shift 2;;
     -s|--summarize)
         SUMMARIZE=true
         if [ -z "$2" ]; then
@@ -218,11 +255,14 @@ export ARCHIVE_DIR
 export PROCESSES
 export R_LIBS
 export DEBUG
+export VIGNETTES
+export TESTS
+export EXAMPLES
 
 # Set R environment variables (if not set)
 if [ -z $R_COMPILE_PKG ]; then export R_COMPILE_PKGS=1; fi
-if [ -z $R_DISABLE_BYTECODE ]; then export R_DISABLE_BYTECODE=1; fi
-if [ -z $R_ENABLE_JIT ]; then export R_ENABLE_JIT=0; fi
+if [ -z $R_DISABLE_BYTECODE ]; then export R_DISABLE_BYTECODE=0; fi
+if [ -z $R_ENABLE_JIT ]; then export R_ENABLE_JIT=3; fi
 if [ -z $R_KEEP_PKG_SOURCE ]; then export R_KEEP_PKG_SOURCE=yes; fi
 if [ -z $RDT_COMPILE_VIGNETTE ]; then export RDT_COMPILE_VIGNETTE=false; fi
 
