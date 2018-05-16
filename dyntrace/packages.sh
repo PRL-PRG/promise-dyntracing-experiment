@@ -1,13 +1,11 @@
 #!/bin/bash
 
 START_TIME=$(date +%s)
-
 # $1 is the R executable used for dyntracing
 # $2 is the directory in which the dyntraces will be serialized.
 # $3 is the number of separate parallel R processes that will be used to trace.
 # $4 is the mminimum disk size below which the tracer will stop
-# $5 is whether to enable the analysis or not
-# $6-... packages to run tracing on, if not present then read from $PACKAGES_FILE
+# $5-... packages to run tracing on, if not present then read from $PACKAGES_FILE
 N_PROCESSES=1
 if [ -n "$3" ]
 then
@@ -22,13 +20,6 @@ export ALREADY_TRACED_PACKAGES_LIST=$OUTPUT_DIR/packages.txt
 export LOGS_DIR=$OUTPUT_DIR/logs/
 export MINIMUM_DISK_SIZE=$4
 
-if [[ "$5" == "--enable-analysis" ]]
-then
-    export ENABLE_ANALYSIS=--enable-analysis
-else
-    export ENABLE_ANALYSIS=
-fi
-
 # Prepare files and directories
 mkdir -p $OUTPUT_DIR/data
 mkdir -p $LOGS_DIR
@@ -36,14 +27,14 @@ echo > $ALREADY_TRACED_PACKAGES_LIST
 [ -e $STOP_TRACING ] && rm $STOP_TRACING
 
 #  Prepare R commandline  magic spell
-export CMD="$1 --slave --no-restore --file=${SCRIPT_DIR}/vignettes.R --args --output-dir=${OUTPUT_DIR} ${ENABLE_ANALYSIS}"
+export CMD="$1 --slave --no-restore --file=${SCRIPT_DIR}/vignettes.R --args --output-dir=${OUTPUT_DIR} ${ENABLE_TRACE} ${ANALYSIS_SWITCH}"
 if $RDT_COMPILE_VIGNETTE
 then
     export CMD="$CMD --compile"
 fi
 
 # Package list
-shift 5
+shift 4
 if [ $# -gt 0 ]
 then
     PACKAGES="$@"

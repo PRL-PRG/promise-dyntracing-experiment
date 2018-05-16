@@ -6,65 +6,35 @@
 source("analysis/utils.R")
 source("analysis/analysis.R")
 
-analyze_database <- function(database_filepath) {
-
-  script <- basename(file_path_sans_ext(database_filepath))
-
-  db <- src_sqlite(database_filepath)
-
-  type_distribution_table <-
-    db %>%
-    tbl("type_distribution")
-
-  lifecycle_table <-
-    db %>%
-    tbl("promise_lifecycle")
-
-  promise_count <-
-    lifecycle_table %>%
-    filter(event_type == 0) %>%
-    summarize(`COUNT` = n()) %>%
-    collect() %>%
-    mutate(`OBJECT TYPE` = "PROMISE", `SIZE` = `COUNT` * 52)
-
-  object_count_size <-
-    type_distribution_table %>%
-    group_by(type) %>%
-    summarize(`COUNT` = n(), `SIZE` = n() * length) %>%
-    collect() %>%
-    rowwise() %>%
-    mutate(`OBJECT TYPE` = typename(type)) %>%
-    select(`OBJECT TYPE`, `COUNT`, `SIZE`) %>%
-    rbind(promise_count)
-
-  list("object_count_size" = object_count_size)
-
-}
-
 summarize_analyses <- function(analyses) {
 
+  promise_count <- sum(analyses$`promise-type`$count)
+
   object_count_size <-
-    analyses$object_count_size %>%
-    group_by(`OBJECT TYPE`) %>%
-    summarize(COUNT = sum(COUNT), SIZE = sum(SIZE)) %>%
+    analyses$`object-count-size` %>%
+    select(-vignette, -package) %>%
+    add_row(object_type = "Promise", count=promise_count, size=promise_count * 56) %>%
+    group_by(object_type) %>%
+    summarize(count = sum(count), size = sum(size)) %>%
     ungroup() %>%
-    mutate(`RELATIVE SIZE` = 100 * `SIZE`/sum(`SIZE`),
-           `RELATIVE COUNT` = 100 * `COUNT`/sum(`COUNT`),
-           `GROUP TYPE` = ifelse(`OBJECT TYPE` == "PROMISE",
-                                 "Promises", "Other Objects"))
+    mutate(relative_size = 100 * size/sum(size),
+           relative_count= 100 * count/sum(count),
+           group_type = ifelse(object_type == "Promise", "Promises", "Other Objects"))
+
   total_object_count <-
-    analyses$object_count_size %>%
-    pull(`COUNT`) %>%
+    analyses$`object-count-size` %>%
+    pull(count) %>%
     sum()
 
   total_object_size <-
-    analyses$object_count_size %>%
-    pull(`SIZE`) %>%
+    analyses$`object-count-size` %>%
+    pull(size) %>%
     sum()
 
-  list("object_count_size" = object_count_size,
-       "aggregate" = tibble(total_object_count = total_object_count,
-                            total_object_size = total_object_size))
+  print(
+    list("object_count_size" = object_count_size,
+         "aggregate" = tibble(total_object_count = total_object_count,
+                              total_object_size = total_object_size)))
 
 }
 
@@ -74,8 +44,8 @@ visualize_analyses <- function(analyses) {
 
   object_count_visualization <-
     analyses$object_count_size %>%
-    rename("Object type" = `OBJECT TYPE`) %>%
-    ggplot(aes(`GROUP TYPE`, weight = `RELATIVE COUNT`, fill=`Object type`)) +
+    rename("Object type" = object_type) %>%
+    ggplot(aes(group_type, weight = relative_count, fill=`Object type`)) +
     geom_bar() +
     scale_y_continuous(sec.axis = sec_axis(~ . * total_object_count / 100,
                                            labels = count_labels),
@@ -90,8 +60,8 @@ visualize_analyses <- function(analyses) {
 
   object_size_visualization <-
     analyses$object_count_size %>%
-    rename("Object type" = `OBJECT TYPE`) %>%
-    ggplot(aes(`GROUP TYPE`, weight = `RELATIVE SIZE`, fill=`Object type`)) +
+    rename("Object type" = object_type) %>%
+    ggplot(aes(group_type, weight = relative_size, fill=`Object type`)) +
     geom_bar() +
     scale_y_continuous(sec.axis = sec_axis(~ . * total_object_size / 100,
                                            labels = memory_size_labels),
@@ -110,14 +80,15 @@ latex_analyses <-
 
     relative_count_size <-
       analyses$object_count_size %>%
-      group_by(`GROUP TYPE`) %>%
-      summarize(`RELATIVE SIZE` = sum(`RELATIVE SIZE`),
-                `RELATIVE COUNT` = sum(`RELATIVE COUNT`))
+      group_by(group_type) %>%
+      summarize(relative_size = sum(relative_size),
+                relative_count = sum(relative_count))
+
     count_size <-
       analyses$object_count_size %>%
-      group_by(`GROUP TYPE`) %>%
-      summarize(`SIZE` = sum(`SIZE`),
-                `COUNT` = sum(`COUNT`))
+      group_by(group_type) %>%
+      summarize(size = sum(size),
+                count = sum(count))
 
     append(to_named_values(count_size, "GROUP TYPE"),
            to_named_values(relative_count_size, "GROUP TYPE"))
@@ -128,7 +99,6 @@ main <-
   function() {
     analyzer <-
       create_analyzer("Promise Memory Usage Analysis",
-                      analyze_database,
                       combine_analyses,
                       summarize_analyses,
                       visualize_analyses,

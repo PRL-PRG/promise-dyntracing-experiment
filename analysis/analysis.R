@@ -101,7 +101,7 @@ import_as_tables <- function(table_dir, logger, extension = "csv") {
     map(
       function(table_file) {
           info("  => Importing ", table_file, "\n")
-          read_csv_with_colspec(table_file, replace_extension(table_file, "spec"))
+          read_csv(table_file, col_types = cols())
       }) %>%
     setNames(table_names)
 
@@ -163,21 +163,16 @@ parse_program_arguments <- function() {
   usage <- "%prog input-dir summary-dir visualization-dir latex-filename cache-dir [OPTION]..."
   description <- paste(
     "",
-    "input-dir         directory containing sqlite databases (scanned recursively)",
+    "input-dir         directory containing csv files (scanned recursively)",
     "summary-dir       directory to which summaries will be exported",
     "visualization-dir directory to which visualizations will be exported",
     "latex-filename    file to which latex will be exported",
-    "cache-dir         directory to which intermediate state will be exported",
     sep = "\n")
 
-  option_list <- list(make_option(c("-c", "--use-cache"),
-                                  action="store_true",
-                                  default=FALSE,
-                                  help="use cache for pre-computed results [default %default]"),
-                      make_option(c("-s", "--stage"),
+  option_list <- list(make_option(c("-s", "--stage"),
                                   type="character",
                                   default="all",
-                                  help="stage of the pipeline to run - analyze, summarize, visualize, latex or all [default %default]",
+                                  help="stage of the pipeline to run - summarize, visualize, latex or all [default %default]",
                                   metavar="character"))
 
   option_parser <- OptionParser(usage = usage,
@@ -185,15 +180,13 @@ parse_program_arguments <- function() {
                                 add_help_option = TRUE,
                                 option_list = option_list)
 
-  arguments <- parse_args2(option_parser) #, positional_arguments = 5)
+  arguments <- parse_args2(option_parser)
 
   list(stage=arguments$options$stage,
-       use_cache=arguments$options$use_cache,
        input_dir=arguments$args[1],
        summary_dir=arguments$args[2],
        visualization_dir=arguments$args[3],
-       latex_filename=arguments$args[4],
-       cache_dir=arguments$args[5])
+       latex_filename=arguments$args[4])
 }
 
 underscore_to_camel_case <-
@@ -220,23 +213,32 @@ fix_string <-
     }
   }
 
-
 scan_stage <-
   function(analyzer, logger, settings) {
-
     info("=> Scanning for sqlite files in ", settings$input_dir, "\n")
-
-    found_files <- find_files(settings$input_dir, "sqlite")
-    filenames <- basename(file_path_sans_ext(found_files))
-    cached_files <- file.path(settings$cache_dir, filenames)
-    exists <- file.exists(cached_files)
-    compute <- !settings$use_cache | (settings$use_cache & !exists)
-
-    tibble(filename=filenames,
-           source_path=found_files,
-           cache_path=cached_files,
-           exists=exists,
-           compute=compute)
+    scan <- list()
+    packages <- list.dirs(settings$input_dir,
+                          full.names = FALSE,
+                          recursive = FALSE)
+    for (package in packages) {
+      vignettes <- list.dirs(file.path(settings$input_dir, package),
+                             full.names = FALSE,
+                             recursive = FALSE)
+      for (vignette in vignettes) {
+        tables <-
+          file.path(settings$input_dir, package, vignette) %>%
+          import_as_tables(logger, "csv")
+        if(length(tables) != 0) {
+          tables <-
+            tables %>%
+            map(function(tbl) {
+              mutate(tbl, package=package, vignette=vignette)
+            })
+          scan <- c(list(tables), scan)
+        }
+      }
+    }
+    scan
   }
 
 analyze_stage <-
@@ -336,7 +338,6 @@ import_summarized_analyses <-
   }
 
 create_analyzer <- function(analysis_name,
-                            analyze_database,
                             combine_analyses,
                             summarize_analyses,
                             visualize_analyses,
@@ -348,7 +349,6 @@ create_analyzer <- function(analysis_name,
                             export_visualizations = export_as_images,
                             export_latex = export_as_latex_defs) {
   analyzer <- list(name=analysis_name,
-                   analyze_database=analyze_database,
                    combine_analyses=combine_analyses,
                    summarize_analyses=summarize_analyses,
                    visualize_analyses=visualize_analyses,
@@ -383,24 +383,16 @@ drive_analysis <-
 
     info(analyzer$name, "\n")
 
-    analyses <- NULL
     combined_analyses <- NULL
     summarized_analyses <- NULL
     latex <- NULL
     visualizations <- NULL
     stage <- settings$stage
 
-    if(stage %in% c("all", "analyze")) {
-      scan <- scan_stage(analyzer, logger, settings)
-      analyses <- analyze_stage(analyzer, logger, settings, scan)
-    }
 
     if(stage %in% c("all", "summarize")) {
-      if(is.null(analyses)) {
-        info("=> Importing analyses", "\n")
-        analyses <- import_analyses(analyzer, logger, settings)
-      }
-      combined_analyses <- combine_stage(analyzer, logger, settings, analyses)
+      scan <- scan_stage(analyzer, logger, settings)
+      combined_analyses <- combine_stage(analyzer, logger, settings, scan)
       summarized_analyses <- summarize_stage(analyzer, logger, settings, combined_analyses)
     }
 

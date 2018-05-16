@@ -16,11 +16,40 @@ option_list <- list(
               help="Output directory for results (*.sqlite, etc) [default].", metavar="output_dir"),
   make_option(c("--compile"), action="store_true", default=FALSE,
               help="compile vignettes before execution [default]", metavar="compile"),
-  make_option(c("-a", "--enable-analysis"), action="store_true", default=FALSE,
-              help="Flag to enable analysis", metavar="enable-analysis")
+  make_option(c("--enable-trace"), action="store_true", default=FALSE,
+              help="Flag to enable trace files (*.trace) [default].", metavar="enable-trace"),
+  make_option(c("--disable-metadata-analysis"), action="store_true", default=FALSE,
+              help="Flag to disable metadata analysis", metavar="metadata-analysis"),
+  make_option(c("--disable-object-count-size-analysis"), action="store_true", default=FALSE,
+              help="Flag to disable object count size analysis", metavar="object-count-size-analysis"),
+  make_option(c("--disable-function-analysis"), action="store_true", default=FALSE,
+              help="Flag to disable function analysis", metavar="function-analysis"),
+  make_option(c("--disable-promise-analysis"), action="store_true", default=FALSE,
+              help="Flag to disable promise analysis", metavar="promise-analysis"),
+  make_option(c("--disable-strictness-analysis"), action="store_true", default=FALSE,
+              help="Flag to disable strictness analysis", metavar="strictness-analysis"),
+  make_option(c("--disable-side-effect-analysis"), action="store_true", default=FALSE,
+              help="Flag to disable side effect analysis", metavar="side-effect-analysis")
 )
 
-cfg <- parse_args(OptionParser(option_list=option_list), positional_arguments=TRUE)
+cfg <- parse_args(OptionParser(option_list=option_list),
+                  positional_arguments=TRUE)
+
+analysis_switch <- list(
+  enable_metadata_analysis = !cfg$options$`disable-metadata-analysis`,
+  enable_object_count_size_analysis = !cfg$options$`disable-object-count-size-analysis`,
+  enable_function_analysis = !cfg$options$`disable-function-analysis`,
+  enable_promise_analysis = !cfg$options$`disable-promise-analysis`,
+  enable_strictness_analysis = !cfg$options$`disable-strictness-analysis`,
+  enable_side_effect_analysis = !cfg$options$`disable-side-effect-analysis`)
+
+list_to_string <- function(analysis_switch) {
+  ns <- names(analysis_switch)
+  vs <- unlist(analysis_switch)
+  paste0("list(", paste(ns, vs, sep="=", collapse=","), ")")
+}
+
+analysis_switch <- list_to_string(analysis_switch)
 
 instrumented.code.dir <- paste(cfg$options$`output-dir`, "vignettes", sep="/")
 suppressWarnings(dir.create(instrumented.code.dir, recursive = TRUE, showWarnings = FALSE))
@@ -36,10 +65,10 @@ rdt.cmd.head <- function(wd)
     "dyntrace_promises({\n",
     sep="")
 
-rdt.cmd.tail<- function(trace_filepath, tracer_output_dir, verbose=0, enable_analysis)
+rdt.cmd.tail<- function(trace_filepath, tracer_output_dir, verbose=0)
   paste("\n}\n, '", trace_filepath, "'\n, '", tracer_output_dir,
-        "'\n, verbose=", verbose, ", truncate=TRUE , enable_analysis = ",
-        enable_analysis, ")\n",
+        "'\n, verbose=", verbose, ", enable_trace = ", cfg$options$`enable-trace`,
+        ", truncate=TRUE , analysis_switch = list2env(", analysis_switch, "))\n",
         sep="")
 
 remove_error_blocks <- function(lines) {
@@ -157,7 +186,7 @@ instrument.vignettes <- function(packages) {
       i.vignettes <- i.vignettes + 1
       total.vignettes <- total.vignettes + 1
 
-      tracer_output_dir <-paste0(cfg$options$`output-dir`, "/output/", package, "/", vignette.name, sep="", collapse="")
+      tracer_output_dir <-paste0(cfg$options$`output-dir`, "/output/analysis/", package, "/", vignette.name, sep="", collapse="")
       dir.create(tracer_output_dir, recursive = TRUE, showWarnings = FALSE)
 
       write(paste("[", i.vignettes, "/", n.vignettes, "] Instrumenting vignette: ", vignette.name, " from ", package, sep=""), stdout())
@@ -168,11 +197,11 @@ instrument.vignettes <- function(packages) {
 
       write(paste("[", i.vignettes, "/", n.vignettes, "] Writing vignette to: ", instrumented.code.path, sep=""), stdout())
 
-
+      dir.create(file.path(tracer_output_dir, "functions"))
       vignette.code <- readLines(vignette.code.path)
       instrumented.code <- c(rdt.cmd.head(paste0(instrumented.code.dir, "/", package)),
                              paste0("    ", instrument_error_blocks_with_try(vignette.code)),
-                             rdt.cmd.tail(trace_filepath, tracer_output_dir, verbose = 0, cfg$options$`enable-analysis`))
+                             rdt.cmd.tail(trace_filepath, tracer_output_dir, verbose = 0))
 
       write(instrumented.code, instrumented.code.path)
 

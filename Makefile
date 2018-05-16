@@ -12,10 +12,16 @@ VANILLA_RSCRIPT=Rscript
 SITE_DIR=~/public_html
 ANALYSIS=promise-memory-usage
 BIOCONDUCTOR_DIR="bioconductor"
-ENABLE_ANALYSIS=--enable-analysis
+ANALYSIS_SWITCH=
+ENABLE_TRACE=--enable-trace
+## By default all analyses are enabled.
+## To disable a particular analysis, do --disable-<analysis-name>-analysis
+## Ex: ANALYSIS_SWITCH=--disable-metadata-analysis\ --disable-strictness-analysis
+## Note the \ which escapes the next space and makes multiple flags part of same
+## variable
 
 trace:
-	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(MINIMUM_DISK_SIZE) $(ENABLE_ANALYSIS) $(PACKAGES)
+	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(MINIMUM_DISK_SIZE) $(PACKAGES)
 
 check:
 	dyntrace/check_results.sh $(DATA_DIR)
@@ -54,7 +60,7 @@ report:
 
 analyze:
 	mkdir -p $(OUTPUT_DIR)/$(ANALYSIS)/logs/
-	analysis/$(ANALYSIS).R $(USE_CACHE) --stage=$(STAGE) $(DATA_DIR)/data $(OUTPUT_DIR)/$(ANALYSIS)/summary $(OUTPUT_DIR)/$(ANALYSIS)/visualizations $(OUTPUT_DIR)/$(ANALYSIS)/latex $(OUTPUT_DIR)/$(ANALYSIS)/cache 2>&1 | tee $(OUTPUT_DIR)/$(ANALYSIS)/logs/$(LOG_FILE) || /bin/true
+	analysis/$(ANALYSIS).R --stage=$(STAGE) $(OUTPUT_DIR)/analysis $(OUTPUT_DIR)/summary $(OUTPUT_DIR)/visualizations $(OUTPUT_DIR)/latex 2>&1 | tee $(OUTPUT_DIR)/logs/$(LOG_FILE) || /bin/true
 
 analysis-book:
 	cd analysis/report; $(VANILLA_RSCRIPT) -e "bookdown::render_book(list.files('.'), 'bookdown::gitbook', output_dir='$(SITE_DIR)', config_file='_bookdown.yml', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"

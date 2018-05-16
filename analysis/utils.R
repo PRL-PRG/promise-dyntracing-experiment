@@ -181,3 +181,14 @@ to_named_values <-
     }
     named_values
   }
+
+classify_type <- function(type) {
+  ifelse(
+    type %in% c("character", "closure", "double", "environment", "integer", "list", "logical", "NULL"),
+    "Value",
+  ifelse(type %in% c("promise"),
+         "Promise",
+         "Expression"))
+}
+
+
