@@ -1,13 +1,10 @@
-merTools;2;231
-VWPre;4;136
-biorxivr;1;8
+ddpcr;4;173
 morse;2;55
 tester;1;10
 antitrust;1;3
 g.data;1;30
 Rgnuplot;1;3
 raw;1;16
-ddpcr;4;173
 spduration;1;56
 networkreporting;1;86
 sampleSelection;1;179
@@ -1274,3 +1271,6 @@ biwavelet;1;45
 icaOcularCorrection;1;8
 Rgb;1;349
 inferference;2;113
+biorxivr;1;8
+merTools;2;231
+VWPre;4;136

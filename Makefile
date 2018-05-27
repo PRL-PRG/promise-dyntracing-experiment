@@ -13,12 +13,15 @@ SITE_DIR=~/public_html
 ANALYSIS=promise-memory-usage
 BIOCONDUCTOR_DIR="bioconductor"
 ANALYSIS_SWITCH=
-ENABLE_TRACE=--enable-trace
 ## By default all analyses are enabled.
 ## To disable a particular analysis, do --disable-<analysis-name>-analysis
 ## Ex: ANALYSIS_SWITCH=--disable-metadata-analysis\ --disable-strictness-analysis
 ## Note the \ which escapes the next space and makes multiple flags part of same
 ## variable
+
+ENABLE_TRACE=--enable-trace
+VERBOSE=
+## to enable verbose mode, use the flag: --verbose
 
 trace:
 	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(MINIMUM_DISK_SIZE) $(PACKAGES)

@@ -24,12 +24,18 @@ option_list <- list(
               help="Flag to disable object count size analysis", metavar="object-count-size-analysis"),
   make_option(c("--disable-function-analysis"), action="store_true", default=FALSE,
               help="Flag to disable function analysis", metavar="function-analysis"),
-  make_option(c("--disable-promise-analysis"), action="store_true", default=FALSE,
-              help="Flag to disable promise analysis", metavar="promise-analysis"),
+  make_option(c("--disable-promise-type-analysis"), action="store_true", default=FALSE,
+              help="Flag to disable promise type analysis", metavar="promise-type-analysis"),
+  make_option(c("--disable-promise-slot-mutation-analysis"), action="store_true", default=FALSE,
+              help="Flag to disable promise slot mutation analysis", metavar="promise-slot-mutation-analysis"),
+  make_option(c("--disable-promise-evaluation-analysis"), action="store_true", default=FALSE,
+              help="Flag to disable promise evaluation analysis", metavar="promise-evaluation-analysis"),
   make_option(c("--disable-strictness-analysis"), action="store_true", default=FALSE,
               help="Flag to disable strictness analysis", metavar="strictness-analysis"),
   make_option(c("--disable-side-effect-analysis"), action="store_true", default=FALSE,
-              help="Flag to disable side effect analysis", metavar="side-effect-analysis")
+              help="Flag to disable side effect analysis", metavar="side-effect-analysis"),
+  make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
+              help="Flag to enable verbose mode.", metavar="verbose")
 )
 
 cfg <- parse_args(OptionParser(option_list=option_list),
@@ -39,14 +45,17 @@ analysis_switch <- list(
   enable_metadata_analysis = !cfg$options$`disable-metadata-analysis`,
   enable_object_count_size_analysis = !cfg$options$`disable-object-count-size-analysis`,
   enable_function_analysis = !cfg$options$`disable-function-analysis`,
-  enable_promise_analysis = !cfg$options$`disable-promise-analysis`,
+  enable_promise_type_analysis = !cfg$options$`disable-promise-type-analysis`,
+  enable_promise_slot_mutation_analysis = !cfg$options$`disable-promise-slot-mutation-analysis`,
+  enable_promise_evaluation_analysis = !cfg$options$`disable-promise-evaluation-analysis`,
   enable_strictness_analysis = !cfg$options$`disable-strictness-analysis`,
   enable_side_effect_analysis = !cfg$options$`disable-side-effect-analysis`)
 
 list_to_string <- function(analysis_switch) {
   ns <- names(analysis_switch)
   vs <- unlist(analysis_switch)
-  paste0("list(", paste(ns, vs, sep="=", collapse=","), ")")
+  spaces <- paste0(",\n", paste0(rep(" ", 32), collapse=""))
+  paste0("list(", paste(ns, vs, sep="=", collapse=spaces), ")")
 }
 
 analysis_switch <- list_to_string(analysis_switch)
@@ -65,10 +74,10 @@ rdt.cmd.head <- function(wd)
     "dyntrace_promises({\n",
     sep="")
 
-rdt.cmd.tail<- function(trace_filepath, tracer_output_dir, verbose=0)
+rdt.cmd.tail<- function(trace_filepath, tracer_output_dir)
   paste("\n}\n, '", trace_filepath, "'\n, '", tracer_output_dir,
-        "'\n, verbose=", verbose, ", enable_trace = ", cfg$options$`enable-trace`,
-        ", truncate=TRUE , analysis_switch = list2env(", analysis_switch, "))\n",
+        "'\n, verbose=", cfg$options$verbose, "\n, enable_trace=", cfg$options$`enable-trace`,
+        "\n, truncate=TRUE\n, analysis_switch=list2env(", analysis_switch, "))\n",
         sep="")
 
 remove_error_blocks <- function(lines) {
@@ -201,7 +210,7 @@ instrument.vignettes <- function(packages) {
       vignette.code <- readLines(vignette.code.path)
       instrumented.code <- c(rdt.cmd.head(paste0(instrumented.code.dir, "/", package)),
                              paste0("    ", instrument_error_blocks_with_try(vignette.code)),
-                             rdt.cmd.tail(trace_filepath, tracer_output_dir, verbose = 0))
+                             rdt.cmd.tail(trace_filepath, tracer_output_dir))
 
       write(instrumented.code, instrumented.code.path)
 

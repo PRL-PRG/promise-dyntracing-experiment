@@ -27,7 +27,7 @@ echo > $ALREADY_TRACED_PACKAGES_LIST
 [ -e $STOP_TRACING ] && rm $STOP_TRACING
 
 #  Prepare R commandline  magic spell
-export CMD="$1 --slave --no-restore --file=${SCRIPT_DIR}/vignettes.R --args --output-dir=${OUTPUT_DIR} ${ENABLE_TRACE} ${ANALYSIS_SWITCH}"
+export CMD="$1 --slave --no-restore --file=${SCRIPT_DIR}/vignettes.R --args --output-dir=${OUTPUT_DIR} ${ENABLE_TRACE} ${ANALYSIS_SWITCH} ${VERBOSE}"
 if $RDT_COMPILE_VIGNETTE
 then
     export CMD="$CMD --compile"
