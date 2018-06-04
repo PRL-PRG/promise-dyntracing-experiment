@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-## TODO - no good way in R to find path of current script
+## WARN - no good way in R to find path of current script
 ##        perhaps the only good solution is to create a
 ##        package for the analysis ?
 source("analysis/utils.R")
@@ -8,7 +8,8 @@ source("analysis/analysis.R")
 
 summarize_analyses <- function(analyses) {
 
-  promise_count <- sum(analyses$`promise-type`$count)
+  ## TODO - also add promise count from `evaluated-promise-type` values
+  promise_count <- unname(c(sum(analyses$`evaluated-promise-type`$count)))[[1]]
 
   object_count_size <-
     analyses$`object-count-size` %>%

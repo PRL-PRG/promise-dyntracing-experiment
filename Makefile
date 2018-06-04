@@ -19,7 +19,7 @@ ANALYSIS_SWITCH=
 ## Note the \ which escapes the next space and makes multiple flags part of same
 ## variable
 
-ENABLE_TRACE=--enable-trace
+ENABLE_TRACE=
 VERBOSE=
 ## to enable verbose mode, use the flag: --verbose
 
