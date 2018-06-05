@@ -1,30 +1,31 @@
-DATA_DIR=`date +'%y-%m-%d-%H-%M-%S'`
-LOG_FILE=log-`date +'%y-%m-%d-%H-%M-%S'`.txt
-OUTPUT_DIR=$(DATA_DIR)/output
-TRACER=../R-dyntrace/bin/R
-PROCESSES=1
+DATA_DIR := $(shell date +'%Y-%m-%d-%H-%M-%S')
+LOG_FILE := $(DATA_DIR).log
+OUTPUT_DIR := $(DATA_DIR)/output
+TRACER := ../R-dyntrace/bin/R
+PROCESSES := 1
 PACKAGES=
-MINIMUM_DISK_SIZE=50000000 # ~50GB
-STAGE=all
-USE_CACHE=--use-cache
-VANILLA_R=R
-VANILLA_RSCRIPT=Rscript
-SITE_DIR=~/public_html
-ANALYSIS=promise-memory-usage
-BIOCONDUCTOR_DIR="bioconductor"
-ANALYSIS_SWITCH=
+MINIMUM_DISK_SIZE := 50000000 # ~50GB
+STAGE := all
+USE_CACHE := --use-cache
+VANILLA_R := R
+VANILLA_RSCRIPT := Rscript
+SITE_DIR := ~/public_html
+ANALYSIS := promise-memory-usage
+BIOCONDUCTOR_DIR := "bioconductor"
+ANALYSIS_SWITCH =
 ## By default all analyses are enabled.
 ## To disable a particular analysis, do --disable-<analysis-name>-analysis
 ## Ex: ANALYSIS_SWITCH=--disable-metadata-analysis\ --disable-strictness-analysis
 ## Note the \ which escapes the next space and makes multiple flags part of same
 ## variable
 
-ENABLE_TRACE=
-VERBOSE=
+ENABLE_TRACE :=
+VERBOSE :=
 ## to enable verbose mode, use the flag: --verbose
 
 trace:
-	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(MINIMUM_DISK_SIZE) $(PACKAGES)
+	mkdir -p $(DATA_DIR)
+	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(MINIMUM_DISK_SIZE) $(PACKAGES) 2>&1 > $(DATA_DIR)/$(LOG_FILE)
 
 check:
 	dyntrace/check_results.sh $(DATA_DIR)
@@ -62,8 +63,8 @@ report:
 #	mv graphs/report.html $(DATA_DIR)
 
 analyze:
-	mkdir -p $(OUTPUT_DIR)/$(ANALYSIS)/logs/
-	analysis/$(ANALYSIS).R --stage=$(STAGE) $(OUTPUT_DIR)/analysis $(OUTPUT_DIR)/summary $(OUTPUT_DIR)/visualizations $(OUTPUT_DIR)/latex 2>&1 | tee $(OUTPUT_DIR)/logs/$(LOG_FILE) || /bin/true
+	mkdir -p $(INPUT_DIR)/output/$(ANALYSIS)/logs/
+	analysis/$(ANALYSIS).R --stage=$(STAGE) $(INPUT_DIR)/output/analysis $(INPUT_DIR)/output/$(ANALYSIS)/summary $(INPUT_DIR)/output/$(ANALYSIS)/visualizations $(INPUT_DIR)/output/$(ANALYSIS)/latex 2>&1 | tee $(INPUT_DIR)/output/$(ANALYSIS)/log.txt || /bin/true
 
 analysis-book:
 	cd analysis/report; $(VANILLA_RSCRIPT) -e "bookdown::render_book(list.files('.'), 'bookdown::gitbook', output_dir='$(SITE_DIR)', config_file='_bookdown.yml', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"

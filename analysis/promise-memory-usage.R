@@ -14,6 +14,7 @@ summarize_analyses <- function(analyses) {
   object_count_size <-
     analyses$`object-count-size` %>%
     select(-vignette, -package) %>%
+    mutate(count = as.numeric(count), size = as.numeric(size)) %>%
     add_row(object_type = "Promise", count=promise_count, size=promise_count * 56) %>%
     group_by(object_type) %>%
     summarize(count = sum(count), size = sum(size)) %>%
@@ -25,17 +26,18 @@ summarize_analyses <- function(analyses) {
   total_object_count <-
     analyses$`object-count-size` %>%
     pull(count) %>%
+    as.numeric() %>%
     sum()
 
   total_object_size <-
     analyses$`object-count-size` %>%
     pull(size) %>%
+    as.numeric() %>%
     sum()
 
-  print(
     list("object_count_size" = object_count_size,
          "aggregate" = tibble(total_object_count = total_object_count,
-                              total_object_size = total_object_size)))
+                              total_object_size = total_object_size))
 
 }
 

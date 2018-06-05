@@ -14,7 +14,7 @@ fi
 
 SCRIPT_DIR=$(cd $(dirname "$0"); pwd)
 
-export OUTPUT_DIR=$(cd $2; pwd)/`date +"%Y-%m-%d-%H-%M-%S"`
+export OUTPUT_DIR=$(cd "$2"; pwd)
 export STOP_TRACING=STOP
 export ALREADY_TRACED_PACKAGES_LIST=$OUTPUT_DIR/packages.txt
 export LOGS_DIR=$OUTPUT_DIR/logs/

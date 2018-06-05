@@ -215,11 +215,12 @@ fix_string <-
 
 scan_stage <-
   function(analyzer, logger, settings) {
-    info("=> Scanning for sqlite files in ", settings$input_dir, "\n")
+    info("=> Scanning for csv files in ", settings$input_dir, "\n")
     scan <- list()
     packages <- list.dirs(settings$input_dir,
                           full.names = FALSE,
                           recursive = FALSE)
+    info("=> Found ", length(packages), " packages.\n")
     for (package in packages) {
       vignettes <- list.dirs(file.path(settings$input_dir, package),
                              full.names = FALSE,
@@ -238,6 +239,7 @@ scan_stage <-
         }
       }
     }
+    info("=> Found ", length(scan), " csv files.\n")
     scan
   }
 
