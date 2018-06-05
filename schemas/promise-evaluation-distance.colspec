@@ -1,0 +1,8 @@
+cols(
+  promise_type = col_character(),
+  closure_count = col_integer(),
+  special_count = col_integer(),
+  builtin_count = col_integer(),
+  promise_count = col_integer(),
+  count = col_integer()
+)

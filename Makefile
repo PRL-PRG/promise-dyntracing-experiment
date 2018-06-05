@@ -1,6 +1,7 @@
 DATA_DIR := $(shell date +'%Y-%m-%d-%H-%M-%S')
 LOG_FILE := $(DATA_DIR).log
 OUTPUT_DIR := $(DATA_DIR)/output
+SCHEMA_DIR := schemas
 TRACER := ../R-dyntrace/bin/R
 PROCESSES := 1
 PACKAGES=
@@ -64,7 +65,7 @@ report:
 
 analyze:
 	mkdir -p $(INPUT_DIR)/output/$(ANALYSIS)/logs/
-	analysis/$(ANALYSIS).R --stage=$(STAGE) $(INPUT_DIR)/output/analysis $(INPUT_DIR)/output/$(ANALYSIS)/summary $(INPUT_DIR)/output/$(ANALYSIS)/visualizations $(INPUT_DIR)/output/$(ANALYSIS)/latex 2>&1 | tee $(INPUT_DIR)/output/$(ANALYSIS)/log.txt || /bin/true
+	analysis/$(ANALYSIS).R --stage=$(STAGE) $(SCHEMA_DIR) $(INPUT_DIR)/output/analysis $(INPUT_DIR)/output/$(ANALYSIS)/summary $(INPUT_DIR)/output/$(ANALYSIS)/visualizations $(INPUT_DIR)/output/$(ANALYSIS)/latex 2>&1 | tee $(INPUT_DIR)/output/$(ANALYSIS)/log.txt || /bin/true
 
 analysis-book:
 	cd analysis/report; $(VANILLA_RSCRIPT) -e "bookdown::render_book(list.files('.'), 'bookdown::gitbook', output_dir='$(SITE_DIR)', config_file='_bookdown.yml', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"

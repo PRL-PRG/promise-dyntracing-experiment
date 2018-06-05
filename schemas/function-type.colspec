@@ -1,0 +1,4 @@
+cols(
+  function_id = col_character(),
+  function_type = col_character()
+)

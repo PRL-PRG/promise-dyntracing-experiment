@@ -1,0 +1,5 @@
+cols(
+  object_type = col_character(),
+  count = col_integer(),
+  size = col_integer()
+)

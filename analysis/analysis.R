@@ -93,7 +93,7 @@ read_csv_with_colspec <- function(table_filename, colspec_filename) {
            col_types = eval(parse(colspec_filename)))
 }
 
-import_as_tables <- function(table_dir, logger, extension = "csv") {
+import_as_tables <- function(table_dir, logger, schemas, extension = "csv") {
   table_files <- list_files_with_exts(table_dir, extension)
   table_names <- map(table_files, compose(file_path_sans_ext, basename))
   analyses <-
@@ -101,7 +101,14 @@ import_as_tables <- function(table_dir, logger, extension = "csv") {
     map(
       function(table_file) {
           info("  => Importing ", table_file, "\n")
-          read_csv(table_file, col_types = cols())
+          schema_name <- file_path_sans_ext(basename(table_file))
+          schema <- schemas[[schema_name]]
+          if(is.null(schema)) {
+            info("Schema '", schema_name, "' not found!")
+            info(schemas)
+            quit()
+          }
+          read_csv(table_file, col_types = eval(schema))
       }) %>%
     setNames(table_names)
 
@@ -163,6 +170,7 @@ parse_program_arguments <- function() {
   usage <- "%prog input-dir summary-dir visualization-dir latex-filename cache-dir [OPTION]..."
   description <- paste(
     "",
+    "schema-dir        directory containing schema files",
     "input-dir         directory containing csv files (scanned recursively)",
     "summary-dir       directory to which summaries will be exported",
     "visualization-dir directory to which visualizations will be exported",
@@ -183,10 +191,11 @@ parse_program_arguments <- function() {
   arguments <- parse_args2(option_parser)
 
   list(stage=arguments$options$stage,
-       input_dir=arguments$args[1],
-       summary_dir=arguments$args[2],
-       visualization_dir=arguments$args[3],
-       latex_filename=arguments$args[4])
+       schema_dir=arguments$args[1],
+       input_dir=arguments$args[2],
+       summary_dir=arguments$args[3],
+       visualization_dir=arguments$args[4],
+       latex_filename=arguments$args[5])
 }
 
 underscore_to_camel_case <-
@@ -213,8 +222,27 @@ fix_string <-
     }
   }
 
+read_schemas <- function(schema_dir) {
+  info("=> Reading schemas from ", schema_dir, "\n")
+
+  schema_files <- list_files_with_exts(schema_dir, "colspec")
+  schema_names <- map(schema_files, compose(file_path_sans_ext, basename))
+  schemas <-
+    schema_files %>%
+    map(
+      function(schema_file) {
+          info("  => Importing ", schema_file, "\n")
+          parse(schema_file)
+      }) %>%
+    setNames(schema_names)
+
+  schemas
+}
+
 scan_stage <-
   function(analyzer, logger, settings) {
+    schemas <- read_schemas(settings$schema_dir)
+
     info("=> Scanning for csv files in ", settings$input_dir, "\n")
     scan <- list()
     packages <- list.dirs(settings$input_dir,
@@ -228,7 +256,7 @@ scan_stage <-
       for (vignette in vignettes) {
         tables <-
           file.path(settings$input_dir, package, vignette) %>%
-          import_as_tables(logger, "csv")
+          import_as_tables(logger, schemas, "csv")
         if(length(tables) != 0) {
           tables <-
             tables %>%
@@ -239,7 +267,7 @@ scan_stage <-
         }
       }
     }
-    info("=> Found ", length(scan), " csv files.\n")
+    info("=> Found ", length(scan), " vignettes.\n")
     scan
   }
 

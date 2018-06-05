@@ -1,0 +1,6 @@
+cols(
+  promise_type = col_character(),
+  promise_expression_type = col_character(),
+  inferred_promise_value_type = col_character(),
+  count = col_integer()
+)

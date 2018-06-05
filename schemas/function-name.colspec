@@ -1,0 +1,5 @@
+cols(
+  function_id = col_character(),
+  function_name = col_character(),
+  count = col_integer()
+)

@@ -1,0 +1,4 @@
+cols(
+  context = col_character(),
+  promise_count = col_integer()
+)
