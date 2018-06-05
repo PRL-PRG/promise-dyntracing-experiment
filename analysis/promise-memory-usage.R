@@ -8,8 +8,9 @@ source("analysis/analysis.R")
 
 summarize_analyses <- function(analyses) {
 
-  ## TODO - also add promise count from `evaluated-promise-type` values
-  promise_count <- unname(c(sum(analyses$`evaluated-promise-type`$count)))[[1]]
+  promise_count <-
+    unname(c(sum(as.numeric(analyses$`evaluated-promise-type`$count))))[[1]] +
+    unname(c(sum(as.numeric(analyses$`unevaluated-promise-type`$count))))[[1]]
 
   object_count_size <-
     analyses$`object-count-size` %>%
