@@ -6,73 +6,49 @@ source("analysis/analysis.R")
 library(dplyr)
 library(knitr)
 
-analyze_database <- function(database_file_path) {
-  components <- stringr::str_split(
-    basename(tools::file_path_sans_ext(database_file_path)), "-", 2)[[1]]
-  
-  db <- src_sqlite(database_file_path)
-  promise_evaluations <- db %>% 
-    tbl("promise_evaluations") %>% 
-    filter(event_type == 15) %>%
-    select(effective_distance=effective_distance_from_origin, 
-           actual_distance=actual_distance_from_origin)
-
-  list(actual_distances = promise_evaluations %>% 
-                          group_by(actual_distance) %>%
-                          count %>% as.data.frame)
-}
-
 summarize_analyses <- function(analyses) {
-  data <-
-    list(actual_distances = analyses$actual_distances %>% 
-                            group_by(actual_distance) %>%
-                            summarise(number=sum(as.numeric(n))) %>%
-                            mutate(percent=(100*number/sum(number))))
-  
-  data$actual_distances_short = rbind(data$actual_distances %>%
-                                      filter(actual_distance<25) %>%
-                                      select(actual_distance, number),
-                                      data$actual_distances %>%
-                                      filter(actual_distance>=25) %>%
-                                      summarise(actual_distance=paste0(25,"+"),
-                                                number=sum(number))) %>%
-                                      mutate(percent=(100*number/sum(number)),
-                                             actual_distance=
-                                               ifelse(actual_distance==-1, "E", 
-                                                      actual_distance))
-  data
+
+  total_count <- sum(as.numeric(analyses$`promise-evaluation-distance`$count))
+
+  evaluation_distance <-
+    analyses$`promise-evaluation-distance` %>%
+    mutate(distance = closure_count + special_count +
+             builtin_count + promise_count) %>%
+    group_by(promise_type, distance) %>%
+    summarize(count = sum(as.numeric(count))) %>%
+    ungroup() %>%
+    mutate(relative_count = count/total_count,
+           promise_type = ifelse(promise_type == "ca",
+                                 "Custom argument",
+                                 "Default argument"))
+
+  list(evaluation_distance = evaluation_distance,
+       total_count = tibble(total_count = total_count))
 }
 
 visualize_analyses <- function(analyses) {
-  list(
-    actual_distances = 
-      ggplot(analyses$actual_distances_short, aes(x=actual_distance, y=number)) +
-      geom_col() +
-      scale_y_continuous(labels=pp_trunc) +
-      scale_x_discrete(limits=c(0:(25-1),paste0(25,"+"), "E")) +
-      theme(legend.position="none", axis.title.x=element_blank()))
+  evaluation_distance_visualization <-
+    analyses$evaluation_distance %>%
+    rename("Promise type" = promise_type) %>%
+    ggplot(aes(x=distance, weight=relative_count, fill = `Promise type`)) +
+    geom_bar() +
+    scale_y_continuous(labels = relative_labels) +
+    labs(y ="Count (%)") +
+    labs(x = "Distance (number of functions and promises)") +
+    scale_fill_gdocs() +
+    theme(legend.position = "bottom")
+
+  list(evaluation_distance_visualization = evaluation_distance_visualization)
 }
 
 latex_analyses <- function(analyses) {
-  list(evaluationDistancesTbl = 
-          analyses$actual_distances_short %>%
-               mutate(number=pp_trunc(number),
-                      percent=pp_perc(percent)) %>%
-               kable(col.names = c("Distance", "Number", "Percent"),
-                     format = "latex"),
-       evaluationDistancesAllTbl = 
-          analyses$actual_distances_short %>%
-               mutate(number=pp_trunc(number),
-                      percent=pp_perc(percent)) %>%
-               kable(col.names = c("Distance", "Number", "Percent"), 
-                     format = "latex"))
+  list()
 }
 
 main <-
   function() {
     analyzer <-
       create_analyzer("Promise evaluation distances",
-                      analyze_database,
                       combine_analyses,
                       summarize_analyses,
                       visualize_analyses,
