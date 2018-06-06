@@ -13,16 +13,16 @@ summarize_analyses <- function(analyses) {
   function_distribution <-
     analyses$`function-name` %>%
     group_by(function_id) %>%
-    summarize(count = sum(count)) %>%
+    summarize(count = sum(as.numeric(count))) %>%
     left_join(function_type, by = "function_id")
 
   count_by_type <-
     function_distribution %>%
     group_by(function_type) %>%
-    summarize(call_count = sum(count),
+    summarize(call_count = sum(as.numeric(count)),
               function_count = n()) %>%
     ungroup() %>%
-    mutate(relative_call_count = call_count/sum(call_count))
+    mutate(relative_call_count = call_count/sum(as.numeric(call_count)))
 
   list(function_distribution = function_distribution,
        count_by_type = count_by_type)
@@ -38,7 +38,7 @@ visualize_analyses <- function(analyses) {
                                   "Builtin",
                                   "Special")))
 
-  total_call_count <- sum(analyses$count_by_type$call_count)
+  total_call_count <- sum(as.numeric(analyses$count_by_type$call_count))
 
    call_count <-
     count_by_type %>%
