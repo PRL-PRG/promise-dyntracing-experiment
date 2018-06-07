@@ -39,11 +39,14 @@ summarize_analyses <- function(analyses) {
 
   parameter_classification <-
     parameter_usage_distribution %>%
-    mutate(classification = ifelse(evaluation_count >= call_count,
-                                   "Always Evaluated",
-                            ifelse(evaluation_count == 0,
-                                   "Never Evaluated",
-                                   "Sometimes Evaluated"))) %>%
+    group_by(function_id, formal_parameter_position) %>%
+    summarize(classification = if(evaluation_count >= call_count)
+                                 "Always Evaluated"
+                               else if(evaluation_count == 0)
+                                 "Never Evaluated"
+                               else
+                                 "Sometimes Evaluated") %>%
+    ungroup() %>%
     group_by(classification) %>%
     summarize(parameter_count = sum(as.numeric(n())))
 
@@ -57,11 +60,12 @@ summarize_analyses <- function(analyses) {
   function_classification <-
     parameter_usage_distribution %>%
     group_by(function_id) %>%
-    mutate(classification = ifelse(all(evaluation_count >= call_count),
-                                   "Strict",
-                            ifelse(any(evaluation_count == 0),
-                                   "Partial",
-                                   "Non Strict"))) %>%
+    summarize(classification = if(all(evaluation_count >= call_count))
+                                 "Strict"
+                               else if(any(evaluation_count == 0))
+                                 "Partial"
+                               else
+                                 "Non Strict") %>%
     ungroup() %>%
     group_by(classification) %>%
     summarize(function_count = sum(as.numeric(n()))) %>%
