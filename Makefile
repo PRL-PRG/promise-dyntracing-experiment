@@ -40,6 +40,13 @@ clean:
 csvs:
 	graphs/generate_data.sh $(PROCESSES) $(DATA_DIR)
 
+update-package-list:
+	@echo "Updating package list at 'dyntrace/packages.csv'"
+	R_LIBS=$(R_LIBS) $(TRACER) -q -e "packages <- installed.packages(lib.loc=Sys.getenv('R_LIBS')); \
+                                    write.csv(packages[,'Package'], 'dyntrace/packages.csv', \
+                                              quote=FALSE, row.names=FALSE);"
+	@echo "Updated package list at 'dyntrace/packages.csv'"
+
 aggregate-csvs:
 	graphs/concat_functions.sh $(DATA_DIR)
 	if [ -e $(DATA_DIR)/csv/_all ]; then rm -r $(DATA_DIR)/csv/_all; fi

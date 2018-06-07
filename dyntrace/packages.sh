@@ -39,7 +39,7 @@ if [ $# -gt 0 ]
 then
     PACKAGES="$@"
 else
-    PACKAGES=$(cat "$SCRIPT_DIR/packages.csv" | grep -v '^#' | grep -v '^$' | cut -f 1 -d';' | xargs echo)
+    PACKAGES=$(cat "$SCRIPT_DIR/packages.csv")
 fi
 
 # R environmental variables
