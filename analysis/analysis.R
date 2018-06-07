@@ -93,7 +93,7 @@ read_csv_with_colspec <- function(table_filename, colspec_filename) {
            col_types = eval(parse(colspec_filename)))
 }
 
-import_as_tables <- function(table_dir, logger, schemas, extension = "csv") {
+import_as_tables <- function(table_dir, logger, schemas = NULL, extension = "csv") {
   table_files <- list_files_with_exts(table_dir, extension)
   table_names <- map(table_files, compose(file_path_sans_ext, basename))
   analyses <-
@@ -102,11 +102,14 @@ import_as_tables <- function(table_dir, logger, schemas, extension = "csv") {
       function(table_file) {
           info("  => Importing ", table_file, "\n")
           schema_name <- file_path_sans_ext(basename(table_file))
-          schema <- schemas[[schema_name]]
-          if(is.null(schema)) {
-            info("Schema '", schema_name, "' not found!")
-            info(schemas)
-            quit()
+          schema <- expression(NULL)
+          if(!is.null(schemas)) {
+            schema <- schemas[[schema_name]]
+            if(is.null(schema)) {
+              info("Schema '", schema_name, "' not found!")
+              info(schemas)
+              quit()
+            }
           }
           read_csv(table_file, col_types = eval(schema))
       }) %>%
