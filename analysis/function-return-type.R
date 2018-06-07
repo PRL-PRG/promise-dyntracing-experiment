@@ -11,16 +11,16 @@ summarize_analyses <- function(analyses) {
   function_return_type_distribution <-
     analyses$`function-return-type` %>%
     group_by(return_type, function_id) %>%
-    summarize(call_count = sum(count)) %>%
+    summarize(call_count = sum(as.numeric(count))) %>%
     ungroup()
 
   function_return_type_summary <-
     function_return_type_distribution %>%
     group_by(return_type) %>%
     summarize(function_count = n(),
-              call_count = sum(call_count))
+              call_count = sum(as.numeric(call_count)))
 
-  total_call_count <- sum(function_return_type_summary$call_count)
+  total_call_count <- sum(as.numeric(function_return_type_summary$call_count))
 
   function_return_type_summary <-
     function_return_type_summary %>%
