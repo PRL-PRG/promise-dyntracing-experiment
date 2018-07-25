@@ -1,9 +1,22 @@
 DATA_DIR := $(shell date +'%Y-%m-%d-%H-%M-%S')
 LOG_FILE := $(DATA_DIR).log
 OUTPUT_DIR := $(DATA_DIR)/output
+CORPUS_DIR := $(DATA_DIR)/corpus
+ANALYSIS_DIR := $(DATA_DIR)/analysis
+RAW_ANALYSIS_DIR := $(ANALYSIS_DIR)/raw
+TRACE_DIR := $(ANALYSIS_DIR)/traces
+TRACE_LAZY_DIR := $(TRACE_DIR)/lazy
+TRACE_STRICT_DIR := $(TRACE_DIR)/strict
+TRACE_STATE_DIR := $(TRACE_DIR)/state
+LOG_DIR := $(DATA_DIR)/logs
+TRACE_LOG_DIR := $(DATA_DIR)/trace-logs
+PROMISE_INTERFERENCE_EXECUTABLE := ../promise-interference/build/interference
+PARALLEL_JOB_COUNT_FILEPATH := dyntrace/procfile
 SCHEMA_DIR := schemas
-TRACER := ../R-dyntrace/bin/R
-PROCESSES := 1
+R_DYNTRACE_HOME := ../R-3.5.0-dyntrace
+R_DYNTRACE := $(R_DYNTRACE_HOME)/bin/R
+PARALLEL_JOB_COUNT := 1
+CORPUS_FILEPATH := dyntrace/corpus.txt
 PACKAGES=
 MINIMUM_DISK_SIZE := 50000000 # ~50GB
 STAGE := all
@@ -13,20 +26,75 @@ VANILLA_RSCRIPT := Rscript
 SITE_DIR := ~/public_html
 ANALYSIS := promise-memory-usage
 BIOCONDUCTOR_DIR := "bioconductor"
-ANALYSIS_SWITCH =
+ANALYSIS_SWITCH :=
 ## By default all analyses are enabled.
 ## To disable a particular analysis, do --disable-<analysis-name>-analysis
 ## Ex: ANALYSIS_SWITCH=--disable-metadata-analysis\ --disable-strictness-analysis
 ## Note the \ which escapes the next space and makes multiple flags part of same
 ## variable
-
+TRUNCATE := --truncate
 ENABLE_TRACE :=
 VERBOSE :=
 ## to enable verbose mode, use the flag: --verbose
 
+define tracer =
+$(R_DYNTRACE) \
+    --slave \
+    --no-restore \
+    --file=dyntrace/trace.R \
+    --args \
+    --r-dyntrace=$(R_DYNTRACE) \
+    --corpus-dir=$(CORPUS_DIR) \
+    --raw-analysis-dir=$(RAW_ANALYSIS_DIR) \
+    --trace-dir=$(TRACE_DIR) \
+    $(ENABLE_TRACE)	\
+    $(ANALYSIS_SWITCH) \
+    $(VERBOSE) \
+    $(TRUNCATE)
+endef
+
+define parallel =
+parallel \
+    --jobs $(PARALLEL_JOB_COUNT_FILEPATH) \
+    --files \
+    --bar \
+    --load 80% \
+    --results $(LOG_DIR)/packages/{1}/ \
+    --joblog $(LOG_DIR)/summary \
+      $(tracer) \
+      {1} \
+      ::::
+endef
+
+trace: R_ENABLE_JIT=3
+trace: R_COMPILE_PKGS=1
+trace: R_DISABLE_BYTECODE=0
+trace: R_KEEP_PKG_SOURCE=1
 trace:
-	mkdir -p $(DATA_DIR)
-	dyntrace/packages.sh $(TRACER) $(DATA_DIR) $(PROCESSES) $(MINIMUM_DISK_SIZE) $(PACKAGES) 2>&1 > $(DATA_DIR)/$(LOG_FILE)
+	@echo "R_ENABLE_JIT=${R_ENABLE_JIT}"
+	@echo "R_COMPILE_PKGS=${R_COMPILE_PKGS}"
+	@echo "PARALLEL JOB COUNT=${PARALLEL_JOB_COUNT}"
+	@echo $(PARALLEL_JOB_COUNT) > $(PARALLEL_JOB_COUNT_FILEPATH)
+	@mkdir -p $(LOG_DIR)
+	-$(parallel) $(CORPUS_FILEPATH) > /dev/null
+
+trace-bcc: R_ENABLE_JIT=3
+trace-bcc: R_COMPILE_PKGS=1
+trace-bcc: trace
+
+trace-ast: R_ENABLE_JIT=0
+trace-ast: R_COMPILE_PKGS=0
+trace-ast: trace
+
+analyze-traces:
+	mkdir -p $(TRACE_LOG_DIR)
+	mkdir -p $(TRACE_STRICT_DIR)
+	mkdir -p $(TRACE_STATE_DIR)
+	dyntrace/analyze-traces.R $(PROMISE_INTERFERENCE_EXECUTABLE) \
+                            $(TRACE_LAZY_DIR) \
+                            $(TRACE_STRICT_DIR) \
+                            $(TRACE_STATE_DIR) \
+                            $(TRACE_LOG_DIR)
 
 check:
 	dyntrace/check_results.sh $(DATA_DIR)
@@ -40,12 +108,9 @@ clean:
 csvs:
 	graphs/generate_data.sh $(PROCESSES) $(DATA_DIR)
 
-update-package-list:
-	@echo "Updating package list at 'dyntrace/packages.csv'"
-	R_LIBS=$(R_LIBS) $(TRACER) -q -e "packages <- installed.packages(lib.loc=Sys.getenv('R_LIBS')); \
-                                    write.csv(packages[,'Package'], 'dyntrace/packages.csv', \
-                                              quote=FALSE, row.names=FALSE);"
-	@echo "Updated package list at 'dyntrace/packages.csv'"
+update-corpus:
+	@echo "Updating vignette list at '$(CORPUS_FILEPATH)'"
+	$(R_DYNTRACE) --file=dyntrace/make-package-list.R --args $(CORPUS_FILEPATH)
 
 aggregate-csvs:
 	graphs/concat_functions.sh $(DATA_DIR)
@@ -60,7 +125,6 @@ partial-aggregate-csvs:
 	graphs/partial_aggregate_csvs.sh $(DATA_DIR)/csv/_partial $(DATA_DIR)/csv/*
 	graphs/generate_aggregated_data.sh $(DATA_DIR) _partial
 	#Rscript graphs/conglomerate_csvs.R $(DATA_DIR)/csv/_all
-
 
 report:
 	$(VANILLA_RSCRIPT) -e "rmarkdown::render('graphs/report-main.Rmd', params=list(CSV_DIR='$(DATA_DIR)/csv/_partial', PRINT_DATA=TRUE))"
