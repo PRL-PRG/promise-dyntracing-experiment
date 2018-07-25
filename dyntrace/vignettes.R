@@ -150,18 +150,18 @@ instrument.vignettes <- function(packages) {
                                       "Suggests",
                                       "Enhances"))
   }
-  
+
   i.packages <- 0
   n.packages <- length(packages)
   total.vignettes <- 0
-  
+
   instrumented.vignette.paths <- list()
-  
+
   for (package in packages) {
     i.packages <- i.packages + 1
-    
+
     write(paste("Instrumenting vignettes for package: ", package, sep=""), stdout())
-    
+
     result.set <- vignette(package = package)
     vignettes.in.package <- result.set$results[,3]
     

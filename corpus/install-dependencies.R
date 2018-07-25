@@ -6,7 +6,8 @@ dependencies <- c('gdata', 'optparse', 'tidyverse',
                   'ggplot2', 'knitr', 'bookdown',
                   'RSQLite', 'dbplyr', 'DT', 'tidyr',
                   'dplyr', 'ggsci', 'rvest', 'httr',
-                  'progress', 'htmltidy')
+                  'progress', 'htmltidy', 'data.table',
+                  'glue', 'readr')
 
 packages_to_install <- setdiff(dependencies, installed.packages())
 
