@@ -13,7 +13,7 @@ TRACE_LOG_DIR := $(DATA_DIR)/trace-logs
 PROMISE_INTERFERENCE_EXECUTABLE := ../promise-interference/build/interference
 PARALLEL_JOB_COUNT_FILEPATH := dyntrace/procfile
 SCHEMA_DIR := schemas
-R_DYNTRACE_HOME := ../R-3.5.0-dyntrace
+R_DYNTRACE_HOME := ../R-dyntrace
 R_DYNTRACE := $(R_DYNTRACE_HOME)/bin/R
 PARALLEL_JOB_COUNT := 1
 CORPUS_FILEPATH := dyntrace/corpus.txt
@@ -136,7 +136,7 @@ report:
 
 analyze:
 	mkdir -p $(INPUT_DIR)/output/$(ANALYSIS)/logs/
-	analysis/$(ANALYSIS).R --stage=$(STAGE) $(SCHEMA_DIR) $(INPUT_DIR)/output/analysis $(INPUT_DIR)/output/$(ANALYSIS)/summary $(INPUT_DIR)/output/$(ANALYSIS)/visualizations $(INPUT_DIR)/output/$(ANALYSIS)/latex 2>&1 | tee $(INPUT_DIR)/output/$(ANALYSIS)/log.txt || /bin/true
+	analysis/$(ANALYSIS).R --stage=$(STAGE) $(SCHEMA_DIR) $(INPUT_DIR)/analysis/raw $(INPUT_DIR)/output/$(ANALYSIS)/summary $(INPUT_DIR)/output/$(ANALYSIS)/visualizations $(INPUT_DIR)/output/$(ANALYSIS)/latex 2>&1 | tee $(INPUT_DIR)/output/$(ANALYSIS)/log.txt || /bin/true
 
 analysis-book:
 	cd analysis/report; $(VANILLA_RSCRIPT) -e "bookdown::render_book(list.files('.'), 'bookdown::gitbook', output_dir='$(SITE_DIR)', config_file='_bookdown.yml', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"

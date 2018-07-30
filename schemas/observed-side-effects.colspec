@@ -1,0 +1,4 @@
+cols(
+  scope = col_character(),
+  count = col_integer()
+)

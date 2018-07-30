@@ -1,6 +1,5 @@
 cols(
   function_id = col_character(),
   formal_parameter_position = col_integer(),
-  usage = col_character(),
   count = col_integer()
 )

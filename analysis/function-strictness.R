@@ -8,52 +8,59 @@ source("analysis/analysis.R")
 
 summarize_analyses <- function(analyses) {
 
-  argument_usage_count <-
-    analyses$`function-formal-parameter-usage-order` %>%
-    group_by(function_id) %>%
-    summarize(order_count = length(unique(formal_parameter_position_usage_order)))
+    print(analyses)
 
-  total_function_count <- length(argument_usage_count$function_id)
+    print(analyses$`function-name`)
 
-  argument_usage_distribution <-
-    argument_usage_count %>%
-    group_by(order_count) %>%
-    summarize(function_count = length(function_id))
 
-  argument_usage_distribution <-
-    argument_usage_distribution %>%
-    mutate(relative_function_count = function_count / total_function_count)
+    argument_usage_count <-
+        analyses$`function-formal-parameter-usage-order` %>%
+        group_by(function_id) %>%
+        summarize(order_count = length(unique(formal_parameter_position_usage_order)))
 
-  call_count <-
-    analyses$`function-name` %>%
-    group_by(function_id) %>%
-    summarize(call_count = sum(as.numeric(count)))
+    total_function_count <- length(argument_usage_count$function_id)
 
-  parameter_usage_distribution <-
-    analyses$`function-formal-parameter-usage-count` %>%
-    filter(usage == "E") %>%
-    group_by(function_id, formal_parameter_position) %>%
-    summarize(evaluation_count = sum(count)) %>%
-    ungroup() %>%
-    left_join(call_count, by = "function_id")
+    argument_usage_distribution <-
+        argument_usage_count %>%
+        group_by(order_count) %>%
+        summarize(function_count = length(function_id))
 
-  parameter_classification <-
-    parameter_usage_distribution %>%
-    group_by(function_id, formal_parameter_position) %>%
-    summarize(classification = if(evaluation_count >= call_count)
-                                 "Always Evaluated"
-                               else if(evaluation_count == 0)
-                                 "Never Evaluated"
-                               else
-                                 "Sometimes Evaluated") %>%
+
+    argument_usage_distribution <-
+        argument_usage_distribution %>%
+        mutate(relative_function_count = function_count / total_function_count)
+
+    call_count <-
+        analyses$`function-name` %>%
+        print() %>%
+        group_by(function_id) %>%
+        summarize(call_count = sum(as.numeric(count)))
+
+    parameter_usage_distribution <-
+        analyses$`function-formal-parameter-usage-count` %>%
+        group_by(function_id, formal_parameter_position) %>%
+        summarize(evaluation_count = sum(count)) %>%
+        ungroup() %>%
+        left_join(call_count, by = "function_id")
+
+
+    parameter_classification <-
+        parameter_usage_distribution %>%
+        group_by(function_id, formal_parameter_position) %>%
+        summarize(classification = if(evaluation_count >= call_count)
+                                       "Always Evaluated"
+                                   else if(evaluation_count == 0)
+                                       "Never Evaluated"
+                                   else
+                                       "Sometimes Evaluated") %>%
     ungroup() %>%
     group_by(classification) %>%
     summarize(parameter_count = sum(as.numeric(n())))
 
-  total_parameter_count <- sum(parameter_classification$parameter_count)
+    total_parameter_count <- sum(parameter_classification$parameter_count)
 
   parameter_classification <-
-    parameter_classification %>%
+      parameter_classification %>%
     mutate(relative_parameter_count =
              parameter_count / total_parameter_count)
 
@@ -61,11 +68,11 @@ summarize_analyses <- function(analyses) {
     parameter_usage_distribution %>%
     group_by(function_id) %>%
     summarize(classification = if(all(evaluation_count >= call_count))
-                                 "Strict"
+                                 "Always"
                                else if(any(evaluation_count == 0))
                                  "Partial"
                                else
-                                 "Non Strict") %>%
+                                 "Sometimes") %>%
     ungroup() %>%
     group_by(classification) %>%
     summarize(function_count = sum(as.numeric(n()))) %>%

@@ -11,6 +11,7 @@ suppressPackageStartupMessages(library(magrittr))
 suppressPackageStartupMessages(library(lubridate))
 suppressPackageStartupMessages(library(broom))
 suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(fs))
 
 info <- function(...) cat(green(bold(paste0(...))))
 
@@ -257,9 +258,12 @@ scan_stage <-
                              full.names = FALSE,
                              recursive = FALSE)
       for (vignette in vignettes) {
-        tables <-
-          file.path(settings$input_dir, package, vignette) %>%
-          import_as_tables(logger, schemas, "csv")
+          vignette_dir <- file.path(settings$input_dir, package, vignette)
+
+        if(length(dir_ls(vignette_dir, type = "file")) < 13) next
+          tables <-
+            vignette_dir %>%
+            import_as_tables(logger, schemas, "csv")
         if(length(tables) != 0) {
           tables <-
             tables %>%
@@ -421,7 +425,6 @@ drive_analysis <-
     latex <- NULL
     visualizations <- NULL
     stage <- settings$stage
-
 
     if(stage %in% c("all", "summarize")) {
       scan <- scan_stage(analyzer, logger, settings)
