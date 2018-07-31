@@ -144,7 +144,14 @@ wrap_vignette <- function(settings, corpus_dirpath) {
         paste0("list(", paste(ns, vs, sep="=", collapse=spaces), ")")
     }
 
-    vignette_filenames <- str_c(vignette(package=settings$package)$results[,"Item"], ".R");
+
+    vignette_items <- vignette(package=settings$package)$results[,"Item"]
+
+    if(length(vignette_items) == 0)
+        return(c())
+
+    vignette_filenames <- str_c(vignette_items, ".R")
+
 
     wrapper <- Vectorize(function(vignette_filename) {
 
