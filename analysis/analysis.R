@@ -12,6 +12,7 @@ suppressPackageStartupMessages(library(lubridate))
 suppressPackageStartupMessages(library(broom))
 suppressPackageStartupMessages(library(stringr))
 suppressPackageStartupMessages(library(fs))
+suppressPackageStartupMessages(library(data.table))
 
 info <- function(...) cat(green(bold(paste0(...))))
 
@@ -112,7 +113,7 @@ import_as_tables <- function(table_dir, logger, schemas = NULL, extension = "csv
               quit()
             }
           }
-          read_csv(table_file, col_types = eval(schema))
+          fread(table_file) #, col_types = eval(schema))
       }) %>%
     setNames(table_names)
 

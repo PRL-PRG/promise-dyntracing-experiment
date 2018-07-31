@@ -8,11 +8,6 @@ source("analysis/analysis.R")
 
 summarize_analyses <- function(analyses) {
 
-    print(analyses)
-
-    print(analyses$`function-name`)
-
-
     argument_usage_count <-
         analyses$`function-formal-parameter-usage-order` %>%
         group_by(function_id) %>%
@@ -32,7 +27,6 @@ summarize_analyses <- function(analyses) {
 
     call_count <-
         analyses$`function-name` %>%
-        print() %>%
         group_by(function_id) %>%
         summarize(call_count = sum(as.numeric(count)))
 
