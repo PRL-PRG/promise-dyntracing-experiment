@@ -62,11 +62,11 @@ summarize_analyses <- function(analyses) {
     parameter_usage_distribution %>%
     group_by(function_id) %>%
     summarize(classification = if(all(evaluation_count >= call_count))
-                                 "Always"
+                                   "All"
                                else if(any(evaluation_count == 0))
-                                 "Partial"
+                                   "Some"
                                else
-                                 "Sometimes") %>%
+                                   "Mixed") %>%
     ungroup() %>%
     group_by(classification) %>%
     summarize(function_count = sum(as.numeric(n()))) %>%

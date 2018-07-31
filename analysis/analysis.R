@@ -102,7 +102,6 @@ import_as_tables <- function(table_dir, logger, schemas = NULL, extension = "csv
     table_files %>%
     map(
       function(table_file) {
-          info("  => Importing ", table_file, "\n")
           schema_name <- file_path_sans_ext(basename(table_file))
           schema <- expression(NULL)
           if(!is.null(schemas)) {
@@ -263,7 +262,7 @@ scan_stage <-
 
           if(!file_exists(path(vignette_dir, "SUCCESS"))) next
 
-          info("\n  => Processing ", vignette, "\n")
+          info("  => Processing ", vignette, "\n")
 
           tables <-
             vignette_dir %>%
