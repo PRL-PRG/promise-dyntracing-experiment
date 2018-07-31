@@ -5,7 +5,15 @@ main <- function() {
         stop("missing output filepath")
 
     filepath <- args[1]
+
     packages <- installed.packages(lib.loc = .libPaths())[, "Package"]
+
+    packages <- Filter(
+        function(package) {
+            nrow(vignette(package = package)$results) != 0
+        },
+        packages)
+
     write.table(packages, filepath, sep = ",", quote = FALSE,
                 row.names = FALSE, col.names = FALSE);
 }
