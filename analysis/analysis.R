@@ -261,7 +261,10 @@ scan_stage <-
       for (vignette in vignettes) {
           vignette_dir <- file.path(settings$input_dir, package, vignette)
 
-        if(length(dir_ls(vignette_dir, type = "file")) < 13) next
+          if(!file_exists(path(vignette_dir, "SUCCESS"))) next
+
+          info("\n  => Processing ", vignette, "\n")
+
           tables <-
             vignette_dir %>%
             import_as_tables(logger, schemas, "csv")
