@@ -7,7 +7,8 @@ dependencies <- c('gdata', 'optparse', 'tidyverse',
                   'RSQLite', 'dbplyr', 'DT', 'tidyr',
                   'dplyr', 'ggsci', 'rvest', 'httr',
                   'progress', 'htmltidy', 'data.table',
-                  'glue', 'readr', 'fs', 'data.table')
+                  'glue', 'readr', 'fs', 'data.table',
+                  'devtools', 'roxygen2')
 
 packages_to_install <- setdiff(dependencies, installed.packages())
 
