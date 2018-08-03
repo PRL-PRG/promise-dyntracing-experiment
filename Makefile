@@ -1,3 +1,4 @@
+LAST_DATA_DIR := latest
 DATA_DIR := $(shell date +'%Y-%m-%d-%H-%M-%S')
 LOG_FILE := $(DATA_DIR).log
 OUTPUT_DIR := $(DATA_DIR)/output
@@ -66,6 +67,26 @@ parallel \
       ::::
 endef
 
+define count_files =
+$(shell find $(LAST_DATA_DIR)/analysis/raw/ -mindepth 3 -maxdepth 3 -type f -name "$(1)" | wc -l)
+endef
+
+define count_dirs =
+$(shell find $(LAST_DATA_DIR)/analysis/raw/ -mindepth $(1) -maxdepth $(1) -type d | wc -l)
+endef
+
+define dir_size =
+$(shell du -sh $(LAST_DATA_DIR)/$(1) | cut -f1)
+endef
+
+define infer_pid =
+$(shell ps axf | grep $(1) | grep -v grep | awk '{print $$1}')
+endef
+
+define infer_child_processes =
+$(shell ps -eo ppid= | grep -Fwc $(1))
+endef
+
 trace: R_ENABLE_JIT=3
 trace: R_COMPILE_PKGS=1
 trace: R_DISABLE_BYTECODE=0
@@ -76,7 +97,21 @@ trace:
 	@echo "PARALLEL JOB COUNT=${PARALLEL_JOB_COUNT}"
 	@echo $(PARALLEL_JOB_COUNT) > $(PARALLEL_JOB_COUNT_FILEPATH)
 	@mkdir -p $(LOG_DIR)
+	@unlink $(LAST_DATA_DIR)
+	@ln -s $(DATA_DIR) $(LAST_DATA_DIR)
 	-$(parallel) $(CORPUS_FILEPATH) > /dev/null
+
+statistics:
+	@printf "\n"
+	@echo "PACKAGES\tVIGNETTES"
+	@echo "$(call count_dirs,1)\t\t$(call count_dirs,2)"
+	@printf "\n"
+	@echo "BEGIN\t\tSUCCESS\t\tFAILURE\t\tACTIVE"
+	@echo "$(call count_files,BEGIN)\t\t$(call count_files,SUCCESS)\t\t$(call count_files,FAILURE)\t\t$(call infer_child_processes,$(call infer_pid,'perl.*parallel'))"
+	@printf "\n"
+	@echo "ANALYSIS\tLOGS\t\tCORPUS"
+	@echo "$(call dir_size,analysis/raw/)\t\t$(call dir_size,logs)\t\t$(call dir_size,corpus)"
+
 
 trace-bcc: R_ENABLE_JIT=3
 trace-bcc: R_COMPILE_PKGS=1
