@@ -1,0 +1,8 @@
+cols(
+  id = col_character(),
+  type = col_character(),
+  arguments = col_integer(),
+  name = col_character(),
+  return_type = col_character(),
+  calls = col_integer()
+)

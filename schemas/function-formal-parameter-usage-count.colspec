@@ -1,5 +1,0 @@
-cols(
-  function_id = col_character(),
-  formal_parameter_position = col_integer(),
-  count = col_integer()
-)

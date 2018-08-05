@@ -102,17 +102,17 @@ import_as_tables <- function(table_dir, logger, schemas = NULL, extension = "csv
     table_files %>%
     map(
       function(table_file) {
-          ## schema_name <- file_path_sans_ext(basename(table_file))
-          ## schema <- expression(NULL)
-          ## if(!is.null(schemas)) {
-          ##   schema <- schemas[[schema_name]]
-          ##   if(is.null(schema)) {
-          ##     info("Schema '", schema_name, "' not found!")
-          ##     info(schemas)
-          ##     quit()
-          ##   }
-          ## }
-          fread(table_file) #, col_types = eval(schema))
+          schema_name <- file_path_sans_ext(basename(table_file))
+          schema <- expression(NULL)
+          if(!is.null(schemas)) {
+            schema <- schemas[[schema_name]]
+            if(is.null(schema)) {
+              info("Schema '", schema_name, "' not found!")
+              info(schemas)
+              quit()
+            }
+          }
+          read_csv(table_file, col_types = eval(schema))
       }) %>%
     setNames(table_names)
 
@@ -159,12 +159,12 @@ export_as_latex_defs <-
   }
 
 
-combine_analyses <- function(acc, element, combiner = rbindlist) {
+combine_analyses <- function(acc, element, combiner = rbind) {
   for(name in names(acc)) {
     if(nrow(acc[[name]]) == 0)
-      acc[[name]] = element[[name]]
+        acc[[name]] = element[[name]]
     else if(nrow(element[[name]]) != 0)
-      acc[[name]] = combiner(list(acc[[name]], element[[name]]))
+        acc[[name]] = combiner(acc[[name]], element[[name]])
   }
   acc
 }

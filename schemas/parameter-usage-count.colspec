@@ -1,0 +1,11 @@
+cols(
+  function_id = col_character(),
+  position = col_integer(),
+  default = col_character(),
+  unpromised = col_integer(),
+  force = col_integer(),
+  lookup = col_integer(),
+  metaprogram = col_integer(),
+  metaprogram_and_lookup = col_integer(),
+  use = col_integer()
+)
