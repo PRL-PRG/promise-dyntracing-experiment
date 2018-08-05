@@ -171,7 +171,8 @@ report:
 
 analyze:
 	mkdir -p $(INPUT_DIR)/output/$(ANALYSIS)/logs/
-	analysis/$(ANALYSIS).R --stage=$(STAGE) $(SCHEMA_DIR) $(INPUT_DIR)/analysis/raw $(INPUT_DIR)/output/$(ANALYSIS)/summary $(INPUT_DIR)/output/$(ANALYSIS)/visualizations $(INPUT_DIR)/output/$(ANALYSIS)/latex 2>&1 | tee $(INPUT_DIR)/output/$(ANALYSIS)/log.txt || /bin/true
+	analysis/$(ANALYSIS).R --stage=$(STAGE) $(SCHEMA_DIR) $(INPUT_DIR)/analysis/raw $(INPUT_DIR)/output/$(ANALYSIS)/summary $(INPUT_DIR)/output/$(ANALYSIS)/visualizations $(INPUT_DIR)/output/$(ANALYSIS)/latex
+#2>&1 | tee $(INPUT_DIR)/output/$(ANALYSIS)/log.txt || /bin/true
 
 analysis-book:
 	cd analysis/report; $(VANILLA_RSCRIPT) -e "bookdown::render_book(list.files('.'), 'bookdown::gitbook', output_dir='$(SITE_DIR)', config_file='_bookdown.yml', params=list(analysis_output_dir='`readlink -f $(OUTPUT_DIR)`'), knit_root_dir='$(shell pwd)')"

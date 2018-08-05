@@ -12,7 +12,7 @@ suppressPackageStartupMessages(library(lubridate))
 suppressPackageStartupMessages(library(broom))
 suppressPackageStartupMessages(library(stringr))
 suppressPackageStartupMessages(library(fs))
-suppressPackageStartupMessages(library(data.table))
+suppressPackageStartupMessages(library(progress))
 
 info <- function(...) cat(green(bold(paste0(...))))
 
@@ -159,14 +159,15 @@ export_as_latex_defs <-
   }
 
 
-combine_analyses <- function(acc, element, combiner = rbind) {
-  for(name in names(acc)) {
-    if(nrow(acc[[name]]) == 0)
-        acc[[name]] = element[[name]]
-    else if(nrow(element[[name]]) != 0)
-        acc[[name]] = combiner(acc[[name]], element[[name]])
-  }
-  acc
+combine_analyses <- function(datasets, combiner = bind_rows) {
+
+    pb <- progress_bar$new(format = "Combining :what [:bar] :percent eta: :eta",
+                           clear = FALSE, total = length(names(datasets)), width = 80)
+    for(name in names(datasets)) {
+        pb$tick(tokens = list(what = name))
+        datasets[[name]] = combiner(datasets[[name]])
+    }
+    datasets
 }
 
 parse_program_arguments <- function() {
@@ -248,12 +249,20 @@ scan_stage <-
     schemas <- read_schemas(settings$schema_dir)
 
     info("=> Scanning for csv files in ", settings$input_dir, "\n")
+
     scan <- list()
     packages <- list.dirs(settings$input_dir,
                           full.names = FALSE,
                           recursive = FALSE)
     info("=> Found ", length(packages), " packages.\n")
+
+    pb <- progress_bar$new(format = "Processing :what [:bar] :percent eta: :eta",
+                           clear = FALSE, total = length(packages), width = 80)
+
     for (package in packages) {
+
+        pb$tick(tokens = list(what = package))
+
       vignettes <- list.dirs(file.path(settings$input_dir, package),
                              full.names = FALSE,
                              recursive = FALSE)
@@ -261,8 +270,6 @@ scan_stage <-
           vignette_dir <- file.path(settings$input_dir, package, vignette)
 
           if(!file_exists(path(vignette_dir, "SUCCESS"))) next
-
-          info("  => Processing ", vignette, "\n")
 
           tables <-
             vignette_dir %>%
@@ -273,7 +280,13 @@ scan_stage <-
             map(function(tbl) {
               mutate(tbl, package=package, vignette=vignette)
             })
-          scan <- c(list(tables), scan)
+
+          dataset_names <- union(names(tables), names(scan))
+          for(name in dataset_names) {
+              if(is.null(scan[[name]])) scan[[name]] = list(tables[[name]])
+              else if(!is.null(tables[[name]]))
+                  scan[[name]] = append(scan[[name]], list(tables[[name]]))
+          }
         }
       }
     }
@@ -318,7 +331,7 @@ analyze_stage <-
 combine_stage <-
   function(analyzer, logger, settings, analyses) {
     info("=> Combining analyses", "\n")
-    combined_analyses <- Reduce(analyzer$combine_analyses, analyses)
+    combined_analyses <- analyzer$combine_analyses(analyses)
     info("\n", "=> Combined databases", "\n")
 
     combined_analyses
