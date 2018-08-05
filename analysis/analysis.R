@@ -159,12 +159,12 @@ export_as_latex_defs <-
   }
 
 
-combine_analyses <- function(acc, element, combiner = bind_rows) {
+combine_analyses <- function(acc, element, combiner = rbindlist) {
   for(name in names(acc)) {
     if(nrow(acc[[name]]) == 0)
       acc[[name]] = element[[name]]
     else if(nrow(element[[name]]) != 0)
-      acc[[name]] = combiner(acc[[name]], element[[name]])
+      acc[[name]] = combiner(list(acc[[name]], element[[name]]))
   }
   acc
 }
