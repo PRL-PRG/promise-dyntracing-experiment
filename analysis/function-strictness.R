@@ -66,6 +66,34 @@ summarize_analyses <- function(analyses) {
         group_by(classification) %>%
         summarize(count = n()) %>%
         mutate(relative_count = count / all_closure_count)
+
+
+    always_parameter_usage_distribution <-
+        analyses$`parameter-usage-count` %>%
+        left_join(parameter_usage_distribution,
+                  by = c("function_id" = "function_id",
+                         "position" = "position")) %>%
+        filter(classification == "All") %>%
+        group_by(function_id, position) %>%
+        summarize(lookup = sum(lookup),
+                  metaprogram = sum(metaprogram),
+                  metaprogram_and_lookup = sum(metaprogram_and_lookup),
+                  unpromised = sum(unpromised)) %>%
+        ungroup() %>%
+        mutate(classification = ifelse(metaprogram_and_lookup != 0, "Metaprogram + Lookup",
+                                ifelse(lookup!= 0, "Lookup",
+                                ifelse(metaprogram != 0, "Metaprogram",
+                                ifelse(unpromised != 0, "Unpromised",
+                                       "Unknown")))))
+
+    always_parameter_count <- nrow(always_parameter_usage_distribution)
+
+    always_parameter_usage_distribution_summary <-
+        always_parameter_usage_distribution %>%
+        group_by(classification) %>%
+        summarize(count = n()) %>%
+        mutate(relative_count = count / always_parameter_count)
+
     ## parameter_position_distribution <-
     ##     analyses$parameter_usage_count %>%
     ##     group_by(function_id, position, default, use) %>%
@@ -228,8 +256,12 @@ summarize_analyses <- function(analyses) {
          function_parameter_usage_distribution_summary = function_parameter_usage_distribution_summary,
          parameter_usage_distribution = parameter_usage_distribution,
          parameter_usage_distribution_summary = parameter_usage_distribution_summary,
+         #parameter_usage_mode_distribution = parameter_usage_mode_distribution,
          summary = tibble(all_closure_count = all_closure_count,
-                          all_position_count = all_position_count))
+                          all_position_count = all_position_count,
+                          always_parameter_count = always_parameter_count),
+         always_parameter_usage_distribution = always_parameter_usage_distribution,
+         always_parameter_usage_distribution_summary = always_parameter_usage_distribution_summary)
                           ##  mixed_function_count = mixed_function_count,
                           ##  all_function_count = all_function_count,
                           ##  some_function_count = some_function_count,
@@ -241,6 +273,7 @@ visualize_analyses <- function(analyses) {
 
     all_closure_count <- analyses$summary$all_closure_count
     all_position_count <- analyses$summary$all_position_count
+    always_parameter_count <- analyses$summary$always_parameter_count
     ## total_function_count <- analyses$summary$total_function_count
     ## total_parameter_count <- analyses$summary$total_parameter_count
     ## mixed_function_count <- analyses$summary$mixed_function_count
@@ -277,7 +310,7 @@ visualize_analyses <- function(analyses) {
            title =  "Formal parameter distribution by evaluation mode") +
       scale_fill_gdocs()
 
-    function_parameter_usage_distribution<-
+    function_parameter_usage_distribution <-
         analyses$function_parameter_usage_distribution_summary %>%
         rename("Function classification" = classification) %>%
         ggplot(aes(`Function classification`, relative_count)) +
@@ -289,6 +322,17 @@ visualize_analyses <- function(analyses) {
              title =  "Function distribution by evaluation mode") +
         scale_fill_gdocs()
 
+
+    always_parameter_usage_distribution <-
+        analyses$always_parameter_usage_distribution_summary %>%
+        ggplot(aes(classification, weight = relative_count)) +
+        geom_bar() +
+        scale_y_continuous(sec.axis = sec_axis(~ . * always_parameter_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(y = "Usage",
+             title =  "All argument distribution by usage") +
+        scale_fill_gdocs()
 
   ##   some_function_call_distribution <-
   ##       analyses$some_function_call_distribution %>%
@@ -333,7 +377,8 @@ visualize_analyses <- function(analyses) {
 
     list(force_order_distribution = force_order_distribution,
          parameter_usage_distribution = parameter_usage_distribution,
-         function_parameter_usage_distribution = function_parameter_usage_distribution)
+         function_parameter_usage_distribution = function_parameter_usage_distribution,
+         always_parameter_usage_distribution = always_parameter_usage_distribution)
     ## list(function_strictness_ordering = function_strictness_ordering,
     ##      parameter_classification = parameter_classification,
     ##      function_classification = function_classification,
