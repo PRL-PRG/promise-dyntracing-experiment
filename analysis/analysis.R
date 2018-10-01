@@ -1,3 +1,5 @@
+options(error = quote({dump.frames(to.file=FALSE); q();}))
+
 suppressPackageStartupMessages(library(methods))
 suppressPackageStartupMessages(library(tools))
 suppressPackageStartupMessages(library(gdata))
@@ -50,7 +52,7 @@ create_table <- function(input_dir) {
   Reduce(bind_rows, lapply(find_files(input_dir, "sqlite"), analyze_database))
 }
 
-export_as_images <- function(visualizations, graph_dir, logger, extension = "pdf") {
+export_as_images <- function(visualizations, graph_dir, logger, extension = "png") {
 
   dir.create(graph_dir, showWarnings = FALSE, recursive = TRUE)
 
@@ -78,16 +80,18 @@ write_csv_with_col_spec <- function(table, table_filename, colspec_filename) {
   write_csv(table, table_filename)
 }
 
-export_as_tables <- function(analyses, table_dir, logger, extension = "csv") {
+export_as_tables <- function(analyses, table_dir, logger) {
 
   dir.create(table_dir, showWarnings = FALSE, recursive = TRUE)
 
   analyses %>%
       iwalk(
         function(table, tablename) {
-          filename <- file.path(table_dir, paste0(tablename, ".", extension))
+          filename <- path(table_dir, tablename)
           info("  => Exporting ", filename, "\n")
-          write_csv_with_col_spec(table, filename, replace_extension(filename, "spec"))
+          promisedyntracer::write_data_table(table, filename, truncate = TRUE,
+                                             binary = FALSE, compression_level = 0)
+          ## write_csv_with_col_spec(table, filename, replace_extension(filename, "spec"))
         })
 }
 
@@ -113,7 +117,7 @@ import_as_tables <- function(table_dir, logger, schemas = NULL, extension = "csv
               quit()
             }
           }
-          read_csv(table_file, col_types = eval(schema))
+          promisedyntracer::read_data_table(table_file)
       }) %>%
     setNames(table_names)
 
@@ -142,7 +146,7 @@ read_analyses <- function(vignette_dir, analyses, logger) {
     analysis_tables <-
         analysis_filepaths %>%
         map(resolve_analysis_filepath) %>%
-        map(promisedyntracer::read_data_table) %>%
+        map(function(name) {print(name); promisedyntracer::read_data_table(name)}) %>%
         setNames(analyses)
 
     analysis_tables
@@ -192,16 +196,7 @@ combine_analyses <- function(datasets, combiner = dplyr::bind_rows) {
 
     pb <- progress_bar$new(format = "Combining :what [:bar] :percent eta: :eta",
                            clear = FALSE, total = length(names(datasets)), width = 80)
-    print(typeof(datasets))
-    print(length(datasets))
-    print(length(datasets[[1]]))
-    print(length(datasets[[2]]))
-    for(dataset in datasets[[1]]) {
-        print(class(dataset))
-    }
-    for(dataset in datasets[[2]]) {
-        print(class(dataset))
-    }
+
     for(name in names(datasets)) {
         pb$tick(tokens = list(what = name))
         datasets[[name]] = combiner(datasets[[name]])
@@ -283,67 +278,112 @@ read_schemas <- function(schema_dir) {
   schemas
 }
 
-reduce_stage <-
-  function(analyzer, logger, settings) {
-    schemas <- read_schemas(settings$schema_dir)
-
+scan_stage <- function(analyzer, logger, settings) {
     info("=> Scanning for csv files in ", settings$input_dir, "\n")
 
-    scan <- list()
-    packages <- list.dirs(settings$input_dir,
-                          full.names = FALSE,
-                          recursive = FALSE)
-    info("=> Found ", length(packages), " packages.\n")
+    scan <- map_dfr(dir_ls(settings$input_dir, type = "directory"),
+                    function(package_dirpath) {
+                        withCallingHandlers(
+                            map_dfr(dir_ls(package_dirpath, type = "directory"),
+                                    function(vignette_dirpath) {
+                                        filepaths <- keep(dir_ls(vignette_dirpath, type = "file"),
+                                                          function(filepath) {
+                                                              path_ext(filepath) %in% c("bin", "zst", "csv")
+                                                          })
+
+                                        ## This function loads the most recent file with this name
+                                        ## there can be multiple file with the same name but different
+                                        ## extensions.
+                                        ## list all files with this name
+                                        ## sort by last modified date
+                                        ## load the most recently modified file
+                                        resolve_analysis_filepath<- function(analysis_filepath) {
+                                            similar_filepaths <- filepaths[startsWith(filepaths, analysis_filepath)]
+                                            first(arrange(file_info(similar_filepaths),
+                                                          desc(modification_time))$path)
+                                        }
+
+                                        analysis_tables <-
+                                            analysis_filepaths <-
+                                                path(vignette_dirpath, analyzer$analyses) %>%
+                                                map(resolve_analysis_filepath) %>%
+                                                unlist()
+                                        names(analysis_tables) <- analyzer$analyses
+
+                                        tibble(package = path_file(package_dirpath),
+                                               vignette = path_file(vignette_dirpath),
+                                               dirpath = vignette_dirpath,
+                                               valid = all(file_exists(
+                                                   path(vignette_dirpath, c("NOERROR", "FINISH")))),
+                                               analysis = list(analysis_tables))
+                                    }),
+                            h = function(warning) {
+                                if(any(grepl("Vectorizing 'fs_path' elements may not preserve their attributes",
+                                             warning)))
+                                    invokeRestart("muffleWarning")
+                            })
+                    })
+
+    scan <- filter(scan, valid)
+    print(scan)
+    info("=> Found ", length(unique(scan$package)),
+         " packages and ", nrow(scan),
+         " vignettes\n")
+    scan
+}
+
+reduce_stage <- function(analyzer, logger, settings) {
+    schemas <- read_schemas(settings$schema_dir)
+
+    input <- scan_stage(analyzer, logger, settings)
+
+    total <- sum(unlist(map(input$analysis, function(e) length(e))))
 
     pb <- progress_bar$new(format = "Processing :what [:bar] :percent eta: :eta",
-                           clear = FALSE, total = length(packages), width = 80)
+                           clear = FALSE, total = total, width = 160)
 
-    for (package in packages) {
+    reduced_tables  <- new.env(parent=emptyenv())
 
-        pb$tick(tokens = list(what = package))
+    pwalk(input,
+          function(package, vignette, dirpath, valid, analysis) {
+              if(!valid) return()
 
-      vignettes <- list.dirs(file.path(settings$input_dir, package),
-                             full.names = FALSE,
-                             recursive = FALSE)
-      for (vignette in vignettes) {
-          vignette_dir <- file.path(settings$input_dir, package, vignette)
+              tables <-
+                  analysis %>%
+                  map(function(filepath) {
+                      what <- str_c(package, "::", vignette, "::", path_file(filepath))
+                      pb$tick(tokens = list(what = str_trunc(str_pad(what, 50, "right"), 50, "right")))
+                      promisedyntracer::read_data_table(filepath)
+                  }) %>%
+                  setNames(names(analysis)) %>%
+                  analyzer$reduce_analysis()
 
-          ## FINISH file is created when the tracer finishes completely, i.e.
-          ##        it has performed cleanup and the process is about to exit
-          ## NOERROR file is created when the program is traced without
-          ##         any error. This is created by the last hook in the tracer.
-          ## If these files are not present, it implies either the vignette has
-          ## an error or the  tracer triggers a segfault.
-          if(!file_exists(path(vignette_dir, "NOERROR")) |
-             !file_exists(path(vignette_dir, "FINISH")))
-              next
+              if(length(tables) != 0) {
+                  tables <-
+                      tables %>%
+                      map(function(tbl) {
+                          if(nrow(tbl) != 0)
+                              mutate(tbl, package=package, vignette=vignette)
+                          else tbl
+                      })
 
-          tables <-
-            vignette_dir %>%
-            read_analyses(analyzer$analyses, logger) %>%
-            analyzer$reduce_analysis()
+                  dataset_names <- union(names(tables), names(scan))
 
-        if(length(tables) != 0) {
-          tables <-
-            tables %>%
-            map(function(tbl) {
-                if(nrow(tbl) != 0)
-                    mutate(tbl, package=package, vignette=vignette)
-                else tbl
-            })
+                  for(name in names(tables)) {
+                      if(is.null(tables[[name]]) | nrow(tables[[name]]) == 0)
+                          next
+                      if(is.null(reduced_tables[[name]]))
+                          reduced_tables[[name]] <- list()
 
-          dataset_names <- union(names(tables), names(scan))
-          for(name in dataset_names) {
-              if(is.null(scan[[name]])) scan[[name]] = list(tables[[name]])
-              else if(!is.null(tables[[name]]) & nrow(tables[[name]]) != 0)
-                  scan[[name]] = append(scan[[name]], list(tables[[name]]))
-          }
-        }
-      }
-    }
-    info("=> Found ", length(scan), " vignettes.\n")
-    scan
-  }
+                      reduced_tables[[name]] = append(reduced_tables[[name]],
+                                                      list(tables[[name]]))
+                  }
+              }
+          })
+    ## convert environment to list using the fastest method as described on this forum
+    ## http://r.789695.n4.nabble.com/Converting-an-environment-to-a-list-mget-vs-as-list-td4664971.html
+    mget(ls(reduced_tables), reduced_tables)
+}
 
 analyze_stage <-
   function(analyzer, logger, settings, scan) {

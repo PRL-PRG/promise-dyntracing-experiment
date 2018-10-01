@@ -8,7 +8,7 @@ R_DYNTRACE := $(R_DYNTRACE_DIRPATH)/bin/R
 ## tracer output directory paths
 ################################################################################
 TRACE_DIRPATH := $(shell date +'%Y-%m-%d-%H-%M-%S')
-LATEST_TRACE_DIRPATH := latest
+LATEST_TRACE_DIRPATH := $(shell readlink -f latest)
 TRACE_ANALYSIS_DIRPATH := $(TRACE_DIRPATH)/analysis
 TRACE_ANALYSIS_RAW_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/raw
 TRACE_ANALYSIS_TRACES_DIRPATH := $(ANALYSIS_DIRPATH)/traces
@@ -54,6 +54,14 @@ DATA_TABLE_VIEWER_SCRIPT := scripts/view-data-table.R
 DATA_TABLE_VIEWER_FILEPATH :=
 DATA_TABLE_VIEWER_ARGS :=
 
+################################################################################
+## report arguments
+################################################################################
+REPORT_DIRPATH := report
+BROWSER := chromium
+
+export R_KEEP_PKG_SOURCE=1
+
 define tracer =
 $(R_DYNTRACE) \
     --slave \
@@ -97,7 +105,7 @@ $(shell du -sh $(LATEST_TRACE_DIRPATH)/$(1) | cut -f1)
 endef
 
 define infer_pid =
-$(shell ps axf | grep $(1) | grep -v grep | awk '{print $$1}')
+$(shell ps axf | grep $(1) | grep -v "grep" | awk '{print $$1}')
 endef
 
 define infer_child_processes =
@@ -114,21 +122,38 @@ define statistics_table =
   $(call count_files,NOERROR)    $(call count_files,ERROR)
 endef
 
-trace: R_ENABLE_JIT=3
-trace: R_COMPILE_PKGS=1
-trace: R_DISABLE_BYTECODE=0
-trace: R_KEEP_PKG_SOURCE=1
-trace:
+
+define trace =
 	@echo "R_ENABLE_JIT=${R_ENABLE_JIT}"
 	@echo "R_COMPILE_PKGS=${R_COMPILE_PKGS}"
 	@echo "PARALLEL JOB COUNT=${PARALLEL_JOB_COUNT}"
 	@echo $(PARALLEL_JOB_COUNT) > $(PARALLEL_JOB_COUNT_FILEPATH)
 	@mkdir -p $(TRACE_LOGS_DIRPATH)
 	@if [ -e $(LATEST_TRACE_DIRPATH) ]; then \
-		unlink $(LATEST_TRACE_DIRPATH); \
+		unlink latest; \
 	fi
-	@ln -s $(TRACE_DIRPATH) $(LATEST_TRACE_DIRPATH)
+	@ln -s $(TRACE_DIRPATH) latest
 	-$(parallel) :::: $(CORPUS_FILEPATH) > /dev/null
+endef
+
+trace-jit: R_ENABLE_JIT=3
+trace-jit: R_COMPILE_PKGS=1
+trace-jit: R_DISABLE_BYTECODE=0
+trace-jit:
+	$(trace)
+
+trace-ast: R_ENABLE_JIT=0
+trace-ast: R_COMPILE_PKGS=0
+trace-ast: R_DISABLE_BYTECODE=1
+trace-ast:
+	$(trace)
+
+
+install-ast: R_ENABLE_JIT=0
+install-ast: R_COMPILE_PKGS=0
+install-ast: R_DISABLE_BYTECODE=1
+install-ast:
+	$(R_DYNTRACE) --file=scripts/install-dependencies.R
 
 
 statistics:
@@ -143,11 +168,14 @@ install-dependencies:
 
 analyze:
 	mkdir -p $(INPUT_DIR)/output/$(ANALYSIS)/logs/
-	$(R_DYNTRACE) --file=analysis/$(ANALYSIS).R --args --stage=$(STAGE) $(SCHEMA_DIR) $(INPUT_DIR)/analysis/raw $(INPUT_DIR)/output/$(ANALYSIS)/summary $(INPUT_DIR)/output/$(ANALYSIS)/visualizations $(INPUT_DIR)/output/$(ANALYSIS)/latex
+	$(R_DYNTRACE) --slave --file=analysis/$(ANALYSIS).R --args --stage=$(STAGE) $(SCHEMA_DIR) $(INPUT_DIR)/analysis/raw $(INPUT_DIR)/output/$(ANALYSIS)/summary $(INPUT_DIR)/output/$(ANALYSIS)/visualizations $(INPUT_DIR)/output/$(ANALYSIS)/latex
 #2>&1 | tee $(INPUT_DIR)/output/$(ANALYSIS)/log.txt || /bin/true
-
-.PHONY: trace statistics corpus install-dependencies analyze clean
 
 view-data-table:
 	$(R_DYNTRACE) --slave --file=$(DATA_TABLE_VIEWER_SCRIPT) --args $(DATA_TABLE_VIEWER_ARGS) $(DATA_TABLE_VIEWER_FILEPATH)
 
+report:
+	$(R_DYNTRACE) --slave -e "rmarkdown::render('$(REPORT_DIRPATH)/report.Rmd', output_file='report.html', runtime = 'auto', params = list(output_directory='$(LATEST_TRACE_DIRPATH)/output'))"
+# output_dir='$(REPORT_DIRPATH)/', intermediates_dir='$(REPORT_DIRPATH)/', knit_root_dir='$(REPORT_DIRPATH)/'
+
+.PHONY: trace statistics corpus install-dependencies analyze clean view-data-table report

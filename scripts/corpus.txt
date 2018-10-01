@@ -1,8 +1,5 @@
-aoos
-BoolNet
 broom
 cellranger
-checkmate
 colorspace
 curl
 data.table
@@ -12,7 +9,7 @@ devtools
 digest
 dplyr
 DT
-ecr
+fansi
 gdata
 ggplot2
 ggsci
@@ -20,7 +17,6 @@ glue
 grid
 gridExtra
 haven
-hexbin
 highr
 htmlwidgets
 httr
@@ -29,7 +25,6 @@ kableExtra
 knitr
 later
 lazyeval
-lmtest
 lubridate
 magrittr
 markdown
@@ -37,12 +32,10 @@ Matrix
 openssl
 optparse
 parallel
-plot3D
 promises
 purrr
 R6
 Rcpp
-RcppArmadillo
 readr
 readxl
 reprex
@@ -52,15 +45,12 @@ RSQLite
 rstudioapi
 rvest
 stringr
-testthat
 tibble
 tidyr
 tidyverse
 utf8
 utils
-vcd
 withr
 xfun
 xml2
 xtable
-zoo
