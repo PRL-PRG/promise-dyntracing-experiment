@@ -9,11 +9,7 @@ select#functionDefinitionSelector + .selectize-control {
     transform: translate(-50%, -50%) !important;
 }
 
-
-#trace-success {
-    color: #155724;
-    background-color: #d4edda;
-    border-color: #155724;
+.tracer-output {
     padding: .75rem 1.25rem;
     margin-bottom: 1rem;
     border: 4px solid transparent;
@@ -21,19 +17,16 @@ select#functionDefinitionSelector + .selectize-control {
     overflow-y: scroll;
     overflow-x: scroll;
     font-family: monospace;
-    height: 200px;
+    height: 800px;
+}
+
+#trace-success {
+    color: #155724;
+    background-color: #d4edda;
 }
 
 #trace-failure {
     color: #721c24;
     background-color: #f8d7da;
-    border-color: #721c24;
-    padding: .75rem 1.25rem;
-    margin-bottom: 1rem;
-    border: 4px solid transparent;
-    border-radius: .5rem;
-    overflow-y: scroll;
-    overflow-x: scroll;
-    font-family: monospace;
-    height: 200px;
 }
+

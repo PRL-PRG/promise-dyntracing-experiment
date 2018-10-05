@@ -1,4 +1,6 @@
 options(error = quote({dump.frames(to.file=FALSE); q();}))
+options(shiny.fullstacktrace = TRUE)
+options(shiny.error = recover)
 
 suppressPackageStartupMessages(library(shiny))
 suppressPackageStartupMessages(library(shinyAce))
@@ -13,14 +15,13 @@ suppressPackageStartupMessages(library(styler))
 suppressPackageStartupMessages(library(promisedyntracer))
 suppressPackageStartupMessages(library(stringr))
 suppressPackageStartupMessages(library(purrr))
+suppressPackageStartupMessages(library(lubridate))
 suppressPackageStartupMessages(library(shinycssloaders))
 suppressPackageStartupMessages(library(future))
 plan(multiprocess)
 library(promises)
 
 TRACER_SESSION_COUNTER <- 0
-
-TRACE_DIRPATH <- tempdir()
 
 parse_program_arguments <- function() {
     usage <-
@@ -65,12 +66,23 @@ parse_program_arguments <- function() {
     list(port = arguments$options$port,
          host = arguments$options$host,
          browser = arguments$options$browser,
-         r_dyntrace_binpath = arguments$args[1])
+         r_dyntrace_binpath = arguments$args[1],
+         tracer_output_dirpath = arguments$args[2])
+}
+
+check_program_arguments <- function(settings) {
+
+    if (!file_exists(settings$r_dyntrace_binpath)) {
+        stop(str_glue("R executable '{settings$r_dyntrace_binpath}'",
+                      "does not exist. \n",
+                      "Please provide a valid R executable path.",
+                      .sep = "\n"))
+    }
 }
 
 import_data_table <- function(session_trace_dirpath, data_filepath) {
-    read_data_table(print(path(session_trace_dirpath,
-                         str_c(data_filepath, ".csv"))))
+    read_data_table(path(session_trace_dirpath,
+                         str_c(data_filepath, ".csv")))
 }
 
 import_function_definition <- function(function_definition_dirpath,
@@ -112,28 +124,47 @@ create_tracer_ui <- function(request) {
 
     left_panel <-
         column(5,
+               aceEditor("codeEditor",
+                         "## write R code and press 'Trace' to trace it\n\n",
+                         theme = "chrome", mode = "r",
+                         readOnly = FALSE, font = 20,
+                         autoComplete = "enabled",
+                         height = "750px"),
                wellPanel(
-                   column(8),
                    downloadButton("downloadCode",
                                   "Download Code"),
                    actionButton("traceButton",
                                 "Trace",
                                 icon = icon("play"))),
-               aceEditor("codeEditor",
-                         "## write R code and press 'Trace' to trace it\n\n",
-                         theme = "chrome", mode = "r",
-                         readOnly = FALSE, font = 18,
-                         autoComplete = "enabled",
-                         height = "550px"),
                fileInput("uploadCode",
                          NULL,
                          accept = c("text/plain"),
-                         width = "100%"),
-               htmlOutput("tracerOutput"))
+                         width = "100%"))
 
     right_panel <-
         column(7,
                tabsetPanel(type = "tabs",
+                           tabPanel("Tracer Output",
+                                    icon = icon("terminal"),
+                                    htmlOutput("tracerOutput")),
+                           tabPanel("Environment Variables",
+                                    icon = icon("tree"),
+                                    aceEditor(
+                                        "environmentVariableEditor",
+                                        "",
+                                        theme = "chrome", mode = "shell",
+                                        readOnly = TRUE, font = 20,
+                                        autoComplete = "enabled",
+                                        height = "800px")),
+                           tabPanel("Tracer Configuration",
+                                    icon = icon("cogs"),
+                                    aceEditor(
+                                        "tracerConfigurationEditor",
+                                        "",
+                                        theme = "chrome", mode = "text",
+                                        readOnly = TRUE, font = 20,
+                                        autoComplete = "enabled",
+                                        height = "800px")),
                            tabPanel("Data Tables",
                                     icon = icon("table"),
                                     wellPanel(
@@ -160,8 +191,9 @@ create_tracer_ui <- function(request) {
                                         "functionDefinitionEditor",
                                         "",
                                         theme = "chrome", mode = "r",
-                                        readOnly = FALSE, font = 18,
-                                        autoComplete = "enabled"))))
+                                        readOnly = FALSE, font = 20,
+                                        autoComplete = "enabled",
+                                        height = "750px"))))
 
     tracer_ui <- fluidPage(includeCSS("scripts/tracer.css"),
                            title = "TraceR",
@@ -179,33 +211,14 @@ compute_function_definition_dirpath <- function(trace_dirpath) {
     path(trace_dirpath, "functions")
 }
 
-create_tracer_server <- function(r_dyntrace_binpath) {
+create_tracer_server <- function(r_dyntrace_binpath, tracer_output_dirpath) {
     function(input, output, session) {
 
-        TRACER_SESSION_COUNTER <<- TRACER_SESSION_COUNTER + 1
-        restored <- 0
-        traced <- 0
-
         values <- reactiveValues(
-            trace_dirpath = path(TRACE_DIRPATH,
-                                 toString(TRACER_SESSION_COUNTER)),
-            tracer_output = list(content = "", status = 0, time = NULL))
-
-        observe({
-            dir_create(values$trace_dirpath)
-            dir_create(compute_function_definition_dirpath(values$trace_dirpath))
-            print(values$trace_dirpath)
-            print(compute_function_definition_dirpath(values$trace_dirpath))
-        })
-
-
-        output$dataTableViewer <- DT::renderDataTable(data.frame())
-
-        ## clean up the tracing data on session exit
-        onSessionEnded(function() {
-            cat("Session ended: deleting", values$trace_dirpath,"\n")
-            ## dir_delete(values$trace_dirpath)
-        })
+            trace_dirpath = NULL,
+            tracer_output = list(content = "",
+                                 status = 0,
+                                 time = as.period(Sys.time() %--% Sys.time())))
 
         output$downloadCode <- downloadHandler(
             filename = function() {
@@ -268,7 +281,6 @@ create_tracer_server <- function(r_dyntrace_binpath) {
 
         trace_code <- function(code_filepath, code) {
             writeChar(code, code_filepath)
-            print(r_dyntrace_binpath)
             tracing_start_time <- Sys.time()
             procout <- system2(r_dyntrace_binpath,
                                stdout = TRUE,
@@ -276,79 +288,98 @@ create_tracer_server <- function(r_dyntrace_binpath) {
                                args = c("--slave",
                                         str_c("--file=",
                                               code_filepath,
-                                              sep = "")))
-            tracing_time <- Sys.time() - tracing_start_time
-            print("System output is : ")
-            print(procout)
-            if(is.null(attr(procout, "status"))) attr(procout, "status") <- 0
+                                              sep = "")),
+                               env = c("R_COMPILE_PKGS=0",
+                                       "R_DISABLE_BYTECODE=1",
+                                       "R_ENABLE_JIT=0",
+                                       "R_KEEP_PKG_SOURCE=yes"))
+            if (is.null(attr(procout, "status")))
+                attr(procout, "status") <- 0
             list(content = procout,
                  status = attr(procout, "status"),
-                 time = tracing_time)
+                 time = as.period(tracing_start_time %--% Sys.time()))
         }
 
-        observeEvent(input$traceButton, {
-            if (!restored) {
-                showModal(
-                    modalDialog(
-                        "Please wait while the code is being traced",
-                        title = NULL,
-                        footer = NULL,
-                        size = "l",
-                        easyClose = FALSE,
-                        fade = TRUE))
-                isolate({
-                    code_filepath <- path(values$trace_dirpath, "code.R")
-                    code <- wrap_code(values$trace_dirpath, input$codeEditor)
-                    future({
-                        trace_code(code_filepath, code)
-                    }) %>%
-                        then(
-                            onFulfilled = function(value) {
-                                list(content = value$content,
-                                     status =
-                                         file_exists(path(values$trace_dirpath, "ERROR")) |
-                                         value$status,
-                                     time = value$time)
-                            },
-                            onRejected = function(err) {
-                                list(content = err, status = 1, time = toString(-1))
-                            }) %>%
-                        then(
-                            onFulfilled = function(output) {
-                                values$tracer_output <- output
-                                removeModal()
-                            }
-                        )
-                })
-            }
-            else {
-                restored <<- 0
-                traced <<- 0
-            }
-        })
 
-        output$tracerOutput <- renderUI(
+        ## This code is observer and not reactive because
+        ## the tracer output is assigned asynchronously by
+        ## the promise resolution chain.
+        observeEvent(input$traceButton, {
+            showModal(
+                modalDialog(
+                    "Please wait while the code is being traced",
+                    title = NULL,
+                    footer = NULL,
+                    size = "l",
+                    easyClose = FALSE,
+                    fade = TRUE))
+
+            TRACER_SESSION_COUNTER <<- TRACER_SESSION_COUNTER + 1
+            trace_dirpath <- path(tracer_output_dirpath,
+                                  toString(TRACER_SESSION_COUNTER))
+            dir_create(trace_dirpath)
+            dir_create(compute_function_definition_dirpath(trace_dirpath))
+
+            code_filepath <- path(trace_dirpath, "code.R")
+            code <- wrap_code(trace_dirpath, input$codeEditor)
+            future({
+                trace_code(code_filepath, code)
+            }) %>%
+                then(
+                    onFulfilled = function(value) {
+                        list(content = value$content,
+                             status =
+                                 file_exists(path(trace_dirpath,
+                                                  "ERROR")) |
+                                 value$status,
+                             time = value$time)
+                    },
+                    onRejected = function(err) {
+                        list(content = err,
+                             status = 1,
+                             time = as.period(Sys.time() %--% Sys.time()))
+                    }) %>%
+                then(
+                    onFulfilled = function(output) {
+                        values$trace_dirpath <- trace_dirpath
+                        values$tracer_output <- output
+                        removeModal()
+                    })
+        },
+        ignoreNULL = TRUE,
+        ignoreInit = TRUE)
+
+        output$tracerOutput <- renderUI({
             div(HTML(str_c(values$tracer_output$content,
                            sep = "", collapse = "<br />")),
+                class = "tracer-output",
                 id = if (values$tracer_output$status == 0)
                          "trace-success"
                      else
                          "trace-failure")
-        )
+        })
 
-        ## observe({
-        ##     values$tracer_output
-        ##     if(!is.null(values$tracer_output$time)) {
-        ##         label <- str_c("Trace [", values$tracer_output$time, "]")
-        ##         updateActionButton(session, "traceButton",
-        ##                            label = label,
-        ##                            icon = icon("play"))
-        ##     }
-        ## })
+        observeEvent(values$tracer_output, {
+            tracing_time <-
+                str_c(str_c(round(hour(values$tracer_output$time), 2),
+                            "H",
+                            sep = ""),
+                      str_c(round(minute(values$tracer_output$time), 2),
+                            "M",
+                            sep = ""),
+                      str_c(round(second(values$tracer_output$time), 2),
+                            "S",
+                            sep = ""),
+                      sep = " ")
+            updateActionButton(session,
+                               "traceButton",
+                               label = str_c("Trace [", tracing_time, "]"))
+        })
 
-        observe({
-            print("observe begin")
-            values$tracer_output
+        observeEvent(values$trace_dirpath, {
+
+            req(dir_exists(values$trace_dirpath))
+
             data_filepaths <-
                 values$trace_dirpath %>%
                 dir_ls(type = "file") %>%
@@ -361,42 +392,54 @@ create_tracer_server <- function(r_dyntrace_binpath) {
                                  choices = data_filepaths,
                                  selected = first(data_filepaths))
 
+            req(dir_exists(
+                compute_function_definition_dirpath(values$trace_dirpath)))
+
             function_filenames <-
                 compute_function_definition_dirpath(values$trace_dirpath) %>%
                 dir_ls(type = "file") %>%
                 path_file()
-
+9
             updateSelectizeInput(session,
                                  "functionDefinitionSelector",
                                  choices = function_filenames,
                                  selected = first(function_filenames))
-        })
 
+            configuration_filepath <- path(values$trace_dirpath, "CONFIGURATION")
+            req(file_exists(configuration_filepath))
+            updateAceEditor(session,
+                            "tracerConfigurationEditor",
+                            value = read_file(configuration_filepath))
+
+            envvar_filepath <- path(values$trace_dirpath, "ENVVAR")
+            req(file_exists(envvar_filepath))
+            updateAceEditor(session,
+                            "environmentVariableEditor",
+                            value = read_file(envvar_filepath))
+        })
 
         observeEvent(input$functionDefinitionSelector, {
-            function_id <- input$functionDefinitionSelector
-            if (nchar(function_id) != 0) {
-                updateAceEditor(
-                    session,
-                    "functionDefinitionEditor",
-                    value =
-                        import_function_definition(compute_function_definition_dirpath(values$trace_dirpath),
-                                                   function_id))
-            }
+            updateAceEditor(
+                session,
+                "functionDefinitionEditor",
+                value =
+                    import_function_definition(
+                        compute_function_definition_dirpath(req(values$trace_dirpath)),
+                        req(input$functionDefinitionSelector)))
+        },
+        ignoreNULL = TRUE,
+        ignoreInit = TRUE)
+
+        output$dataTableViewer <- renderDT({
+            datatable(import_data_table(req(values$trace_dirpath),
+                                        req(input$dataTableSelector)),
+                      rownames = FALSE,
+                      options = list(pageLength = 19,
+                                     scrollX = TRUE,
+                                     scrollY = TRUE))
         })
 
-        observeEvent(input$dataTableSelector, {
-            data_table_name <- input$dataTableSelector
-            if (nchar(data_table_name) != 0) {
-                output$dataTableViewer <-
-                    DT::renderDataTable(
-                            import_data_table(values$trace_dirpath,
-                                              data_table_name),
-                            options = list(scrollX = TRUE, scrollY = TRUE))
-            }
-        })
-
-        ## input$file1 will be NULL initially. After the user selects
+        ## input$uploadCode will be NULL initially. After the user selects
         ## and uploads a file, it will be a data frame with 'name',
         ## 'size', 'type', and 'datapath' columns. The 'datapath'
         ## column will contain the local filenames where the data can
@@ -423,16 +466,14 @@ create_tracer_server <- function(r_dyntrace_binpath) {
 
         onBookmarked(function(url) {
             updateQueryString(url)
-                                        #state$values$ <- vals$sum
         })
-                                        # Read values from state$values when we restore
+
         onRestore(function(state) {
             values$trace_dirpath <- state$values$trace_dirpath
+            values$tracer_output <- state$values$tracer_output
             updateAceEditor(session,
                             "codeEditor",
                             value = state$input$codeEditor)
-            values$tracer_output <- state$values$tracer_output
-            restored <<- 1
         })
     }
 }
@@ -441,11 +482,23 @@ main <- function() {
 
     settings <- parse_program_arguments()
 
+    print(settings)
+
+    check_program_arguments(settings)
+
+    dir_create(settings$tracer_output_dirpath)
+
     tracer_app <- shinyApp(ui = create_tracer_ui,
-                           server = create_tracer_server(settings$r_dyntrace_binpath),
+                           server = create_tracer_server(
+                               settings$r_dyntrace_binpath,
+                               settings$tracer_output_dirpath
+                           ),
                            enableBookmarking = "server",
                            onStart = function() {
                                cat("TraceR Started!\n")
+                               dir_create(settings$tracer_output_dirpath)
+                               TRACER_SESSION_COUNTER <<-
+                                   length(dir_ls(settings$tracer_output_dirpath))
                            })
 
     runApp(tracer_app,
