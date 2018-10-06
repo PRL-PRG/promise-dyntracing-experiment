@@ -1,3 +1,11 @@
+.container-fluid h2:first-of-type {
+    background-color: #f5f5f5;
+    border: 1px solid #e3e3e3;
+    border-radius: 4px;
+    color: #000000;
+    padding: 10px;
+}
+
 select#functionDefinitionSelector + .selectize-control {
     font-family: monospace;
 }
@@ -17,7 +25,7 @@ select#functionDefinitionSelector + .selectize-control {
     overflow-y: scroll;
     overflow-x: scroll;
     font-family: monospace;
-    height: 800px;
+    height: 650px;
 }
 
 #trace-success {
@@ -29,4 +37,3 @@ select#functionDefinitionSelector + .selectize-control {
     color: #721c24;
     background-color: #f8d7da;
 }
-

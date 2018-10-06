@@ -129,7 +129,7 @@ create_tracer_ui <- function(request) {
                          theme = "chrome", mode = "r",
                          readOnly = FALSE, font = 20,
                          autoComplete = "enabled",
-                         height = "750px"),
+                         height = "600px"),
                wellPanel(
                    downloadButton("downloadCode",
                                   "Download Code"),
@@ -155,7 +155,7 @@ create_tracer_ui <- function(request) {
                                         theme = "chrome", mode = "shell",
                                         readOnly = TRUE, font = 20,
                                         autoComplete = "enabled",
-                                        height = "800px")),
+                                        height = "650px")),
                            tabPanel("Tracer Configuration",
                                     icon = icon("cogs"),
                                     aceEditor(
@@ -164,7 +164,7 @@ create_tracer_ui <- function(request) {
                                         theme = "chrome", mode = "text",
                                         readOnly = TRUE, font = 20,
                                         autoComplete = "enabled",
-                                        height = "800px")),
+                                        height = "650px")),
                            tabPanel("Data Tables",
                                     icon = icon("table"),
                                     wellPanel(
@@ -193,7 +193,7 @@ create_tracer_ui <- function(request) {
                                         theme = "chrome", mode = "r",
                                         readOnly = FALSE, font = 20,
                                         autoComplete = "enabled",
-                                        height = "750px"))))
+                                        height = "600px"))))
 
     tracer_ui <- fluidPage(includeCSS("scripts/tracer.css"),
                            title = "TraceR",
