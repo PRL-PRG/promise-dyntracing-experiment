@@ -231,7 +231,7 @@ main <- function() {
     corpus_dirpath <- copy_vignettes(settings)
     wrapped_vignettes <- wrap_vignette(settings, corpus_dirpath)
     run(settings, wrapped_vignettes$filepath)
-    compress(settings, wrapped_vignettes$raw_analysis_dirpath)
+    #compress(settings, wrapped_vignettes$raw_analysis_dirpath)
 }
 
 main()
