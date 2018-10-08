@@ -1,0 +1,281 @@
+---
+title: "Laziness in R"
+output:
+  html_document:
+    toc: true
+    theme: united
+params:
+  output_directory: ../latest
+  image_format: png
+editor_options:
+  chunk_output_type: console
+---
+
+<style type="text/css">
+.main-container {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.shiny-frame {
+    height: 550px;
+}
+</style>
+
+
+
+```{r echo = FALSE, message = FALSE}
+
+library(DT)
+library(fs)
+library(png)
+library(stringr)
+library(dplyr)
+library(magrittr)
+library(rlang)
+library(knitr)
+
+```
+
+```{r paths, echo = FALSE}
+
+function_definitions_dirpath <- path(params$output_directory, "function-definitions")
+parameter_usage_dirpath <- path(params$output_directory, "parameter-usage")
+visualizations <- path(parameter_usage_dirpath, "visualizations")
+summary <- path(parameter_usage_dirpath, "summary")
+
+```
+
+```{r datatsets, echo = FALSE}
+import_data_table <- function(name) {
+    write(path(summary, name), "log.txt")
+    promisedyntracer::read_data_table(path(summary, name))
+}
+
+closure_force_order_distribution <-
+     import_data_table("closure_force_order_distribution.csv") %>%
+     mutate(force_order = str_replace_all(str_sub(force_order, 2), "\\|", " ~ "))
+
+closure_force_order_distribution_summary <-
+     import_data_table("closure_force_order_distribution_summary.csv")
+
+closures <- import_data_table("closures.csv")
+
+closure_call_count_summary_distribution <- 
+    import_data_table("closure_call_count_summary_distribution.csv") %>%
+    mutate(relative_function_count = round(relative_function_count * 100, 3))
+
+closure_argument_count_summary_distribution <- 
+    import_data_table("closure_argument_count_summary_distribution.csv") %>%
+    mutate(relative_function_count = round(relative_function_count * 100, 3))
+
+classification_summary <- import_data_table("classification_summary.csv")
+
+parameter_mode_distribution_summary <-
+    import_data_table("parameter_mode_distribution_summary.csv")
+
+argument_mode_distribution_summary <-
+    import_data_table("argument_mode_distribution_summary.csv")
+#
+
+# closure_classification_summary_distribution <- import_data_table("closure_classification_summary_distribution.csv")
+# 
+# position_classification_summary_distribution <- import_data_table("position_classification_summary_distribution.csv")
+# 
+# summary <- import_data_table("summary.csv")
+# 
+
+parameter_force_order_summary <- 
+     import_data_table("closure_force_order_distribution.csv") %>%
+     mutate(force_order = str_replace_all(str_sub(force_order, 2), "\\|", " ~ "))
+
+function_class_summary_distribution <-
+    import_data_table("function_class_summary_distribution.csv") %>%
+    mutate(relative_function_count = round(relative_function_count * 100, 3))
+
+parameter_class_summary_distribution <-
+    import_data_table("parameter_class_summary_distribution.csv") %>%
+    mutate(relative_parameter_count = round(relative_parameter_count * 100, 3))
+
+argument_class_distribution_summary <-
+    import_data_table("argument_class_distribution_summary.csv")
+
+argument_use_mode_distribution_summary <- 
+     import_data_table("argument_use_mode_distribution_summary.csv")
+```
+
+```{r echo=FALSE}
+count_labels <-
+  Vectorize(function(x, digits = 2) {
+
+    paste_round <- function(value, div, suffix, sep)
+        paste(round(value/div, digits), suffix, sep = sep)
+
+    if(is.na(x)) {
+      "NA"
+    } else if(x < 10^3) {
+      paste0(x)
+    } else if(x < 10^6) {
+      paste_round(x, 1000, "K", sep=" ")
+    } else if(x < 10^9) {
+      paste_round(x, 10^6, "M", sep=" ")
+    } else {
+      paste_round(x, 10^9, "B", sep=" ")
+    }
+  },
+  "x")
+```
+
+This report summarizes the findings on the use of laziness in R.
+
+Data from 23 packages and 41 vignettes.
+
+* Number of functions: `r count_labels(length(unique(closures$function_id)))` 
+* Number of calls: `r count_labels(sum(closures$call_count))`
+* Number of parameters: `r count_labels(sum(closures$parameter_count))`
+* Number of arguments: `r count_labels(sum(closures$parameter_count * closures$call_count))`
+
+
+## Closures
+
+The table below gives the relevant information for all these functions.
+
+```{r closure_data, echo = FALSE}
+datatable(closure_force_order_distribution) #, width="1000px")
+```
+
+## Closure call count distribution
+
+The following figures show the distribution of the number of calls made to closures.
+
+```{r echo = FALSE, out.width = "1000px"}
+include_graphics(path(visualizations, "closure_call_distribution.png"))
+```
+
+```{r echo = FALSE}
+datatable(closure_call_count_summary_distribution)
+```
+
+### Observations
+
+* Very few functions, **`r closure_call_count_summary_distribution %>% filter(call_count == 1) %>% pull(relative_function_count) %>% first()`%** , are called only once. We can remove these functions from the remaining analyses without affecting the representativity of our results.
+
+* Majority of functions, **`r closure_call_count_summary_distribution %>% filter(!(call_count %in% c("1", "> 10"))) %>% pull(relative_function_count) %>% sum()`%**, are called more than once.
+
+* **`r closure_call_count_summary_distribution %>% filter(call_count == "> 10") %>% pull(relative_function_count) %>% sum()`%** functions are called more than 10 times.
+
+## Closure parameter count distribution
+
+The following figures show the distribution of the number of parameters of closures.
+
+```{r echo = FALSE, out.width = "1000px"}
+include_graphics(path(visualizations, "closure_parameter_count_distribution.png"))
+```
+
+```{r echo = FALSE}
+datatable(closure_argument_count_summary_distribution)
+```
+
+### Observations
+- Majority of functions, **`r closure_argument_count_summary_distribution %>% filter(parameter_count %in% c(1, 2, 3)) %>% pull(relative_function_count) %>% sum()`%**, have one, two or three parameters.
+- A very small number of functions, **`r closure_argument_count_summary_distribution %>% filter(parameter_count == 0) %>% pull(relative_function_count) %>% first()`%**, have zero parameters.
+
+## Closure force order distribution
+
+```{r echo = FALSE, out.width = "1000px"}
+include_graphics(path(visualizations, "closure_force_order_distribution.png"))
+```
+
+```{r echo = FALSE}
+datatable(closure_force_order_distribution_summary)
+```
+
+<!--## Parameter Mode
+
+```{r echo = FALSE, out.width = "1000px"}
+include_graphics(path(visualizations, "parameter_mode_distribution.png"))
+```
+
+```{r echo = FALSE}
+datatable(parameter_mode_distribution_summary)
+```
+-->
+## Argument Mode
+
+```{r echo = FALSE, out.width = "1000px"}
+include_graphics(path(visualizations, "argument_mode_distribution.png"))
+```
+
+```{r echo = FALSE}
+datatable(argument_mode_distribution_summary)
+```
+
+## Argument Class
+
+```{r echo = FALSE, out.width = "1000px"}
+include_graphics(path(visualizations, "argument_class_distribution.png"))
+```
+
+```{r echo = FALSE}
+datatable(argument_class_distribution_summary)
+```
+
+## Argument Use Mode
+
+```{r echo = FALSE, out.width = "1000px"}
+include_graphics(path(visualizations, "argument_use_mode_distribution.png"))
+```
+
+```{r echo = FALSE}
+datatable(argument_use_mode_distribution_summary)
+```
+
+
+
+## Parameter Class
+
+This section discusses function parameter position usage. The parameter of a function in R can be:
+1. looked up for its value
+2. looked up for the argument expression
+3. not looked up
+
+The graph below shows how the parameter positions are distributed across these categories in all calls to functions.
+
+```{r echo=FALSE}
+# datatable(classification_summary)
+```
+
+```{r echo = FALSE, out.width = "1000px"}
+include_graphics(path(visualizations, "parameter_class_distribution.png"))
+```
+
+```{r echo = FALSE}
+datatable(parameter_class_summary_distribution)
+```
+
+## Argument Class
+
+```{r echo = FALSE, out.width = "1000px"}
+include_graphics(path(visualizations, "argument_count_by_mode_class_and_use.png"))
+```
+
+```{r echo = FALSE}
+datatable(argument_use_mode_distribution_summary)
+```
+
+## Function Class
+
+```{r echo = FALSE, out.width = "1000px"}
+include_graphics(path(visualizations, "function_class_distribution.png"))
+```
+
+```{r echo = FALSE, out.width = "1000px"}
+include_graphics(path(visualizations, "function_class_call_distribution.png"))
+```
+
+```{r echo = FALSE}
+datatable(function_class_summary_distribution)
+```
