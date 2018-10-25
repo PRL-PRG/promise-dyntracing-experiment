@@ -22,6 +22,7 @@ PARALLEL_JOB_COUNT := 1
 PARALLEL_JOB_COUNT_FILEPATH := scripts/procfile
 TRACE_TRACING_SCRIPT_FILEPATH := scripts/trace.R
 CORPUS_FILEPATH := scripts/corpus.txt
+DEPENDENCIES_FILEPATH := scripts/dependencies.txt
 
 ################################################################################
 ## tracer arguments
@@ -61,6 +62,9 @@ REPORT_DIRPATH := report
 BROWSER := chromium
 
 export R_KEEP_PKG_SOURCE=1
+export R_ENABLE_JIT=0
+export R_COMPILE_PKGS=0
+export R_DISABLE_BYTECODE=1
 
 define tracer =
 $(R_DYNTRACE) \
@@ -113,7 +117,7 @@ $(shell ps -eo ppid= | grep -Fwc $(1))
 endef
 
 define statistics_table =
-	PACKAGES    VIGNETTES \n\
+	PACKAGES    VIGNETTES \
 	$(call count_dirs,1)    $(call count_dirs,2) \n\
 	ANALYSIS    LOGS    CORPUS \n\
 	$(call dir_size,analysis/raw/)    $(call dir_size,logs)    $(call dir_size,corpus)\n\
@@ -139,22 +143,31 @@ endef
 trace-jit: R_ENABLE_JIT=3
 trace-jit: R_COMPILE_PKGS=1
 trace-jit: R_DISABLE_BYTECODE=0
+trace-jit: R_KEEP_PKG_SOURCE=1
 trace-jit:
 	$(trace)
 
 trace-ast: R_ENABLE_JIT=0
 trace-ast: R_COMPILE_PKGS=0
 trace-ast: R_DISABLE_BYTECODE=1
+trace-ast: R_KEEP_PKG_SOURCE=1
 trace-ast:
 	$(trace)
 
+install-dependencies: R_ENABLE_JIT=0
+install-dependencies: R_COMPILE_PKGS=0
+install-dependencies: R_DISABLE_BYTECODE=1
+install-dependencies: R_KEEP_PKG_SOURCE=1
+install-dependencies:
+	$(R_DYNTRACE) --file=scripts/install-packages.R --args $(DEPENDENCIES_FILEPATH)
 
-install-ast: R_ENABLE_JIT=0
-install-ast: R_COMPILE_PKGS=0
-install-ast: R_DISABLE_BYTECODE=1
-install-ast:
-	$(R_DYNTRACE) --file=scripts/install-dependencies.R
 
+install-corpus: R_ENABLE_JIT=0
+install-corpus: R_COMPILE_PKGS=0
+install-corpus: R_DISABLE_BYTECODE=1
+install-corpus: R_KEEP_PKG_SOURCE=1
+install-corpus:
+	$(R_DYNTRACE) --file=scripts/install-packages.R --args $(CORPUS_FILEPATH)
 
 statistics:
 	@echo "$(call statistics_table, $(LATEST_TRACE_DIRPATH))" | column -t
@@ -162,9 +175,6 @@ statistics:
 corpus:
 	@echo "Updating vignette list in '$(CORPUS_FILEPATH)'"
 	$(R_DYNTRACE) --file=scripts/make-package-list.R --args $(CORPUS_FILEPATH)
-
-install-dependencies:
-	$(R_DYNTRACE) --file=scripts/install-dependencies.R
 
 analyze:
 	mkdir -p $(INPUT_DIR)/output/$(ANALYSIS)/logs/
