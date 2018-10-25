@@ -20,12 +20,10 @@ editor_options:
   padding-right: 15px;
 }
 
-.shiny-frame {
-    height: 550px;
+.datatables {
+    height: 575px !important; 
 }
 </style>
-
-
 
 ```{r echo = FALSE, message = FALSE}
 
@@ -37,77 +35,44 @@ library(dplyr)
 library(magrittr)
 library(rlang)
 library(knitr)
-
+library(png)
+library(grid)
+library(gridExtra)
 ```
 
 ```{r paths, echo = FALSE}
 
 function_definitions_dirpath <- path(params$output_directory, "function-definitions")
-parameter_usage_dirpath <- path(params$output_directory, "parameter-usage")
+parameter_usage_dirpath <- path(params$output_directory, "parameters")
 visualizations <- path(parameter_usage_dirpath, "visualizations")
 summary <- path(parameter_usage_dirpath, "summary")
-
 ```
 
 ```{r datatsets, echo = FALSE}
 import_data_table <- function(name) {
-    write(path(summary, name), "log.txt")
     promisedyntracer::read_data_table(path(summary, name))
 }
 
-closure_force_order_distribution <-
-     import_data_table("closure_force_order_distribution.csv") %>%
-     mutate(force_order = str_replace_all(str_sub(force_order, 2), "\\|", " ~ "))
+show_table <- function(tablename) {
+  datatable(import_data_table(str_c(tablename, "csv", sep = ".")),
+            fillContainer = TRUE,
+            filter = "top")
+}
 
-closure_force_order_distribution_summary <-
-     import_data_table("closure_force_order_distribution_summary.csv")
+show_graph <- function(graphname) {
+    include_graphics(path(visualizations, graphname))
+}
 
-closures <- import_data_table("closures.csv")
+show_graphs <- function(first_graphname, second_graphname) {
+    load_graph <- function(graphname) {
+        grid::rasterGrob(as.raster(readPNG(path(visualizations, graphname))),
+                         interpolate = TRUE)
+    }
+    grid.arrange(load_graph(first_graphname),
+                 load_graph(second_graphname),
+                 ncol = 2)
+}
 
-closure_call_count_summary_distribution <- 
-    import_data_table("closure_call_count_summary_distribution.csv") %>%
-    mutate(relative_function_count = round(relative_function_count * 100, 3))
-
-closure_argument_count_summary_distribution <- 
-    import_data_table("closure_argument_count_summary_distribution.csv") %>%
-    mutate(relative_function_count = round(relative_function_count * 100, 3))
-
-classification_summary <- import_data_table("classification_summary.csv")
-
-parameter_mode_distribution_summary <-
-    import_data_table("parameter_mode_distribution_summary.csv")
-
-argument_mode_distribution_summary <-
-    import_data_table("argument_mode_distribution_summary.csv")
-#
-
-# closure_classification_summary_distribution <- import_data_table("closure_classification_summary_distribution.csv")
-# 
-# position_classification_summary_distribution <- import_data_table("position_classification_summary_distribution.csv")
-# 
-# summary <- import_data_table("summary.csv")
-# 
-
-parameter_force_order_summary <- 
-     import_data_table("closure_force_order_distribution.csv") %>%
-     mutate(force_order = str_replace_all(str_sub(force_order, 2), "\\|", " ~ "))
-
-function_class_summary_distribution <-
-    import_data_table("function_class_summary_distribution.csv") %>%
-    mutate(relative_function_count = round(relative_function_count * 100, 3))
-
-parameter_class_summary_distribution <-
-    import_data_table("parameter_class_summary_distribution.csv") %>%
-    mutate(relative_parameter_count = round(relative_parameter_count * 100, 3))
-
-argument_class_distribution_summary <-
-    import_data_table("argument_class_distribution_summary.csv")
-
-argument_use_mode_distribution_summary <- 
-     import_data_table("argument_use_mode_distribution_summary.csv")
-```
-
-```{r echo=FALSE}
 count_labels <-
   Vectorize(function(x, digits = 2) {
 
@@ -128,154 +93,236 @@ count_labels <-
   },
   "x")
 ```
-
+```{r echo = FALSE}
+unique_closures <- 
+    import_data_table("closures.csv") %>%
+    group_by(function_id) %>%
+    summarize(call_count = first(call_count),
+              formal_parameter_count = first(formal_parameter_count)) %>%
+    mutate(argument_count = call_count * formal_parameter_count)
+```
 This report summarizes the findings on the use of laziness in R.
 
-Data from 23 packages and 41 vignettes.
+Data from 15 packages and 26 vignettes.
 
-* Number of functions: `r count_labels(length(unique(closures$function_id)))` 
-* Number of calls: `r count_labels(sum(closures$call_count))`
-* Number of parameters: `r count_labels(sum(closures$parameter_count))`
-* Number of arguments: `r count_labels(sum(closures$parameter_count * closures$call_count))`
+* Number of functions: `r count_labels(length(unique_closures$function_id))`
 
+* Number of calls: `r count_labels(sum(unique_closures$call_count))`
+
+* Number of parameters: `r count_labels(sum(unique_closures$formal_parameter_count))`
+
+* Number of arguments: `r count_labels(sum(unique_closures$argument_count))`
 
 ## Closures
 
-The table below gives the relevant information for all these functions.
-
-```{r closure_data, echo = FALSE}
-datatable(closure_force_order_distribution) #, width="1000px")
+### Closure Data
+```{r echo = FALSE}
+show_table("closures")
 ```
 
-## Closure call count distribution
+### Closure count by Call count
 
-The following figures show the distribution of the number of calls made to closures.
+The following figure shows the distribution of the number of calls made to closures.
 
-```{r echo = FALSE, out.width = "1000px"}
-include_graphics(path(visualizations, "closure_call_distribution.png"))
+```{r echo = FALSE, out.width="1000px"}
+show_graph("function_count_by_call_count.png")
 ```
 
 ```{r echo = FALSE}
-datatable(closure_call_count_summary_distribution)
+show_table("function_count_by_call_count")
 ```
 
-### Observations
+#### Observations
 
-* Very few functions, **`r closure_call_count_summary_distribution %>% filter(call_count == 1) %>% pull(relative_function_count) %>% first()`%** , are called only once. We can remove these functions from the remaining analyses without affecting the representativity of our results.
+* Very few functions are called only once. We can remove these functions from the remaining analyses without affecting the representativity of our results.
 
-* Majority of functions, **`r closure_call_count_summary_distribution %>% filter(!(call_count %in% c("1", "> 10"))) %>% pull(relative_function_count) %>% sum()`%**, are called more than once.
+* Majority of functions are called more than once.
 
-* **`r closure_call_count_summary_distribution %>% filter(call_count == "> 10") %>% pull(relative_function_count) %>% sum()`%** functions are called more than 10 times.
 
-## Closure parameter count distribution
+### Closure count by Formal Parameter count
 
-The following figures show the distribution of the number of parameters of closures.
+The following figure shows the distribution of the number of parameters of closures.
 
-```{r echo = FALSE, out.width = "1000px"}
-include_graphics(path(visualizations, "closure_parameter_count_distribution.png"))
-```
-
-```{r echo = FALSE}
-datatable(closure_argument_count_summary_distribution)
-```
-
-### Observations
-- Majority of functions, **`r closure_argument_count_summary_distribution %>% filter(parameter_count %in% c(1, 2, 3)) %>% pull(relative_function_count) %>% sum()`%**, have one, two or three parameters.
-- A very small number of functions, **`r closure_argument_count_summary_distribution %>% filter(parameter_count == 0) %>% pull(relative_function_count) %>% first()`%**, have zero parameters.
-
-## Closure force order distribution
-
-```{r echo = FALSE, out.width = "1000px"}
-include_graphics(path(visualizations, "closure_force_order_distribution.png"))
+```{r echo = FALSE, out.width="1000px"}
+show_graph("function_count_by_formal_parameter_count.png")
 ```
 
 ```{r echo = FALSE}
-datatable(closure_force_order_distribution_summary)
+show_table("function_count_by_formal_parameter_count")
 ```
 
-<!--## Parameter Mode
+#### Observations
+- Majority of functions have one, two or three parameters.
+- A very small number of functions have zero parameters.
 
-```{r echo = FALSE, out.width = "1000px"}
-include_graphics(path(visualizations, "parameter_mode_distribution.png"))
+
+## Arguments
+
+### Argument count by Argument Mode
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_count_by_argument_mode.png")
+
+```
+```{r echo = FALSE}
+show_table("argument_count_by_argument_mode")
+```
+
+### Argument count by Argument Use Mode
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_count_by_argument_use_mode.png")
 ```
 
 ```{r echo = FALSE}
-datatable(parameter_mode_distribution_summary)
-```
--->
-## Argument Mode
-
-```{r echo = FALSE, out.width = "1000px"}
-include_graphics(path(visualizations, "argument_mode_distribution.png"))
+show_table("argument_count_by_argument_use_mode")
 ```
 
-```{r echo = FALSE}
-datatable(argument_mode_distribution_summary)
-```
+### Argument count by Argument Use Mode and Argument Mode
 
-## Argument Class
-
-```{r echo = FALSE, out.width = "1000px"}
-include_graphics(path(visualizations, "argument_class_distribution.png"))
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_count_by_argument_use_mode_and_argument_mode.png")
 ```
 
 ```{r echo = FALSE}
-datatable(argument_class_distribution_summary)
+show_table("argument_count_by_argument_use_mode_and_argument_mode")
 ```
 
-## Argument Use Mode
+### Argument count by Argument Mode and Argument Use Mode
 
-```{r echo = FALSE, out.width = "1000px"}
-include_graphics(path(visualizations, "argument_use_mode_distribution.png"))
-```
-
-```{r echo = FALSE}
-datatable(argument_use_mode_distribution_summary)
-```
-
-
-
-## Parameter Class
-
-This section discusses function parameter position usage. The parameter of a function in R can be:
-1. looked up for its value
-2. looked up for the argument expression
-3. not looked up
-
-The graph below shows how the parameter positions are distributed across these categories in all calls to functions.
-
-```{r echo=FALSE}
-# datatable(classification_summary)
-```
-
-```{r echo = FALSE, out.width = "1000px"}
-include_graphics(path(visualizations, "parameter_class_distribution.png"))
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_count_by_argument_mode_and_argument_use_mode.png")
 ```
 
 ```{r echo = FALSE}
-datatable(parameter_class_summary_distribution)
+show_table("argument_count_by_argument_mode_and_argument_use_mode")
 ```
 
-## Argument Class
 
-```{r echo = FALSE, out.width = "1000px"}
-include_graphics(path(visualizations, "argument_count_by_mode_class_and_use.png"))
+## Parameters
+
+### Parameter count by Parameter Mode
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("parameter_count_by_parameter_mode.png")
+```
+```{r echo = FALSE}
+show_table("parameter_count_by_parameter_mode")
+```
+
+### Parameter count by Parameter Class
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("parameter_count_by_parameter_class.png")
 ```
 
 ```{r echo = FALSE}
-datatable(argument_use_mode_distribution_summary)
+show_table("parameter_count_by_parameter_class")
 ```
 
-## Function Class
+### Parameter count by Parameter use Mode
 
-```{r echo = FALSE, out.width = "1000px"}
-include_graphics(path(visualizations, "function_class_distribution.png"))
-```
-
-```{r echo = FALSE, out.width = "1000px"}
-include_graphics(path(visualizations, "function_class_call_distribution.png"))
+```{r echo = FALSE, out.width="1000px"}
+show_graph("parameter_count_by_parameter_use_mode.png")
 ```
 
 ```{r echo = FALSE}
-datatable(function_class_summary_distribution)
+show_table("parameter_count_by_parameter_use_mode")
 ```
+
+### Parameter count by Parameter Class and Parameter Mode
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("parameter_count_by_parameter_class_and_parameter_mode.png")
+```
+```{r echo = FALSE}
+show_table("parameter_count_by_parameter_class_and_parameter_mode")
+```
+
+### Parameter count by Parameter Mode and Parameter Class
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("parameter_count_by_parameter_mode_and_parameter_class.png")
+```
+
+```{r echo = FALSE}
+show_table("parameter_count_by_parameter_mode_and_parameter_class")
+```
+
+### Parameter count by Parameter Class and Parameter Use Mode
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("parameter_count_by_parameter_class_and_parameter_use_mode.png")
+```
+
+```{r echo = FALSE}
+show_table("parameter_count_by_parameter_class_and_parameter_use_mode")
+```
+
+### Parameter count by Parameter Use Mode and Parameter Class
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("parameter_count_by_parameter_use_mode_and_parameter_class.png")
+```
+
+```{r echo = FALSE}
+show_table("parameter_count_by_parameter_use_mode_and_parameter_class")
+```
+
+### Parameter count by Parameter Mode and Parameter Use Mode
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("parameter_count_by_parameter_mode_and_parameter_use_mode.png")
+```
+
+```{r echo = FALSE}
+show_table("parameter_count_by_parameter_mode_and_parameter_use_mode")
+```
+
+### Parameter count by Parameter Use Mode and Parameter Mode
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("parameter_count_by_parameter_use_mode_and_parameter_mode.png")
+```
+
+```{r echo = FALSE}
+show_table("parameter_count_by_parameter_use_mode_and_parameter_mode")
+```
+
+## Arguments and Parameters
+
+### Argument count by Parameter Class, Argument Mode and Argument Use Mode
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_count_by_parameter_class_and_argument_mode_and_argument_use_mode.png")
+```
+
+```{r echo = FALSE}
+show_table("argument_count_by_parameter_class_and_argument_mode_and_argument_use_mode")
+```
+
+## Force Order
+
+### Function count by Wrapper, Force Order Type and Force Order count
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("function_count_by_wrapper_force_order_type_and_force_order_count.png")
+```
+
+```{r echo = FALSE}
+show_table("function_count_by_wrapper_force_order_type_and_force_order_count")
+```
+
+### Function count by Wrapper, Function Class, Force Order Type and Force Order count
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("wrapper_function_count_by_function_class_force_order_type_and_force_order_count.png")
+```
+```{r echo = FALSE, out.width="1000px"}
+show_graph("nonwrapper_function_count_by_function_class_force_order_type_and_force_order_count.png")
+```
+
+```{r echo = FALSE}
+show_table("function_count_by_wrapper_function_class_force_order_type_and_force_order_count")
+```
+
