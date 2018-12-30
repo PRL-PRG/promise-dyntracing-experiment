@@ -82,9 +82,9 @@ main <- function() {
 
     is_github_package <- grepl("/", package_names)
 
-    install_from_github(print(package_names[is_github_package]))
-
     install_from_cran(package_names[!is_github_package])
+
+    install_from_github(print(package_names[is_github_package]))
 }
 
 main()

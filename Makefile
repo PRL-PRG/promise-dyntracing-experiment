@@ -61,6 +61,11 @@ DATA_TABLE_VIEWER_ARGS :=
 REPORT_DIRPATH := report
 BROWSER := chromium
 
+################################################################################
+## lint arguments
+################################################################################
+LINT_FILEPATH := scripts/create-corpus-with-matching-patterns.R
+
 export R_KEEP_PKG_SOURCE=1
 export R_ENABLE_JIT=0
 export R_COMPILE_PKGS=0
@@ -136,7 +141,7 @@ define trace =
 	@if [ -e $(LATEST_TRACE_DIRPATH) ]; then \
 		unlink latest; \
 	fi
-	@ln -s $(TRACE_DIRPATH) latest
+	@ln -fs $(TRACE_DIRPATH) latest
 	-$(parallel) :::: $(CORPUS_FILEPATH) > /dev/null
 endef
 
@@ -188,4 +193,11 @@ report:
 	$(R_DYNTRACE) --slave -e "rmarkdown::render('$(REPORT_DIRPATH)/report.Rmd', output_file='report.html', runtime = 'auto', params = list(output_directory='$(LATEST_TRACE_DIRPATH)/output'))"
 # output_dir='$(REPORT_DIRPATH)/', intermediates_dir='$(REPORT_DIRPATH)/', knit_root_dir='$(REPORT_DIRPATH)/'
 
-.PHONY: trace statistics corpus install-dependencies analyze clean view-data-table report
+lint:
+	$(R_DYNTRACE) --slave -e "lintr::lint('$(LINT_FILEPATH)')"
+
+add-dependents-and-dependencies:
+	$(R_DYNTRACE) --slave --file=scripts/add-dependents-and-dependencies.R --args scripts/delayed-assign-force-force-and-call-packages.csv scripts/corpus-paper.csv --dependents --dependencies
+
+.PHONY: trace statistics corpus install-dependencies analyze clean view-data-table report lint add-dependents-and-dependencies
+

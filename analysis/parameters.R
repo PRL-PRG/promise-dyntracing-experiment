@@ -18,15 +18,17 @@ reduce_analysis <- function(analyses) {
         # filter(parameter_mode != "Unknown") %>%
         group_by(function_id, parameter_position, argument_mode, expression_type, value_type) %>%
         summarize(argument_count = n(),
+                  escape = any(as.logical(escape)),
                   "Force" = sum(as.logical(force_count)),
                   "Lookup" = sum(as.logical(lookup_count) & !as.logical(metaprogram_count)),
                   "Metaprogram" = sum(as.logical(metaprogram_count) & !as.logical(lookup_count)),
                   "Unused" = sum(!as.logical(metaprogram_count) & !as.logical(lookup_count)),
                   "Lookup & Metaprogram" = sum(as.logical(metaprogram_count) & as.logical(lookup_count))) %>%
         ungroup() %>%
-        gather(argument_use_mode, argument_use_count, -function_id,
-               -parameter_position, -argument_mode,
-               -expression_type, -value_type, -argument_count)
+        gather(argument_use_mode, argument_use_count,
+               -function_id, -parameter_position,
+               -argument_mode, -expression_type,
+               -value_type, -argument_count, -escape)
 
     calls_with_missing_arguments <-
         analyses$arguments %>%
@@ -59,8 +61,16 @@ reduce_analysis <- function(analyses) {
                   wrapper = all(call_id %in% wrapper_id)) %>%
         ungroup()
 
-    print(list(parameters = parameters,
-               closures = closures))
+    argument_execution_time <-
+        analyses$arguments %>%
+        filter(force_count | lookup_count | metaprogram_count) %>%
+        group_by(function_id, parameter_position, expression_type, execution_time) %>%
+        summarize(argument_count = 1.0 * n()) %>%
+        ungroup()
+
+    list(parameters = parameters,
+         closures = closures,
+         argument_execution_time = argument_execution_time)
 }
 
 summarize_analyses  <- function(analyses) {
@@ -119,7 +129,25 @@ summarize_analyses  <- function(analyses) {
         str_c(sort(unique(parameter_class)), collapse = " & ")
     }
 
-     closures <-
+    compute_laziness_class <- function(formal_parameter_count, force_order) {
+        force_order_count <- length(force_order)
+        force_order_argument_count =
+            map(str_split(force_order, " \\| "),
+                function(o) {
+                    r <- purrr::discard(o, function(v) v == "")
+                    length(r)
+                })
+        laziness_class = if(all(force_order_count == 1))
+                             "Non Lazy"
+                         else if(all(formal_parameter_count == force_order_argument_count))
+                             "Nontrivially Lazy"
+                         else if(any(formal_parameter_count == force_order_argument_count))
+                             "Maybe Nontrivially Lazy"
+                         else "Trivially Lazy"
+        laziness_class
+    }
+
+    closures <-
         analyses$closures %>%
         group_by(function_id, missing_argument, force_order) %>%
         summarize(function_type = first(function_type),
@@ -132,7 +160,8 @@ summarize_analyses  <- function(analyses) {
         mutate(function_name = str_c(unique(unlist(function_name)), collapse = " "),
                force_order_count = length(unique(force_order)),
                non_missing_force_order_count = length(unique(force_order[!missing_argument])),
-               call_count = sum(force_order_call_count)) %>%
+               call_count = sum(force_order_call_count),
+               laziness_class = compute_laziness_class(formal_parameter_count, force_order)) %>%
         ungroup()
 
     once_called_functions <-
@@ -145,7 +174,9 @@ summarize_analyses  <- function(analyses) {
         analyses$parameters %>%
         group_by(function_id, parameter_position, argument_mode, expression_type, value_type, argument_use_mode) %>%
         summarize(argument_use_count = sum(argument_use_count),
-                  argument_count = sum(argument_count)) %>%
+                  argument_count = sum(argument_count),
+                  escape = any(escape),
+                  source = str_c(unique(str_c(package, vignette, sep = "::")), collapse=" | ")) %>%
         ungroup() %>%
         group_by(function_id, parameter_position) %>%
         mutate(parameter_mode = compute_parameter_mode(argument_mode,
@@ -171,7 +202,29 @@ summarize_analyses  <- function(analyses) {
     closures <-
         closures %>%
         left_join(function_class_table, by = "function_id") %>%
-        mutate(function_class = ifelse(formal_parameter_count == 0, "Zero", function_class))
+        mutate(function_class = ifelse(formal_parameter_count == 0,
+                                       "Zero",
+                                       function_class))
+
+    argument_execution_time_by_parameter_class <-
+        analyses$argument_execution_time %>%
+        left_join(select(parameters, function_id, parameter_position, parameter_class),
+                  by = c("function_id", "parameter_position")) %>%
+        select(parameter_class, expression_type, execution_time, argument_count) %>%
+        group_by(parameter_class, expression_type, execution_time) %>%
+        summarize(argument_count = sum(argument_count)) %>%
+        ungroup() %>%
+        group_by(parameter_class) %>%
+        mutate(relative_argument_count = argument_count / sum(argument_count)) %>%
+        ungroup()
+
+    escaped_arguments <-
+        parameters %>%
+        filter(escape) %>%
+        group_by(function_id, parameter_position) %>%
+        summarize(source = first(source),
+                  count = sum(argument_count)) %>%
+        ungroup()
 
     argument_count_by_argument_mode <-
         parameters_multiply_called_functions %>%
@@ -396,32 +449,60 @@ summarize_analyses  <- function(analyses) {
         mutate(total_function_count = total_function_count) %>%
         mutate(relative_function_count = function_count / total_function_count)
 
-    print(list(closures = closures,
-               once_called_functions = tibble(function_id = once_called_functions),
-               parameters = parameters,
-               parameters_multiply_called_functions = parameters_multiply_called_functions,
-               argument_count_by_argument_mode = argument_count_by_argument_mode,
-               argument_count_by_argument_use_mode = argument_count_by_argument_use_mode,
-               argument_count_by_argument_mode_and_argument_use_mode = argument_count_by_argument_mode_and_argument_use_mode,
-               argument_count_by_argument_use_mode_and_argument_mode = argument_count_by_argument_use_mode_and_argument_mode,
-               parameter_count_by_parameter_mode = parameter_count_by_parameter_mode,
-               parameter_count_by_parameter_use_mode = parameter_count_by_parameter_use_mode,
-               parameter_count_by_parameter_class = parameter_count_by_parameter_class,
-               parameter_count_by_parameter_mode_and_parameter_use_mode = parameter_count_by_parameter_mode_and_parameter_use_mode,
-               parameter_count_by_parameter_use_mode_and_parameter_mode = parameter_count_by_parameter_use_mode_and_parameter_mode,
-               parameter_count_by_parameter_mode_and_parameter_class = parameter_count_by_parameter_mode_and_parameter_class,
-               parameter_count_by_parameter_class_and_parameter_mode = parameter_count_by_parameter_class_and_parameter_mode,
-               parameter_count_by_parameter_use_mode_and_parameter_class = parameter_count_by_parameter_use_mode_and_parameter_class,
-               parameter_count_by_parameter_class_and_parameter_use_mode = parameter_count_by_parameter_class_and_parameter_use_mode,
-               argument_count_by_parameter_class_and_argument_mode_and_argument_use_mode = argument_count_by_parameter_class_and_argument_mode_and_argument_use_mode,
-               function_count_by_call_count = function_count_by_call_count,
-               function_count_by_formal_parameter_count = function_count_by_formal_parameter_count,
-               function_count_by_wrapper_force_order_type_and_force_order_count = function_count_by_wrapper_force_order_type_and_force_order_count,
-               function_count_by_wrapper_function_class_force_order_type_and_force_order_count = function_count_by_wrapper_function_class_force_order_type_and_force_order_count))
+    list(closures = closures,
+         once_called_functions = tibble(function_id = once_called_functions),
+         parameters = parameters,
+         argument_execution_time_by_parameter_class = argument_execution_time_by_parameter_class,
+         escaped_arguments = escaped_arguments,
+         parameters_multiply_called_functions = parameters_multiply_called_functions,
+         argument_count_by_argument_mode = argument_count_by_argument_mode,
+         argument_count_by_argument_use_mode = argument_count_by_argument_use_mode,
+         argument_count_by_argument_mode_and_argument_use_mode = argument_count_by_argument_mode_and_argument_use_mode,
+         argument_count_by_argument_use_mode_and_argument_mode = argument_count_by_argument_use_mode_and_argument_mode,
+         parameter_count_by_parameter_mode = parameter_count_by_parameter_mode,
+         parameter_count_by_parameter_use_mode = parameter_count_by_parameter_use_mode,
+         parameter_count_by_parameter_class = parameter_count_by_parameter_class,
+         parameter_count_by_parameter_mode_and_parameter_use_mode = parameter_count_by_parameter_mode_and_parameter_use_mode,
+         parameter_count_by_parameter_use_mode_and_parameter_mode = parameter_count_by_parameter_use_mode_and_parameter_mode,
+         parameter_count_by_parameter_mode_and_parameter_class = parameter_count_by_parameter_mode_and_parameter_class,
+         parameter_count_by_parameter_class_and_parameter_mode = parameter_count_by_parameter_class_and_parameter_mode,
+         parameter_count_by_parameter_use_mode_and_parameter_class = parameter_count_by_parameter_use_mode_and_parameter_class,
+         parameter_count_by_parameter_class_and_parameter_use_mode = parameter_count_by_parameter_class_and_parameter_use_mode,
+         argument_count_by_parameter_class_and_argument_mode_and_argument_use_mode = argument_count_by_parameter_class_and_argument_mode_and_argument_use_mode,
+         function_count_by_call_count = function_count_by_call_count,
+         function_count_by_formal_parameter_count = function_count_by_formal_parameter_count,
+         function_count_by_wrapper_force_order_type_and_force_order_count = function_count_by_wrapper_force_order_type_and_force_order_count,
+         function_count_by_wrapper_function_class_force_order_type_and_force_order_count = function_count_by_wrapper_function_class_force_order_type_and_force_order_count)
 
 }
 
 visualize_analyses <- function(analyses) {
+
+    argument_execution_time_by_parameter_class_histogram <-
+        analyses$argument_execution_time_by_parameter_class %>%
+        ggplot(aes(execution_time, weight = argument_count,
+                   fill= parameter_class, color = parameter_class)) +
+        geom_histogram(alpha = 0.1, position = "dodge") +
+        facet_wrap(~ expression_type) +
+        xlim(0, 5000) +
+        labs(x = "Execution Time (ns)",
+             y = "Argument Count",
+             title =  "Argument count distribution by execution time and parameter_class") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+    argument_execution_time_by_parameter_class_density <-
+        analyses$argument_execution_time_by_parameter_class %>%
+        ggplot(aes(execution_time, weight = relative_argument_count,
+                   fill = parameter_class, color = parameter_class)) +
+        geom_density(alpha = 0.1) +
+        facet_wrap(~ expression_type) +
+        xlim(0, 5000) +
+        labs(x = "Execution Time (ns)",
+             y = "Argument Density",
+             title =  "Argument density by execution time and parameter_class") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1))
 
     total_argument_count <- first(analyses$argument_count_by_argument_mode$total_argument_count)
     argument_count_by_argument_mode <-
@@ -739,7 +820,9 @@ visualize_analyses <- function(analyses) {
         theme(axis.text.x = element_text(angle = 60, hjust = 1),
               legend.position = "bottom")
 
-    list(argument_count_by_argument_mode = argument_count_by_argument_mode,
+    list(argument_execution_time_by_parameter_class_histogram = argument_execution_time_by_parameter_class_histogram,
+         argument_execution_time_by_parameter_class_density = argument_execution_time_by_parameter_class_density,
+         argument_count_by_argument_mode = argument_count_by_argument_mode,
          argument_count_by_argument_use_mode = argument_count_by_argument_use_mode,
          argument_count_by_argument_mode_and_argument_use_mode = argument_count_by_argument_mode_and_argument_use_mode,
          argument_count_by_argument_use_mode_and_argument_mode = argument_count_by_argument_use_mode_and_argument_mode,
@@ -768,7 +851,7 @@ latex_analyses <- function(analyses) {
 main <- function() {
     analyzer <-
         create_analyzer("Parameter Analysis",
-                        c("calls", "call-graph", "arguments"),
+                        c("calls", "call-graph", "arguments", "function-callers"),
                         reduce_analysis,
                         combine_analyses,
                         summarize_analyses,

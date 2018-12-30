@@ -1,4 +1,3 @@
-
 suppressPackageStartupMessages(library("optparse"))
 suppressPackageStartupMessages(library("dplyr"))
 suppressPackageStartupMessages(library("stringr"))
@@ -6,6 +5,9 @@ suppressPackageStartupMessages(library("compiler"))
 suppressPackageStartupMessages(library("fs"))
 suppressPackageStartupMessages(library("purrr"))
 
+## Timeout is a value in seconds, used by the system2 command.
+## Currently, it is set to 1 hour
+TRACING_RUNTIME_TIMEOUT <- 60 * 60
 
 parse_command_line <- function() {
 
@@ -209,7 +211,8 @@ wrap_vignette <- function(settings, corpus_dirpath) {
 run <- function(settings, wrapped_vignette_filepaths) {
     execute <- Vectorize(function(filepath) {
         system2(command = settings$r_dyntrace,
-                args = str_glue("--file={filepath}"))
+                args = str_glue("--file={filepath}"),
+                timeout = TRACING_RUNTIME_TIMEOUT)
     }, vectorize.args = c("filepath"))
 
     execute(wrapped_vignette_filepaths)
