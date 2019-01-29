@@ -14,78 +14,78 @@ TRACING_RUNTIME_TIMEOUT <- 60 * 60
 
 parse_command_line <- function() {
 
-  option_list <- list(
-    make_option(c("-c", "--command"), action="store", type="character",
-                default="echo", help="Command to execute", metavar="command"),
-    make_option(c("--compile"), action="store_true", default=FALSE,
-                help="compile vignettes before execution [default]", metavar="compile"),
-    make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
-                help="Flag to enable verbose mode.", metavar="verbose"),
-    make_option(c("-t", "--truncate"), action="store_true", default=FALSE,
-                help="Flag to enable overwriting of trace files", metavar="truncate"),
+    option_list <- list(
+        make_option(c("-c", "--command"), action="store", type="character",
+                    default="echo", help="Command to execute", metavar="command"),
+        make_option(c("--compile"), action="store_true", default=FALSE,
+                    help="compile vignettes before execution [default]", metavar="compile"),
+        make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
+                    help="Flag to enable verbose mode.", metavar="verbose"),
+        make_option(c("-t", "--truncate"), action="store_true", default=FALSE,
+                    help="Flag to enable overwriting of trace files", metavar="truncate"),
 
-    make_option(c("--r-dyntrace"), action="store", type="character",
-                help="", metavar="r-dyntrace"),
+        make_option(c("--r-dyntrace"), action="store", type="character",
+                    help="", metavar="r-dyntrace"),
 
-    make_option(c("--corpus-dir"), action="store", type="character",
-                help="", metavar="corpus-dir"),
+        make_option(c("--corpus-dir"), action="store", type="character",
+                    help="", metavar="corpus-dir"),
 
-    make_option(c("--trace-dir"), action="store", type="character",
-                help="Output directory for raw traces", metavar="trace-dir"),
+        make_option(c("--trace-dir"), action="store", type="character",
+                    help="Output directory for raw traces", metavar="trace-dir"),
 
-    make_option(c("--raw-analysis-dir"), action="store", type="character",
-                help="Output directory for raw tracer analysis (*.tdf)", metavar="raw-analysis-dir"),
+        make_option(c("--raw-analysis-dir"), action="store", type="character",
+                    help="Output directory for raw tracer analysis (*.tdf)", metavar="raw-analysis-dir"),
 
-    make_option(c("--enable-trace"), action="store_true", default=FALSE,
-                help="Flag to enable trace files (*.trace) [default].", metavar="enable-trace"),
+        make_option(c("--enable-trace"), action="store_true", default=FALSE,
+                    help="Flag to enable trace files (*.trace) [default].", metavar="enable-trace"),
 
-    make_option(c("--binary"), action="store_true", default = FALSE,
-                help="Output data format", metavar="binary"),
+        make_option(c("--binary"), action="store_true", default = FALSE,
+                    help="Output data format", metavar="binary"),
 
-    make_option(c("--compression-level"), action="store", type="integer", default=1,
-                help="Compression level for ZSTD streaming compression", metavar="compression-level"),
+        make_option(c("--compression-level"), action="store", type="integer", default=1,
+                    help="Compression level for ZSTD streaming compression", metavar="compression-level"),
 
-    make_option(c("--disable-metadata-analysis"), action="store_true", default=FALSE,
-                help="Flag to disable metadata analysis", metavar="metadata-analysis"),
-    make_option(c("--disable-object-count-size-analysis"), action="store_true", default=FALSE,
-                help="Flag to disable object count size analysis", metavar="object-count-size-analysis"),
-    make_option(c("--disable-function-analysis"), action="store_true", default=FALSE,
-                help="Flag to disable function analysis", metavar="function-analysis"),
-    make_option(c("--disable-promise-type-analysis"), action="store_true", default=FALSE,
-                help="Flag to disable promise type analysis", metavar="promise-type-analysis"),
-    make_option(c("--disable-promise-slot-mutation-analysis"), action="store_true", default=FALSE,
-                help="Flag to disable promise slot mutation analysis", metavar="promise-slot-mutation-analysis"),
-    make_option(c("--disable-promise-evaluation-analysis"), action="store_true", default=FALSE,
-                help="Flag to disable promise evaluation analysis", metavar="promise-evaluation-analysis"),
-    make_option(c("--disable-strictness-analysis"), action="store_true", default=FALSE,
-                help="Flag to disable strictness analysis", metavar="strictness-analysis"),
-    make_option(c("--disable-side-effect-analysis"), action="store_true", default=FALSE,
-                help="Flag to disable side effect analysis", metavar="side-effect-analysis")
-  )
+        make_option(c("--disable-metadata-analysis"), action="store_true", default=FALSE,
+                    help="Flag to disable metadata analysis", metavar="metadata-analysis"),
+        make_option(c("--disable-object-count-size-analysis"), action="store_true", default=FALSE,
+                    help="Flag to disable object count size analysis", metavar="object-count-size-analysis"),
+        make_option(c("--disable-function-analysis"), action="store_true", default=FALSE,
+                    help="Flag to disable function analysis", metavar="function-analysis"),
+        make_option(c("--disable-promise-type-analysis"), action="store_true", default=FALSE,
+                    help="Flag to disable promise type analysis", metavar="promise-type-analysis"),
+        make_option(c("--disable-promise-slot-mutation-analysis"), action="store_true", default=FALSE,
+                    help="Flag to disable promise slot mutation analysis", metavar="promise-slot-mutation-analysis"),
+        make_option(c("--disable-promise-evaluation-analysis"), action="store_true", default=FALSE,
+                    help="Flag to disable promise evaluation analysis", metavar="promise-evaluation-analysis"),
+        make_option(c("--disable-strictness-analysis"), action="store_true", default=FALSE,
+                    help="Flag to disable strictness analysis", metavar="strictness-analysis"),
+        make_option(c("--disable-side-effect-analysis"), action="store_true", default=FALSE,
+                    help="Flag to disable side effect analysis", metavar="side-effect-analysis")
+    )
 
-  args <- parse_args(OptionParser(option_list = option_list),
-                     positional_arguments=TRUE)
+    args <- parse_args(OptionParser(option_list = option_list),
+                       positional_arguments=TRUE)
 
-  list(package = args$args[1],
-       compile = args$options$compile,
-       verbose = args$options$verbose,
-       truncate = args$options$truncate,
-       trace = args$options$`enable-trace`,
-       r_dyntrace = path(getwd(), path_tidy(args$options$`r-dyntrace`)),
-       corpus_dir = path(getwd(), path_tidy(args$options$`corpus-dir`)),
-       trace_dir = path(getwd(), path_tidy(args$options$`trace-dir`)),
-       raw_analysis_dir = path(getwd(), path_tidy(args$options$`raw-analysis-dir`)),
-       binary = args$options$binary,
-       compression_level = args$options$`compression-level`,
-       analysis_switch = list(
-         enable_metadata_analysis = !args$options$`disable-metadata-analysis`,
-         enable_object_count_size_analysis = !args$options$`disable-object-count-size-analysis`,
-         enable_function_analysis = !args$options$`disable-function-analysis`,
-         enable_promise_type_analysis = !args$options$`disable-promise-type-analysis`,
-         enable_promise_slot_mutation_analysis = !args$options$`disable-promise-slot-mutation-analysis`,
-         enable_promise_evaluation_analysis = !args$options$`disable-promise-evaluation-analysis`,
-         enable_strictness_analysis = !args$options$`disable-strictness-analysis`,
-         enable_side_effect_analysis = !args$options$`disable-side-effect-analysis`))
+    list(package = args$args[1],
+         compile = args$options$compile,
+         verbose = args$options$verbose,
+         truncate = args$options$truncate,
+         trace = args$options$`enable-trace`,
+         r_dyntrace = path(getwd(), path_tidy(args$options$`r-dyntrace`)),
+         corpus_dir = path(getwd(), path_tidy(args$options$`corpus-dir`)),
+         trace_dir = path(getwd(), path_tidy(args$options$`trace-dir`)),
+         raw_analysis_dir = path(getwd(), path_tidy(args$options$`raw-analysis-dir`)),
+         binary = args$options$binary,
+         compression_level = args$options$`compression-level`,
+         analysis_switch = list(
+             enable_metadata_analysis = !args$options$`disable-metadata-analysis`,
+             enable_object_count_size_analysis = !args$options$`disable-object-count-size-analysis`,
+             enable_function_analysis = !args$options$`disable-function-analysis`,
+             enable_promise_type_analysis = !args$options$`disable-promise-type-analysis`,
+             enable_promise_slot_mutation_analysis = !args$options$`disable-promise-slot-mutation-analysis`,
+             enable_promise_evaluation_analysis = !args$options$`disable-promise-evaluation-analysis`,
+             enable_strictness_analysis = !args$options$`disable-strictness-analysis`,
+             enable_side_effect_analysis = !args$options$`disable-side-effect-analysis`))
 }
 
 
@@ -132,7 +132,7 @@ copy_vignettes <- function(settings) {
             dir_copy(source_paths[2], destination_paths[2])
     }
 
-  "doc"
+    "doc"
 }
 
 copy_tests <- function(settings) {
@@ -248,7 +248,7 @@ wrap_script <- function(settings, script_dirname, script_filename) {
         "library(promisedyntracer)",
         "",
         "dyntrace_promises({{",
-            "{script_code}",
+        "{script_code}",
         "}}",
         ", '{trace_filepath}'",
         ", '{raw_output_dirpath}'",
@@ -292,9 +292,9 @@ run_script <- function(settings, script_filepath) {
 
 run_scripts <- function(settings, script_filepaths) {
     script_filepaths %>%
-    map(function(script_filepath) {
-        run_script(settings, script_filepath)
-    })
+        map(function(script_filepath) {
+            run_script(settings, script_filepath)
+        })
 }
 
 
