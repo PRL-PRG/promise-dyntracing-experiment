@@ -4,6 +4,9 @@ suppressPackageStartupMessages(library("stringr"))
 suppressPackageStartupMessages(library("compiler"))
 suppressPackageStartupMessages(library("fs"))
 suppressPackageStartupMessages(library("purrr"))
+suppressPackageStartupMessages(library("readr"))
+suppressPackageStartupMessages(library("magrittr"))
+
 
 ## Timeout is a value in seconds, used by the system2 command.
 ## Currently, it is set to 1 hour
@@ -85,7 +88,29 @@ parse_command_line <- function() {
          enable_side_effect_analysis = !args$options$`disable-side-effect-analysis`))
 }
 
+
+build_vignettes <- function(settings) {
+
+    vignettes <- tools::pkgVignettes(settings$package, source=T)
+
+    ## if there are vignettes and there are no vignette sources,
+    ## then compile the vignettes to sources. This compilation
+    ## will result in .R files in the doc directory of package
+    ## and will be picked up by the next step of the program
+    if (length(vignettes$docs) != 0 &&
+        length(vignettes$sources) == 0) {
+
+        tools::checkVignettes(settings$package,
+                              find.package(settings$package)[1],
+                              tangle = TRUE,
+                              weave = FALSE,
+                              workdir = "src")
+    }
+}
+
 copy_vignettes <- function(settings) {
+
+    build_vignettes(settings)
 
     destination_paths <- path(settings$corpus_dir,
                               settings$package,
@@ -96,6 +121,7 @@ copy_vignettes <- function(settings) {
     if(nrow(vignettes) == 0) {
         dir_create(destination_paths)
     }
+
     else {
         source_paths <- path(vignettes[1, "LibPath"],
                              vignettes[1, "Package"],
@@ -106,135 +132,193 @@ copy_vignettes <- function(settings) {
             dir_copy(source_paths[2], destination_paths[2])
     }
 
-  destination_paths[1]
-  ## WARN - Ideally, this should only be a list of size 1
-  ##        A list of size greater than 1 implies the package
-  ##        has multiple installation locations or has its
-  ##        vignettes split up across multiple directories.
-  ##        This seems unreasonable.
-
-  ## source_doc_paths <- path(package_paths, "doc")
-  ## source_data_paths <- path(package_paths, "data")
-
-  ## destination_package_path <- path(settings$vignette_dir, package)
-  ## destination_doc_path <- path(destination_package_path, "doc")
-  ## destination_data_path <- path(destination_package_path, "data")
-
-  ## dir_copy(source_data_paths, destination_data_path)
-  ## dir_copy(source_doc_paths, destination_doc_path)
+  "doc"
 }
 
-wrap_vignette <- function(settings, corpus_dirpath) {
+copy_tests <- function(settings) {
+    destination_path <- path(settings$corpus_dir, settings$package, "tests")
 
-    indent <- function(lines, spaces = 4) {
-        indentation <- paste0(rep(" ", spaces), collapse = "")
-        ifelse(lines == "",
-               "",
-               paste0(indentation, lines))
+    source_path <- path(find.package(settings$package), "tests")
+
+    if(!dir_exists(source_path)) {
+        dir_create(destination_path)
+    } else {
+        dir_copy(source_path, destination_path)
     }
 
-    list_to_string <- function(analysis_switch) {
-        ns <- names(analysis_switch)
-        vs <- unlist(analysis_switch)
-        spaces <- paste0(",\n", paste0(rep(" ", 34), collapse=""))
-        paste0("list(", paste(ns, vs, sep="=", collapse=spaces), ")")
-    }
-
-
-    vignette_items <- vignette(package=settings$package)$results[,"Item"]
-
-    if(length(vignette_items) == 0)
-        return(c())
-
-    vignette_filenames <- str_c(vignette_items, ".R")
-
-
-    wrapper <- function(vignette_filename) {
-
-        vignette_filepath <- path(corpus_dirpath, vignette_filename)
-
-        wrapped_vignette_filepath <- path(corpus_dirpath,
-                                          str_c("__wrapped__",
-                                                vignette_filename))
-
-        vignette_code <- str_c(indent(readLines(vignette_filepath), 4),
-                               collapse = "\n")
-
-        raw_analysis_dirpath <- path(settings$raw_analysis_dir,
-                                     settings$package,
-                                     path_ext_remove(vignette_filename))
-
-        dir_create(raw_analysis_dirpath)
-
-        function_dirpath <- path(raw_analysis_dirpath, "functions")
-
-        dir_create(function_dirpath)
-
-        analysis_switch <- list_to_string(settings$analysis_switch)
-
-        trace_dirpath <- path(settings$trace_dir, "lazy", settings$package)
-
-        dir_create(trace_dirpath, recursive = TRUE)
-
-        trace_filepath <- path(trace_dirpath,
-                               str_c(path_ext_remove(vignette_filename), ".trace"))
-
-        wrapped_code <- str_glue(
-            "setwd('{corpus_dirpath}')",
-            "library(promisedyntracer)",
-            "",
-            "dyntrace_promises({{",
-            "{vignette_code}",
-            "}}",
-            ", '{trace_filepath}'",
-            ", '{raw_analysis_dirpath}'",
-            ", verbose = {settings$verbose}",
-            ", enable_trace = {settings$trace}",
-            ", truncate = {settings$truncate}",
-            ", binary = {settings$binary}",
-            ", compression_level = {settings$compression_level}",
-            ", analysis_switch = list2env({analysis_switch}))",
-            .sep = "\n")
-
-        writeLines(wrapped_code, con = wrapped_vignette_filepath)
-
-        tibble(filepath = wrapped_vignette_filepath,
-               raw_analysis_dirpath = raw_analysis_dirpath)
-
-    }
-
-    bind_rows(map(vignette_filenames, wrapper))
-
+    "tests"
 }
 
 
-run <- function(settings, wrapped_vignette_filepaths) {
-    execute <- Vectorize(function(filepath) {
-        system2(command = settings$r_dyntrace,
-                args = str_glue("--file={filepath}"),
-                timeout = TRACING_RUNTIME_TIMEOUT)
-    }, vectorize.args = c("filepath"))
+copy_examples <- function(settings) {
+    destination_path <- path(settings$corpus_dir,
+                             settings$package,
+                             "examples")
 
-    execute(wrapped_vignette_filepaths)
-    wrapped_vignette_filepaths
+    dir_create(destination_path)
+
+    db <- tryCatch({
+        tools::Rd_db(settings$package)
+    }, error=function(e) {
+        print(e)
+        list()
+    })
+
+    iwalk(db, function(rd_data, rd_name) {
+
+        example_filepath <-
+            destination_path %>%
+            path(path_file(rd_name)) %>%
+            path_ext_set("R")
+
+        tools::Rd2ex(rd_data, example_filepath, defines=NULL)
+
+        if(file_exists(example_filepath)) {
+
+            new_content <-
+                str_c(str_glue("library({settings$package})"),
+                      "",
+                      read_file(example_filepath),
+                      sep = "\n")
+
+            write_file(new_content,
+                       example_filepath)
+        }
+    })
+
+    "examples"
 }
 
-compress <- function(settings, raw_analysis_dirpaths) {
-    walk(raw_analysis_dirpaths,
-         . %>%
-         dir_walk(function(filepath) {
-                      if(path_ext(filepath) == "csv") gzip(filepath)
-                  }))
+
+indent <- function(lines, spaces = 4) {
+    indentation <- paste0(rep(" ", spaces), collapse = "")
+    ifelse(lines == "",
+           "",
+           paste0(indentation, lines))
 }
+
+
+list_to_string <- function(lst) {
+    ns <- names(lst)
+    vs <- unlist(lst)
+    spaces <- paste0(",\n", paste0(rep(" ", 34), collapse=""))
+    paste0("list(", paste(ns, vs, sep="=", collapse=spaces), ")")
+}
+
+
+wrap_script <- function(settings, script_dirname, script_filename) {
+
+    script_dirpath <- path(settings$corpus_dir,
+                           settings$package,
+                           script_dirname)
+
+    script_filepath <- path(script_dirpath, script_filename)
+
+    wrapped_script_filepath <- path(script_dirpath,
+                                    str_c("__wrapped__",
+                                          script_filename))
+
+    script_code <- str_c(indent(readLines(script_filepath), 4),
+                         collapse = "\n")
+
+
+    raw_output_dirpath <- path(settings$raw_analysis_dir,
+                               settings$package,
+                               script_dirname,
+                               path_ext_remove(script_filename))
+
+
+    dir_create(raw_output_dirpath)
+
+    function_dirpath <- path(raw_output_dirpath, "functions")
+
+    dir_create(function_dirpath)
+
+    analysis_switch <- list_to_string(settings$analysis_switch)
+
+    trace_dirpath <- path(settings$trace_dir, "lazy-traces", settings$package)
+
+    dir_create(trace_dirpath, recursive = TRUE)
+
+    trace_filepath <- path(trace_dirpath,
+                           str_c(path_ext_remove(script_filename), ".trace"))
+
+    wrapped_code <- str_glue(
+        "setwd('{script_dirpath}')",
+        "library(promisedyntracer)",
+        "",
+        "dyntrace_promises({{",
+            "{script_code}",
+        "}}",
+        ", '{trace_filepath}'",
+        ", '{raw_output_dirpath}'",
+        ", verbose = {settings$verbose}",
+        ", enable_trace = {settings$trace}",
+        ", truncate = {settings$truncate}",
+        ", binary = {settings$binary}",
+        ", compression_level = {settings$compression_level}",
+        ", analysis_switch = list2env({analysis_switch}))",
+        .sep = "\n")
+
+    writeLines(wrapped_code, con = wrapped_script_filepath)
+
+    tibble(filepath = wrapped_script_filepath,
+           raw_analysis_dirpath = raw_output_dirpath)
+}
+
+wrap_scripts <- function(settings, script_dirname) {
+
+
+    path(settings$corpus_dir, settings$package, script_dirname) %>%
+        dir_ls(type = "file", glob = "*.R") %>%
+        path_file() %>%
+        map_dfr(
+            function(script_filename) {
+                wrap_script(settings, script_dirname, script_filename)
+            }
+        )
+}
+
+run_script <- function(settings, script_filepath) {
+
+    cat("Executing ", script_filepath, "\n")
+
+    system2(command = settings$r_dyntrace,
+            args = str_c("--file=", script_filepath),
+            timeout = TRACING_RUNTIME_TIMEOUT)
+
+    script_filepath
+}
+
+run_scripts <- function(settings, script_filepaths) {
+    script_filepaths %>%
+    map(function(script_filepath) {
+        run_script(settings, script_filepath)
+    })
+}
+
 
 main <- function() {
+
     settings <- parse_command_line()
+
     print(settings)
-                                        #run_vignette(settings,
-    corpus_dirpath <- copy_vignettes(settings)
-    wrapped_vignettes <- wrap_vignette(settings, corpus_dirpath)
-    run(settings, wrapped_vignettes$filepath)
-    #compress(settings, wrapped_vignettes$raw_analysis_dirpath)
+
+    ## copy scripts
+    vignette_dirname <- copy_vignettes(settings)
+    example_dirname <- copy_examples(settings)
+    test_dirname <- copy_tests(settings)
+
+    ## wrap scripts
+    wrapped_vignettes <- wrap_scripts(settings, vignette_dirname)
+    wrapped_examples <- wrap_scripts(settings, example_dirname)
+    wrapped_tests <- wrap_scripts(settings, test_dirname)
+
+    ## run scripts
+    run_scripts(settings, wrapped_vignettes$filepath)
+    run_scripts(settings, wrapped_examples$filepath)
+    run_scripts(settings, wrapped_tests$filepath)
+
 }
 
 main()
