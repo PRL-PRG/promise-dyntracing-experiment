@@ -42,6 +42,8 @@ ANALYSIS_SWITCH :=
 BINARY := --binary
 COMPRESSION_LEVEL := 0
 TRUNCATE := --truncate
+## timeout value in seconds
+TRACING_TIMEOUT := 3600
 ENABLE_TRACE :=
 ## to enable verbose mode, use the flag: --verbose
 VERBOSE :=
@@ -84,9 +86,10 @@ $(R_DYNTRACE) \
     --file=$(TRACE_TRACING_SCRIPT_FILEPATH) \
     --args \
     --r-dyntrace=$(R_DYNTRACE) \
-    --corpus-dir=$(TRACE_CORPUS_DIRPATH) \
-    --raw-analysis-dir=$(TRACE_ANALYSIS_RAW_DIRPATH) \
-    --trace-dir=$(TRACE_ANALYSIS_TRACES_DIRPATH) \
+	  --tracing-timeout=$(TRACING_TIMEOUT) \
+    --corpus-dirpath=$(TRACE_CORPUS_DIRPATH) \
+    --raw-analysis-dirpath=$(TRACE_ANALYSIS_RAW_DIRPATH) \
+    --trace-dirpath=$(TRACE_ANALYSIS_TRACES_DIRPATH) \
     $(ENABLE_TRACE)	\
     $(BINARY) \
     --compression-level=$(COMPRESSION_LEVEL) \

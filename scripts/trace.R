@@ -8,73 +8,141 @@ suppressPackageStartupMessages(library("readr"))
 suppressPackageStartupMessages(library("magrittr"))
 
 
-## Timeout is a value in seconds, used by the system2 command.
-## Currently, it is set to 1 hour
-TRACING_RUNTIME_TIMEOUT <- 60 * 60
-
 parse_command_line <- function() {
 
     option_list <- list(
-        make_option(c("-c", "--command"), action="store", type="character",
-                    default="echo", help="Command to execute", metavar="command"),
-        make_option(c("--compile"), action="store_true", default=FALSE,
-                    help="compile vignettes before execution [default]", metavar="compile"),
-        make_option(c("-v", "--verbose"), action="store_true", default=FALSE,
-                    help="Flag to enable verbose mode.", metavar="verbose"),
-        make_option(c("-t", "--truncate"), action="store_true", default=FALSE,
-                    help="Flag to enable overwriting of trace files", metavar="truncate"),
 
-        make_option(c("--r-dyntrace"), action="store", type="character",
-                    help="", metavar="r-dyntrace"),
+        make_option(c("--tracing-timeout"),
+                    action = "store",
+                    type = "integer",
+                    default = 60 * 60,
+                    help="Timeout for tracing a script",
+                    metavar="tracing-timeout"),
 
-        make_option(c("--corpus-dir"), action="store", type="character",
-                    help="", metavar="corpus-dir"),
+        make_option(c("--compile"),
+                    action="store_true",
+                    default=FALSE,
+                    help="compile vignettes before execution [default]",
+                    metavar="compile"),
 
-        make_option(c("--trace-dir"), action="store", type="character",
-                    help="Output directory for raw traces", metavar="trace-dir"),
+        make_option(c("--verbose"),
+                    action="store_true",
+                    default=FALSE,
+                    help="Flag to enable verbose mode.",
+                    metavar="verbose"),
 
-        make_option(c("--raw-analysis-dir"), action="store", type="character",
-                    help="Output directory for raw tracer analysis (*.tdf)", metavar="raw-analysis-dir"),
+        make_option(c("--truncate"),
+                    action="store_true",
+                    default=FALSE,
+                    help="Flag to enable overwriting of trace files",
+                    metavar="truncate"),
 
-        make_option(c("--enable-trace"), action="store_true", default=FALSE,
-                    help="Flag to enable trace files (*.trace) [default].", metavar="enable-trace"),
+        make_option(c("--r-dyntrace"),
+                    action="store",
+                    type="character",
+                    help="",
+                    metavar="r-dyntrace"),
 
-        make_option(c("--binary"), action="store_true", default = FALSE,
-                    help="Output data format", metavar="binary"),
+        make_option(c("--corpus-dirpath"),
+                    action="store",
+                    type="character",
+                    help="",
+                    metavar="corpus-dirpath"),
 
-        make_option(c("--compression-level"), action="store", type="integer", default=1,
-                    help="Compression level for ZSTD streaming compression", metavar="compression-level"),
+        make_option(c("--trace-dirpath"),
+                    action="store",
+                    type="character",
+                    help="Output directory for raw traces",
+                    metavar="trace-dirpath"),
 
-        make_option(c("--disable-metadata-analysis"), action="store_true", default=FALSE,
-                    help="Flag to disable metadata analysis", metavar="metadata-analysis"),
-        make_option(c("--disable-object-count-size-analysis"), action="store_true", default=FALSE,
-                    help="Flag to disable object count size analysis", metavar="object-count-size-analysis"),
-        make_option(c("--disable-function-analysis"), action="store_true", default=FALSE,
-                    help="Flag to disable function analysis", metavar="function-analysis"),
-        make_option(c("--disable-promise-type-analysis"), action="store_true", default=FALSE,
-                    help="Flag to disable promise type analysis", metavar="promise-type-analysis"),
-        make_option(c("--disable-promise-slot-mutation-analysis"), action="store_true", default=FALSE,
-                    help="Flag to disable promise slot mutation analysis", metavar="promise-slot-mutation-analysis"),
-        make_option(c("--disable-promise-evaluation-analysis"), action="store_true", default=FALSE,
-                    help="Flag to disable promise evaluation analysis", metavar="promise-evaluation-analysis"),
-        make_option(c("--disable-strictness-analysis"), action="store_true", default=FALSE,
-                    help="Flag to disable strictness analysis", metavar="strictness-analysis"),
-        make_option(c("--disable-side-effect-analysis"), action="store_true", default=FALSE,
-                    help="Flag to disable side effect analysis", metavar="side-effect-analysis")
+        make_option(c("--raw-analysis-dirpath"),
+                    action="store",
+                    type="character",
+                    help="Output directory for raw tracer analysis (*.tdf)",
+                    metavar="raw-analysis-dirpath"),
+
+        make_option(c("--enable-trace"),
+                    action="store_true",
+                    default=FALSE,
+                    help="Flag to enable trace files (*.trace) [default].",
+                    metavar="enable-trace"),
+
+        make_option(c("--binary"),
+                    action="store_true",
+                    default = FALSE,
+                    help="Output data format",
+                    metavar="binary"),
+
+        make_option(c("--compression-level"),
+                    action="store",
+                    type="integer",
+                    default=1,
+                    help="Compression level for ZSTD streaming compression",
+                    metavar="compression-level"),
+
+        make_option(c("--disable-metadata-analysis"),
+                    action="store_true",
+                    default=FALSE,
+                    help="Flag to disable metadata analysis",
+                    metavar="metadata-analysis"),
+
+        make_option(c("--disable-object-count-size-analysis"),
+                    action="store_true",
+                    default=FALSE,
+                    help="Flag to disable object count size analysis",
+                    metavar="object-count-size-analysis"),
+
+        make_option(c("--disable-function-analysis"),
+                    action="store_true",
+                    default=FALSE,
+
+                    help="Flag to disable function analysis",
+                    metavar="function-analysis"),
+
+        make_option(c("--disable-promise-type-analysis"),
+                    action="store_true",
+                    default=FALSE,
+                    help="Flag to disable promise type analysis",
+                    metavar="promise-type-analysis"),
+
+        make_option(c("--disable-promise-slot-mutation-analysis"),
+                    action="store_true",
+                    default=FALSE,
+                    help="Flag to disable promise slot mutation analysis",
+                    metavar="promise-slot-mutation-analysis"),
+
+        make_option(c("--disable-promise-evaluation-analysis"),
+                    action="store_true",
+                    default=FALSE,
+                    help="Flag to disable promise evaluation analysis",
+                    metavar="promise-evaluation-analysis"),
+
+        make_option(c("--disable-strictness-analysis"),
+                    action="store_true",
+                    default=FALSE,
+                    help="Flag to disable strictness analysis",
+                    metavar="strictness-analysis"),
+
+        make_option(c("--disable-side-effect-analysis"),
+                    action="store_true",
+                    default=FALSE,
+                    help="Flag to disable side effect analysis",
+                    metavar="side-effect-analysis")
     )
 
     args <- parse_args(OptionParser(option_list = option_list),
                        positional_arguments=TRUE)
 
     list(package = args$args[1],
+         tracing_timeout = args$options$`tracing-timeout`,
          compile = args$options$compile,
          verbose = args$options$verbose,
          truncate = args$options$truncate,
          trace = args$options$`enable-trace`,
          r_dyntrace = path(getwd(), path_tidy(args$options$`r-dyntrace`)),
-         corpus_dir = path(getwd(), path_tidy(args$options$`corpus-dir`)),
-         trace_dir = path(getwd(), path_tidy(args$options$`trace-dir`)),
-         raw_analysis_dir = path(getwd(), path_tidy(args$options$`raw-analysis-dir`)),
+         corpus_dirpath = path(getwd(), path_tidy(args$options$`corpus-dirpath`)),
+         trace_dirpath = path(getwd(), path_tidy(args$options$`trace-dirpath`)),
+         raw_analysis_dirpath = path(getwd(), path_tidy(args$options$`raw-analysis-dirpath`)),
          binary = args$options$binary,
          compression_level = args$options$`compression-level`,
          analysis_switch = list(
@@ -112,7 +180,7 @@ copy_vignettes <- function(settings) {
 
     build_vignettes(settings)
 
-    destination_paths <- path(settings$corpus_dir,
+    destination_paths <- path(settings$corpus_dirpath,
                               settings$package,
                               c("doc", "data"))
 
@@ -136,7 +204,7 @@ copy_vignettes <- function(settings) {
 }
 
 copy_tests <- function(settings) {
-    destination_path <- path(settings$corpus_dir, settings$package, "tests")
+    destination_path <- path(settings$corpus_dirpath, settings$package, "tests")
 
     source_path <- path(find.package(settings$package), "tests")
 
@@ -151,7 +219,7 @@ copy_tests <- function(settings) {
 
 
 copy_examples <- function(settings) {
-    destination_path <- path(settings$corpus_dir,
+    destination_path <- path(settings$corpus_dirpath,
                              settings$package,
                              "examples")
 
@@ -208,7 +276,7 @@ list_to_string <- function(lst) {
 
 wrap_script <- function(settings, script_dirname, script_filename) {
 
-    script_dirpath <- path(settings$corpus_dir,
+    script_dirpath <- path(settings$corpus_dirpath,
                            settings$package,
                            script_dirname)
 
@@ -222,7 +290,7 @@ wrap_script <- function(settings, script_dirname, script_filename) {
                          collapse = "\n")
 
 
-    raw_output_dirpath <- path(settings$raw_analysis_dir,
+    raw_output_dirpath <- path(settings$raw_analysis_dirpath,
                                settings$package,
                                script_dirname,
                                path_ext_remove(script_filename))
@@ -236,7 +304,7 @@ wrap_script <- function(settings, script_dirname, script_filename) {
 
     analysis_switch <- list_to_string(settings$analysis_switch)
 
-    trace_dirpath <- path(settings$trace_dir, "lazy-traces", settings$package)
+    trace_dirpath <- path(settings$trace_dirpath, "lazy-traces", settings$package)
 
     dir_create(trace_dirpath, recursive = TRUE)
 
@@ -269,7 +337,7 @@ wrap_script <- function(settings, script_dirname, script_filename) {
 wrap_scripts <- function(settings, script_dirname) {
 
 
-    path(settings$corpus_dir, settings$package, script_dirname) %>%
+    path(settings$corpus_dirpath, settings$package, script_dirname) %>%
         dir_ls(type = "file", glob = "*.R") %>%
         path_file() %>%
         map_dfr(
@@ -285,7 +353,7 @@ run_script <- function(settings, script_filepath) {
 
     system2(command = settings$r_dyntrace,
             args = str_c("--file=", script_filepath),
-            timeout = TRACING_RUNTIME_TIMEOUT)
+            timeout = settings$tracing_timeout)
 
     script_filepath
 }
