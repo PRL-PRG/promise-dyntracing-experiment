@@ -48,6 +48,7 @@ ENABLE_TRACE :=
 ## to enable verbose mode, use the flag: --verbose
 VERBOSE :=
 
+TRACE_ANALYSIS_SCRIPT_TYPE := --vignettes --examples --tests
 ################################################################################
 ## analysis arguments
 ################################################################################
@@ -230,4 +231,5 @@ reduce-analysis:
 	         --args \
 	         $(TRACE_ANALYSIS_RAW_DIRPATH)/{1} \
 	         $(TRACE_ANALYSIS_REDUCED_DIRPATH)/{1} \
+	         $(TRACE_ANALYSIS_SCRIPT_TYPE) \
 	         ::: $(shell cd $(TRACE_ANALYSIS_RAW_DIRPATH) && ls -d */) > /dev/null

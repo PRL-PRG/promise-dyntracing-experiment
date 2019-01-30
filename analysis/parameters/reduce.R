@@ -85,22 +85,25 @@ reduce_analysis <- function(analyses) {
 }
 
 
-reduce_raw_analysis_data <- function(settings, vignette_table) {
+reduce_raw_analysis_data <- function(settings, script_table) {
 
     reduce_raw_analysis_datum <-
-        function(package, vignette, dirpath, valid, raw_analysis_filename) {
+        function(package, script_type, scriptname, dirpath,
+                 raw_data_dirpath, valid, raw_analysis_filename) {
 
-            info("=> Reducing ", vignette, " from ", package, "\n")
+            info("=> Reducing ", scriptname, " from ", package, "\n")
             raw_analysis_filename <- raw_analysis_filename[[1]]
             reduced_analysis_dirpath <- path(settings$output_dirpath,
-                                             vignette)
+                                             script_type,
+                                             scriptname)
             dir_create(reduced_analysis_dirpath)
 
             output_filepaths <-
                 path(settings$input_dirpath,
-                 vignette,
-                 raw_analysis_filename,
-                 ext = "csv") %>%
+                     script_type,
+                     scriptname,
+                     raw_analysis_filename,
+                     ext = "csv") %>%
                 map(promisedyntracer::read_data_table) %>%
                 setNames(path_ext_remove(raw_analysis_filename)) %>%
                 reduce_analysis() %>%
@@ -116,12 +119,12 @@ reduce_raw_analysis_data <- function(settings, vignette_table) {
                     filepath
                 })
 
-            info("=> Reduced ", vignette, " from ", package, "\n")
+            info("=> Reduced ", scriptname, " from ", package, "\n")
 
             output_filepaths
         }
 
-    vignette_table %>%
+    script_table %>%
         filter(valid) %>%
         pmap(reduce_raw_analysis_datum)
 }
@@ -129,26 +132,29 @@ reduce_raw_analysis_data <- function(settings, vignette_table) {
 
 scan_input_dirpath <- function(settings, table_names) {
 
-    vignette_is_valid <- function(vignette_dirpath) {
-        all(file_exists(path(vignette_dirpath, c("NOERROR", "FINISH"))))
+    script_is_valid <- function(script_dirpath) {
+        all(file_exists(path(script_dirpath, c("NOERROR", "FINISH"))))
     }
 
     info("=> Scanning for raw data files in ", settings$input_dirpath, "\n")
 
-    vignette_dirpaths <-
+    script_dirpaths <-
         settings$input_dirpath %>%
+        path(settings$script_type) %>%
+        purrr::keep(dir_exists) %>%
         dir_ls(type = "directory")
 
-    vignette_table <-
+    script_table <-
         tibble(package = path_file(settings$input_dirpath),
-               vignette = path_file(vignette_dirpaths),
-               dirpath = vignette_dirpaths,
-               valid = map_lgl(vignette_dirpaths, vignette_is_valid),
+               script_type = path_file(path_dir(script_dirpaths)),
+               scriptname = path_file(script_dirpaths),
+               dirpath = script_dirpaths,
+               valid = map_lgl(script_dirpaths, script_is_valid),
                raw_analysis_filename = list(list(table_names)))
 
-    info("=> Found ", nrow(vignette_table), " vignettes\n")
+    info("=> Found ", nrow(script_table), " scripts\n")
 
-    vignette_table
+    script_table
 }
 
 
@@ -161,15 +167,44 @@ parse_program_arguments <- function() {
         "reduce-package-analysis-dir    directory to which reduced data will be exported",
         sep = "\n")
 
+
+    option_list <- list(
+        make_option(c("--vignettes"),
+                    action="store_true",
+                    default=FALSE,
+                    help="reduce raw data from vignettes",
+                    metavar="vignettes"),
+
+        make_option(c("--examples"),
+                    action="store_true",
+                    default=FALSE,
+                    help="reduce raw data from examples",
+                    metavar="examples"),
+
+        make_option(c("--tests"),
+                    action="store_true",
+                    default=FALSE,
+                    help="reduce raw data from tests",
+                    metavar="tests")
+    )
+
+
     option_parser <- OptionParser(usage = usage,
                                   description = description,
                                   add_help_option = TRUE,
-                                  option_list = list())
+                                  option_list = option_list)
 
     arguments <- parse_args2(option_parser)
 
+    script_type <- c()
+
+    if(arguments$options$vignettes) script_type <- c("doc", script_type)
+    if(arguments$options$examples) script_type <- c("examples", script_type)
+    if(arguments$options$tests) script_type <- c("tests", script_type)
+
     list(input_dirpath = arguments$args[1],
-         output_dirpath = arguments$args[2])
+         output_dirpath = arguments$args[2],
+         script_type = script_type)
 }
 
 
@@ -178,8 +213,8 @@ main <- function() {
     settings <- parse_program_arguments()
     print(settings)
     table_names <- c("calls", "call-graph", "arguments", "function-callers")
-    vignette_table <- scan_input_dirpath(settings, table_names)
-    reduce_raw_analysis_data(settings, vignette_table)
+    script_table <- scan_input_dirpath(settings, table_names)
+    reduce_raw_analysis_data(settings, script_table)
 }
 
 
