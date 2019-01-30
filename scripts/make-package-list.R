@@ -8,12 +8,6 @@ main <- function() {
 
     packages <- installed.packages(lib.loc = .libPaths())[, "Package"]
 
-    packages <- Filter(
-        function(package) {
-            nrow(vignette(package = package)$results) != 0
-        },
-        packages)
-
     write.table(packages, filepath, sep = ",", quote = FALSE,
                 row.names = FALSE, col.names = FALSE);
 }
