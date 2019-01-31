@@ -8,6 +8,7 @@
 ##also add force_order_count field to the main function table.
 
 options(error = quote({dump.frames(to.file=FALSE); q();}))
+options(tibble.width = Inf)
 
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(optparse))
@@ -68,9 +69,10 @@ reduce_analysis <- function(analyses) {
         summarize(force_order_call_count = n(),
                   function_type = first(function_type),
                   formal_parameter_count = first(formal_parameter_count),
-                  function_name = list(unique(function_name)),
+                  function_name = str_c(unique(function_name), collapse = " | "),
                   wrapper = all(call_id %in% wrapper_id)) %>%
         ungroup()
+
 
     argument_execution_time <-
         analyses$arguments %>%
@@ -198,9 +200,13 @@ parse_program_arguments <- function() {
 
     script_type <- c()
 
-    if(arguments$options$vignettes) script_type <- c("doc", script_type)
-    if(arguments$options$examples) script_type <- c("examples", script_type)
-    if(arguments$options$tests) script_type <- c("tests", script_type)
+    if(arguments$options$vignettes) script_type <- c(script_type, "doc")
+    if(arguments$options$examples) script_type <- c(script_type, "examples")
+    if(arguments$options$tests) script_type <- c(script_type, "tests")
+
+    if(length(script_type) == 0) {
+        stop("script type not specified (--vignettes, --examples, --tests)")
+    }
 
     list(input_dirpath = arguments$args[1],
          output_dirpath = arguments$args[2],
@@ -209,7 +215,6 @@ parse_program_arguments <- function() {
 
 
 main <- function() {
-
     settings <- parse_program_arguments()
     print(settings)
     table_names <- c("calls", "call-graph", "arguments", "function-callers")
