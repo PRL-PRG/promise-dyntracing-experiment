@@ -12,14 +12,17 @@ LATEST_TRACE_DIRPATH := $(shell readlink -f latest)
 TRACE_ANALYSIS_DIRPATH := $(TRACE_DIRPATH)/analysis
 TRACE_ANALYSIS_RAW_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/raw
 TRACE_ANALYSIS_REDUCED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/reduced
+TRACE_ANALYSIS_COMBINED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/combined
 TRACE_ANALYSIS_TRACES_DIRPATH := $(ANALYSIS_DIRPATH)/traces
 TRACE_CORPUS_DIRPATH := $(TRACE_DIRPATH)/corpus
 TRACE_LOGS_DIRPATH := $(TRACE_DIRPATH)/logs
 TRACE_LOGS_RAW_DIRPATH := $(TRACE_LOGS_DIRPATH)/raw
 TRACE_LOGS_REDUCE_DIRPATH := $(TRACE_LOGS_DIRPATH)/reduce
+TRACE_LOGS_COMBINED_DIRPATH := $(TRACE_LOGS_DIRPATH)/combined
 TRACE_LOGS_SUMMARY_DIRPATH := $(TRACE_LOGS_DIRPATH)/summary
 TRACE_LOGS_SUMMARY_RAW_DIRPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/raw
 TRACE_LOGS_SUMMARY_REDUCE_DIRPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/reduced
+TRACE_LOGS_SUMMARY_COMBINED_FILEPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/combined
 
 ################################################################################
 ## GNU Parallel arguments
@@ -233,3 +236,19 @@ reduce-analysis:
 	         $(TRACE_ANALYSIS_REDUCED_DIRPATH)/{1} \
 	         $(TRACE_ANALYSIS_SCRIPT_TYPE) \
 	         ::: $(shell cd $(TRACE_ANALYSIS_RAW_DIRPATH) && ls -d */) > /dev/null
+
+combine-analysis:
+	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
+	@mkdir -p $(TRACE_LOGS_COMBINED_DIRPATH)
+	@$(R_DYNTRACE) --slave                                 \
+	               --no-restore                            \
+	               --file=analysis/$(ANALYSIS)/combine.R   \
+	               --args                                  \
+	               $(TRACE_ANALYSIS_REDUCED_DIRPATH)       \
+	               $(TRACE_ANALYSIS_COMBINED_DIRPATH)      \
+	               $(TRACE_ANALYSIS_SCRIPT_TYPE)           \
+	               > $(TRACE_LOGS_COMBINED_DIRPATH)/stdout \
+	               2> $(TRACE_LOGS_COMBINED_DIRPATH)/stderr
+	@echo $? > $(TRACE_LOGS_SUMMARY_COMBINED_FILEPATH)
+
+
