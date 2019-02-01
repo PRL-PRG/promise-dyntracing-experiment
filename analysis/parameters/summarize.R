@@ -163,6 +163,7 @@ summarize_analyses  <- function(analyses) {
         left_join(select(parameters, function_id, parameter_position, parameter_class),
                   by = c("function_id", "parameter_position")) %>%
         select(parameter_class, expression_type, execution_time, argument_count) %>%
+        mutate(execution_time = as.integer(execution_time / 1000000)) %>%
         group_by(parameter_class, expression_type, execution_time) %>%
         summarize(argument_count = sum(argument_count)) %>%
         ungroup() %>%

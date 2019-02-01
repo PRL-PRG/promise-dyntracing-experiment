@@ -33,11 +33,13 @@ visualize_analyses <- function(analyses) {
 
     argument_execution_time_by_parameter_class <-
         analyses$argument_execution_time_by_parameter_class %>%
-        ggplot(aes(parameter_class, execution_time color = parameter_class)) +
-        geom_violin(scale = "count") +
+        ggplot(aes(parameter_class, execution_time,
+                   color = parameter_class,
+                   weight = relative_argument_count)) +
+        geom_violin() +
         scale_y_log10() +
         labs(x = "Parameter Class",
-             y = "Execution Time (ns)",
+             y = "Execution Time (ms)",
              title =  "Argument count distribution by execution time and parameter_class") +
         scale_fill_gdocs() +
         theme(axis.text.x = element_text(angle = 60, hjust = 1))
