@@ -31,29 +31,14 @@ info <- function(...) cat((paste0(...)))
 
 visualize_analyses <- function(analyses) {
 
-    argument_execution_time_by_parameter_class_histogram <-
+    argument_execution_time_by_parameter_class <-
         analyses$argument_execution_time_by_parameter_class %>%
-        ggplot(aes(execution_time, weight = argument_count,
-                   fill= parameter_class, color = parameter_class)) +
-        geom_histogram(alpha = 0.1, position = "dodge") +
-        facet_wrap(~ expression_type) +
-        xlim(0, 5000) +
-        labs(x = "Execution Time (ns)",
-             y = "Argument Count",
+        ggplot(aes(parameter_class, execution_time color = parameter_class)) +
+        geom_violin(scale = "count") +
+        scale_y_log10() +
+        labs(x = "Parameter Class",
+             y = "Execution Time (ns)",
              title =  "Argument count distribution by execution time and parameter_class") +
-        scale_fill_gdocs() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1))
-
-    argument_execution_time_by_parameter_class_density <-
-        analyses$argument_execution_time_by_parameter_class %>%
-        ggplot(aes(execution_time, weight = relative_argument_count,
-                   fill = parameter_class, color = parameter_class)) +
-        geom_density(alpha = 0.1) +
-        facet_wrap(~ expression_type) +
-        xlim(0, 5000) +
-        labs(x = "Execution Time (ns)",
-             y = "Argument Density",
-             title =  "Argument density by execution time and parameter_class") +
         scale_fill_gdocs() +
         theme(axis.text.x = element_text(angle = 60, hjust = 1))
 
@@ -374,8 +359,7 @@ visualize_analyses <- function(analyses) {
         theme(axis.text.x = element_text(angle = 60, hjust = 1),
               legend.position = "bottom")
 
-    list(argument_execution_time_by_parameter_class_histogram = argument_execution_time_by_parameter_class_histogram,
-         argument_execution_time_by_parameter_class_density = argument_execution_time_by_parameter_class_density,
+    list(argument_execution_time_by_parameter_class = argument_execution_time_by_parameter_class,
          argument_count_by_argument_mode = argument_count_by_argument_mode,
          argument_count_by_argument_use_mode = argument_count_by_argument_use_mode,
          argument_count_by_argument_mode_and_argument_use_mode = argument_count_by_argument_mode_and_argument_use_mode,
@@ -467,7 +451,9 @@ main <- function() {
     print(settings)
     summarized_data_table <- scan_input_dirpath(settings)
     print(summarized_data_table)
-    print(visualize_summarized_data(settings, summarized_data_table), n = Inf)
+
+    visualize_summarized_data(settings, summarized_data_table) %>%
+        print(n = Inf)
 }
 
 

@@ -24,6 +24,14 @@ source("analysis/analysis.R")
 info <- function(...) cat((paste0(...)))
 
 reduce_analysis <- function(analyses) {
+    ## This is 1ms execution time represented in ns.
+    ## Since the tracer outputs promise execution time
+    ## in ns, this number is represented in ns.
+    ## This magic figure is a heuristic. We believe
+    ## arguments that are expensive to evaluate should
+    ## take at least 1ms to execute. This is used later
+    ## to filter all promises that take more than a ms to execute.
+    MINIMUM_EXPENSIVE_ARGUMENT_EXECUTION_TIME <- 1000000
 
     parameters <-
         analyses$arguments %>%
@@ -76,7 +84,8 @@ reduce_analysis <- function(analyses) {
 
     argument_execution_time <-
         analyses$arguments %>%
-        filter(force_count | lookup_count | metaprogram_count) %>%
+        filter(force_count > 0) %>%
+        filter(execution_time > MINIMUM_EXPENSIVE_ARGUMENT_EXECUTION_TIME) %>%
         group_by(function_id, parameter_position, expression_type, execution_time) %>%
         summarize(argument_count = 1.0 * n()) %>%
         ungroup()
