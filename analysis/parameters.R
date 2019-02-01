@@ -57,7 +57,7 @@ reduce_analysis <- function(analyses) {
         summarize(force_order_call_count = n(),
                   function_type = first(function_type),
                   formal_parameter_count = first(formal_parameter_count),
-                  function_name = list(unique(function_name)),
+                  function_name = str_c(unique(function_name), collapse = " | "),
                   wrapper = all(call_id %in% wrapper_id)) %>%
         ungroup()
 
@@ -149,6 +149,7 @@ summarize_analyses  <- function(analyses) {
 
     closures <-
         analyses$closures %>%
+        mutate(function_name = str_split(function_name, " \\| ")) %>%
         group_by(function_id, missing_argument, force_order) %>%
         summarize(function_type = first(function_type),
                   force_order_call_count = sum(force_order_call_count),
