@@ -15,20 +15,30 @@ TRACE_ANALYSIS_REDUCED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/reduced
 TRACE_ANALYSIS_COMBINED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/combined
 TRACE_ANALYSIS_SUMMARIZED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/summarized
 TRACE_ANALYSIS_VISUALIZED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/visualized
+TRACE_ANALYSIS_REPORT_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/report
+TRACE_ANALYSIS_REPORT_FILEPATH := $(TRACE_ANALYSIS_REPORT_DIRPATH)/report.html
 TRACE_ANALYSIS_TRACES_DIRPATH := $(ANALYSIS_DIRPATH)/traces
 TRACE_CORPUS_DIRPATH := $(TRACE_DIRPATH)/corpus
 TRACE_LOGS_DIRPATH := $(TRACE_DIRPATH)/logs
 TRACE_LOGS_RAW_DIRPATH := $(TRACE_LOGS_DIRPATH)/raw
-TRACE_LOGS_REDUCE_DIRPATH := $(TRACE_LOGS_DIRPATH)/reduce
+TRACE_LOGS_REDUCED_DIRPATH := $(TRACE_LOGS_DIRPATH)/reduced
 TRACE_LOGS_COMBINED_DIRPATH := $(TRACE_LOGS_DIRPATH)/combined
 TRACE_LOGS_SUMMARIZED_DIRPATH := $(TRACE_LOGS_DIRPATH)/summarized
 TRACE_LOGS_VISUALIZED_DIRPATH := $(TRACE_LOGS_DIRPATH)/visualized
+TRACE_LOGS_REPORT_DIRPATH := $(TRACE_LOGS_DIRPATH)/report
 TRACE_LOGS_SUMMARY_DIRPATH := $(TRACE_LOGS_DIRPATH)/summary
 TRACE_LOGS_SUMMARY_RAW_DIRPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/raw
-TRACE_LOGS_SUMMARY_REDUCE_DIRPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/reduced
+TRACE_LOGS_SUMMARY_REDUCED_DIRPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/reduced
 TRACE_LOGS_SUMMARY_COMBINED_FILEPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/combined
 TRACE_LOGS_SUMMARY_SUMMARIZED_FILEPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/summarized
 TRACE_LOGS_SUMMARY_VISUALIZED_FILEPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/visualized
+TRACE_LOGS_SUMMARY_REPORT_FILEPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/report
+
+################################################################################
+## tracer output directory paths
+################################################################################
+REPORT_TEMPLATE_DIRPATH := report
+REPORT_TEMPLATE_FILEPATH := $(REPORT_TEMPLATE_DIRPATH)/report.Rmd
 
 ################################################################################
 ## GNU Parallel arguments
@@ -72,12 +82,6 @@ ANALYSIS := function-strictness
 DATA_TABLE_VIEWER_SCRIPT := scripts/view-data-table.R
 DATA_TABLE_VIEWER_FILEPATH :=
 DATA_TABLE_VIEWER_ARGS :=
-
-################################################################################
-## report arguments
-################################################################################
-REPORT_DIRPATH := report
-BROWSER := chromium
 
 ################################################################################
 ## lint arguments
@@ -158,7 +162,7 @@ define trace =
 	@echo $(PARALLEL_JOB_COUNT) > $(PARALLEL_JOB_COUNT_FILEPATH)
 	@mkdir -p $(TRACE_LOGS_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
-	@mkdir -p $(TRACE_LOGS_REDUCE_DIRPATH)
+	@mkdir -p $(TRACE_LOGS_REDUCED_DIRPATH)
 
 	@if [ -e $(LATEST_TRACE_DIRPATH) ]; then \
 		unlink latest; \
@@ -196,64 +200,81 @@ install-corpus: R_KEEP_PKG_SOURCE=1
 install-corpus:
 	$(R_DYNTRACE) --file=scripts/install-packages.R --args $(CORPUS_FILEPATH)
 
+
 statistics:
 	@echo "$(call statistics_table, $(LATEST_TRACE_DIRPATH))" | column -t
 
+
 corpus:
 	@echo "Updating vignette list in '$(CORPUS_FILEPATH)'"
-	$(R_DYNTRACE) --file=scripts/make-package-list.R --args $(CORPUS_FILEPATH)
+	$(R_DYNTRACE) --file=scripts/make-package-list.R \
+	              --args $(CORPUS_FILEPATH)
+
 
 analyze:
-	mkdir -p $(INPUT_DIR)/output/$(ANALYSIS)/logs/
-	$(R_DYNTRACE) --slave --file=analysis/$(ANALYSIS).R --args --stage=$(STAGE) $(SCHEMA_DIR) $(INPUT_DIR)/analysis/raw $(INPUT_DIR)/output/$(ANALYSIS)/summary $(INPUT_DIR)/output/$(ANALYSIS)/visualizations $(INPUT_DIR)/output/$(ANALYSIS)/latex
+	@mkdir -p $(INPUT_DIR)/output/$(ANALYSIS)/logs/
+	@$(R_DYNTRACE) --slave                                        \
+	               --file=analysis/$(ANALYSIS).R                  \
+	               --args                                         \
+	               --stage=$(STAGE)                               \
+	               $(SCHEMA_DIR)                                  \
+	               $(INPUT_DIR)/analysis/raw                      \
+	               $(INPUT_DIR)/output/$(ANALYSIS)/summary        \
+	               $(INPUT_DIR)/output/$(ANALYSIS)/visualizations \
+	               $(INPUT_DIR)/output/$(ANALYSIS)/latex
 #2>&1 | tee $(INPUT_DIR)/output/$(ANALYSIS)/log.txt || /bin/true
 
-view-data-table:
-	$(R_DYNTRACE) --slave --file=$(DATA_TABLE_VIEWER_SCRIPT) --args $(DATA_TABLE_VIEWER_ARGS) $(DATA_TABLE_VIEWER_FILEPATH)
 
-report:
-	$(R_DYNTRACE) --slave -e "rmarkdown::render('$(REPORT_DIRPATH)/report.Rmd', output_file='report.html', runtime = 'auto', params = list(output_directory='$(LATEST_TRACE_DIRPATH)/output'))"
-# output_dir='$(REPORT_DIRPATH)/', intermediates_dir='$(REPORT_DIRPATH)/', knit_root_dir='$(REPORT_DIRPATH)/'
+view-data-table:
+	@$(R_DYNTRACE) --slave                              \
+	               --file=$(DATA_TABLE_VIEWER_SCRIPT)   \
+	               --args $(DATA_TABLE_VIEWER_ARGS)     \
+	                      $(DATA_TABLE_VIEWER_FILEPATH)
+
 
 lint:
-	$(R_DYNTRACE) --slave -e "lintr::lint('$(LINT_FILEPATH)')"
+	@$(R_DYNTRACE) --slave \
+	               -e "lintr::lint('$(LINT_FILEPATH)')"
+
 
 add-dependents-and-dependencies:
-	$(R_DYNTRACE) --slave --file=scripts/add-dependents-and-dependencies.R --args scripts/delayed-assign-force-force-and-call-packages.csv scripts/corpus-paper.csv --dependents --dependencies
+	$(R_DYNTRACE) --slave                                                         \
+	              --file=scripts/add-dependents-and-dependencies.R                \
+	              --args scripts/delayed-assign-force-force-and-call-packages.csv \
+	              scripts/corpus-paper.csv                                        \
+	              --dependents                                                    \
+	              --dependencies
 
-.PHONY: trace statistics corpus install-dependencies analyze clean view-data-table report lint add-dependents-and-dependencies
 
 reduce-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
-	@mkdir -p $(TRACE_LOGS_REDUCE_DIRPATH)
+	@mkdir -p $(TRACE_LOGS_REDUCED_DIRPATH)
 
-	-parallel --jobs $(PARALLEL_JOB_COUNT) \
-	         --files \
-	         --bar \
-	         --load 80% \
-	         --results $(TRACE_LOGS_REDUCE_DIRPATH)/{1}/ \
-	         --joblog $(TRACE_LOGS_SUMMARY_REDUCE_DIRPATH) \
-	         $(R_DYNTRACE) \
-	         --slave \
-	         --no-restore \
-	         --file=analysis/$(ANALYSIS)/reduce.R \
-	         --args \
-	         $(TRACE_ANALYSIS_RAW_DIRPATH)/{1} \
-	         $(TRACE_ANALYSIS_REDUCED_DIRPATH)/{1} \
-	         $(TRACE_ANALYSIS_SCRIPT_TYPE) \
+	-parallel --jobs $(PARALLEL_JOB_COUNT)                 \
+	         --files                                       \
+	         --bar                                         \
+	         --results $(TRACE_LOGS_REDUCED_DIRPATH)/{1}/   \
+	         --joblog $(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH) \
+	         $(R_DYNTRACE)                                 \
+	         --slave                                       \
+	         --no-restore                                  \
+	         --file=analysis/$(ANALYSIS)/reduce.R          \
+	         --args $(TRACE_ANALYSIS_RAW_DIRPATH)/{1}      \
+	                $(TRACE_ANALYSIS_REDUCED_DIRPATH)/{1}  \
+	                $(TRACE_ANALYSIS_SCRIPT_TYPE)          \
 	         ::: $(shell cd $(TRACE_ANALYSIS_RAW_DIRPATH) && ls -d */) > /dev/null
+
 
 combine-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_COMBINED_DIRPATH)
-	@$(R_DYNTRACE) --slave                                 \
-	               --no-restore                            \
-	               --file=analysis/$(ANALYSIS)/combine.R   \
-	               --args                                  \
-	               $(TRACE_ANALYSIS_REDUCED_DIRPATH)       \
-	               $(TRACE_ANALYSIS_COMBINED_DIRPATH)      \
-	               $(TRACE_ANALYSIS_SCRIPT_TYPE)           \
-	               > $(TRACE_LOGS_COMBINED_DIRPATH)/stdout \
+	@$(R_DYNTRACE) --slave                                   \
+	               --no-restore                              \
+	               --file=analysis/$(ANALYSIS)/combine.R     \
+	               --args $(TRACE_ANALYSIS_REDUCED_DIRPATH)  \
+	                      $(TRACE_ANALYSIS_COMBINED_DIRPATH) \
+	                      $(TRACE_ANALYSIS_SCRIPT_TYPE)      \
+	               > $(TRACE_LOGS_COMBINED_DIRPATH)/stdout   \
 	               2> $(TRACE_LOGS_COMBINED_DIRPATH)/stderr
 	@echo $? > $(TRACE_LOGS_SUMMARY_COMBINED_FILEPATH)
 
@@ -261,13 +282,12 @@ combine-analysis:
 summarize-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_SUMMARIZED_DIRPATH)
-	@$(R_DYNTRACE) --slave                                 \
-	               --no-restore                            \
-	               --file=analysis/$(ANALYSIS)/summarize.R \
-	               --args                                  \
-	               $(TRACE_ANALYSIS_COMBINED_DIRPATH)      \
-	               $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)    \
-	               > $(TRACE_LOGS_SUMMARIZED_DIRPATH)/stdout \
+	@$(R_DYNTRACE) --slave                                     \
+	               --no-restore                                \
+	               --file=analysis/$(ANALYSIS)/summarize.R     \
+	               --args $(TRACE_ANALYSIS_COMBINED_DIRPATH)   \
+	                      $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH) \
+	               > $(TRACE_LOGS_SUMMARIZED_DIRPATH)/stdout   \
 	               2> $(TRACE_LOGS_SUMMARIZED_DIRPATH)/stderr
 	@echo $? > $(TRACE_LOGS_SUMMARY_SUMMARIZED_FILEPATH)
 
@@ -275,12 +295,29 @@ summarize-analysis:
 visualize-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_VISUALIZED_DIRPATH)
-	@$(R_DYNTRACE) --slave                                 \
-	               --no-restore                            \
-	               --file=analysis/$(ANALYSIS)/visualize.R \
-	               --args                                  \
-	               $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)      \
-	               $(TRACE_ANALYSIS_VISUALIZED_DIRPATH)    \
-	               > $(TRACE_LOGS_VISUALIZED_DIRPATH)/stdout \
+	@$(R_DYNTRACE) --slave                                     \
+	               --no-restore                                \
+	               --file=analysis/$(ANALYSIS)/visualize.R     \
+	               --args $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH) \
+	                      $(TRACE_ANALYSIS_VISUALIZED_DIRPATH) \
+	               > $(TRACE_LOGS_VISUALIZED_DIRPATH)/stdout   \
 	               2> $(TRACE_LOGS_VISUALIZED_DIRPATH)/stderr
 	@echo $? > $(TRACE_LOGS_SUMMARY_VISUALIZED_FILEPATH)
+
+
+report-analysis:
+	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
+	@mkdir -p $(TRACE_LOGS_REPORT_DIRPATH)
+	@$(R_DYNTRACE) --slave                                     \
+	               --no-restore                                \
+	               --file=analysis/$(ANALYSIS)/report.R        \
+	               --args $(REPORT_TEMPLATE_FILEPATH)          \
+	                      $(TRACE_ANALYSIS_REPORT_FILEPATH)    \
+	                      $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH) \
+	                      $(TRACE_ANALYSIS_VISUALIZED_DIRPATH) \
+	               > $(TRACE_LOGS_REPORT_DIRPATH)/stdout       \
+	               2> $(TRACE_LOGS_REPORT_DIRPATH)/stderr
+	@echo $? > $(TRACE_LOGS_SUMMARY_REPORT_FILEPATH)
+
+
+.PHONY: trace statistics corpus install-dependencies analyze clean view-data-table report lint add-dependents-and-dependencies reduce-analysis combine-analysis summarize-analysis visualize-analysis report-analysis

@@ -5,7 +5,8 @@ output:
     toc: true
     theme: united
 params:
-  output_directory: ../latest
+  summarized_data_dirpath: ../latest/analysis/summarized
+  visualized_data_dirpath: ../latest/analysis/visualized
   image_format: png
 editor_options:
   chunk_output_type: console
@@ -40,17 +41,9 @@ library(grid)
 library(gridExtra)
 ```
 
-```{r paths, echo = FALSE}
-
-function_definitions_dirpath <- path(params$output_directory, "function-definitions")
-parameter_usage_dirpath <- path(params$output_directory, "parameters")
-visualizations <- path(parameter_usage_dirpath, "visualizations")
-summary <- path(parameter_usage_dirpath, "summary")
-```
-
 ```{r datatsets, echo = FALSE}
 import_data_table <- function(name) {
-    promisedyntracer::read_data_table(path(summary, name))
+    promisedyntracer::read_data_table(path(params$summarized_data_dirpath, name))
 }
 
 show_table <- function(tablename) {
@@ -60,12 +53,13 @@ show_table <- function(tablename) {
 }
 
 show_graph <- function(graphname) {
-    include_graphics(path(visualizations, graphname))
+    include_graphics(path(params$visualized_data_dirpath, graphname))
 }
 
 show_graphs <- function(first_graphname, second_graphname) {
     load_graph <- function(graphname) {
-        grid::rasterGrob(as.raster(readPNG(path(visualizations, graphname))),
+        grid::rasterGrob(as.raster(readPNG(path(params$visualized_data_dirpath, 
+                                                graphname))),
                          interpolate = TRUE)
     }
     grid.arrange(load_graph(first_graphname),
