@@ -35,10 +35,22 @@ TRACE_LOGS_SUMMARY_VISUALIZED_FILEPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/visualiz
 TRACE_LOGS_SUMMARY_REPORT_FILEPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/report
 
 ################################################################################
-## tracer output directory paths
+## report directory paths
 ################################################################################
 REPORT_TEMPLATE_DIRPATH := report
 REPORT_TEMPLATE_FILEPATH := $(REPORT_TEMPLATE_DIRPATH)/report.Rmd
+
+################################################################################
+## package setup options
+################################################################################
+CRAN_MIRROR_URL := "https://cran.r-project.org"
+PACKAGE_SETUP_REPOSITORIES := --setup-cran --setup-bioc
+PACKAGE_SETUP_NCPUS := 8
+PACKAGE_SETUP_DIRPATH := ~
+CRAN_LIB_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/CRAN/lib
+CRAN_SRC_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/CRAN/src
+BIOC_LIB_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/BIOC/lib
+BIOC_SRC_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/BIOC/src
 
 ################################################################################
 ## GNU Parallel arguments
@@ -246,22 +258,34 @@ add-dependents-and-dependencies:
 	              --dependencies
 
 
+setup-package-repositories:
+	@$(R_DYNTRACE) --slave                                       \
+	               --file=scripts/setup-package-repositories.R   \
+	               --args $(PACKAGE_SETUP_REPOSITORIES)          \
+	                      $(PACKAGE_SETUP_NCPUS)                 \
+	                      --cran-mirror-url=$(CRAN_MIRROR_URL)   \
+	                      --cran-lib-dirpath=$(CRAN_LIB_DIRPATH) \
+	                      --cran-src-dirpath=$(CRAN_SRC_DIRPATH) \
+	                      --bioc-lib-dirpath=$(BIOC_LIB_DIRPATH) \
+	                      --bioc-src-dirpath=$(BIOC_SRC_DIRPATH)
+
+
 reduce-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_REDUCED_DIRPATH)
 
-	-parallel --jobs $(PARALLEL_JOB_COUNT)                 \
-	         --files                                       \
-	         --bar                                         \
+	-parallel --jobs $(PARALLEL_JOB_COUNT)                  \
+	         --files                                        \
+	         --bar                                          \
 	         --results $(TRACE_LOGS_REDUCED_DIRPATH)/{1}/   \
 	         --joblog $(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH) \
-	         $(R_DYNTRACE)                                 \
-	         --slave                                       \
-	         --no-restore                                  \
-	         --file=analysis/$(ANALYSIS)/reduce.R          \
-	         --args $(TRACE_ANALYSIS_RAW_DIRPATH)/{1}      \
-	                $(TRACE_ANALYSIS_REDUCED_DIRPATH)/{1}  \
-	                $(TRACE_ANALYSIS_SCRIPT_TYPE)          \
+	         $(R_DYNTRACE)                                  \
+	         --slave                                        \
+	         --no-restore                                   \
+	         --file=analysis/$(ANALYSIS)/reduce.R           \
+	         --args $(TRACE_ANALYSIS_RAW_DIRPATH)/{1}       \
+	                $(TRACE_ANALYSIS_REDUCED_DIRPATH)/{1}   \
+	                $(TRACE_ANALYSIS_SCRIPT_TYPE)           \
 	         ::: $(shell cd $(TRACE_ANALYSIS_RAW_DIRPATH) && ls -d */) > /dev/null
 
 
