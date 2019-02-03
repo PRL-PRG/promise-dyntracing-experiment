@@ -81,7 +81,6 @@ reduce_analysis <- function(analyses) {
                   wrapper = all(call_id %in% wrapper_id)) %>%
         ungroup()
 
-
     argument_execution_time <-
         analyses$arguments %>%
         filter(force_count > 0) %>%
@@ -90,9 +89,30 @@ reduce_analysis <- function(analyses) {
         summarize(argument_count = 1.0 * n()) %>%
         ungroup()
 
+    argument_call_depth <-
+        analyses$arguments %>%
+        select(call_depth) %>%
+        group_by(call_depth) %>%
+        summarize(argument_count = n())
+
+    argument_promise_depth <-
+        analyses$arguments %>%
+        select(promise_depth) %>%
+        group_by(promise_depth) %>%
+        summarize(argument_count = n())
+
+    argument_nested_promise_depth <-
+        analyses$arguments %>%
+        select(nested_promise_depth) %>%
+        group_by(nested_promise_depth) %>%
+        summarize(argument_count = n())
+
     list(parameters = parameters,
          closures = closures,
-         argument_execution_time = argument_execution_time)
+         argument_execution_time = argument_execution_time,
+         argument_call_depth = argument_call_depth,
+         argument_promise_depth = argument_promise_depth,
+         argument_nested_promise_depth = argument_nested_promise_depth)
 }
 
 

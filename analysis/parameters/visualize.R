@@ -361,6 +361,62 @@ visualize_analyses <- function(analyses) {
         theme(axis.text.x = element_text(angle = 60, hjust = 1),
               legend.position = "bottom")
 
+    total_argument_count <-
+        analyses$argument_count_by_call_depth %>%
+        pull(argument_count) %>%
+        sum()
+
+    argument_count_by_call_depth <-
+        analyses$argument_count_by_call_depth %>%
+        ggplot(aes(x = call_depth,
+                   y = relative_argument_count)) +
+        geom_col() +
+        scale_x_discrete(limits = c(-2:10, "> 10")) +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Call depth",
+             y = "Argument count",
+             title =  "Argument Count by Call Depth") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+
+    argument_count_by_promise_depth <-
+        analyses$argument_count_by_promise_depth %>%
+        ggplot(aes(x = promise_depth,
+                   y = relative_argument_count)) +
+        geom_col() +
+        scale_x_discrete(limits = c(-2:10, "> 10")) +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Promise depth",
+             y = "Argument count",
+             title =  "Argument Count by Promise Depth") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+
+    argument_count_by_nested_promise_depth <-
+        analyses$argument_count_by_nested_promise_depth %>%
+        ggplot(aes(x = nested_promise_depth,
+                   y = relative_argument_count)) +
+        geom_col() +
+        scale_x_discrete(limits = c(-2:10, "> 10")) +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Nested Promise depth",
+             y = "Argument count",
+             title =  "Argument Count by Nested Promise Depth") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+
     list(argument_execution_time_by_parameter_class = argument_execution_time_by_parameter_class,
          argument_count_by_argument_mode = argument_count_by_argument_mode,
          argument_count_by_argument_use_mode = argument_count_by_argument_use_mode,
@@ -380,7 +436,10 @@ visualize_analyses <- function(analyses) {
          function_count_by_formal_parameter_count = function_count_by_formal_parameter_count,
          function_count_by_wrapper_force_order_type_and_force_order_count = function_count_by_wrapper_force_order_type_and_force_order_count,
          wrapper_function_count_by_function_class_force_order_type_and_force_order_count = wrapper_function_count_by_function_class_force_order_type_and_force_order_count,
-         nonwrapper_function_count_by_function_class_force_order_type_and_force_order_count = nonwrapper_function_count_by_function_class_force_order_type_and_force_order_count)
+         nonwrapper_function_count_by_function_class_force_order_type_and_force_order_count = nonwrapper_function_count_by_function_class_force_order_type_and_force_order_count,
+         argument_count_by_call_depth = argument_count_by_call_depth,
+         argument_count_by_promise_depth = argument_count_by_promise_depth,
+         argument_count_by_nested_promise_depth = argument_count_by_nested_promise_depth)
 
 }
 

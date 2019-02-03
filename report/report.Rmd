@@ -325,3 +325,36 @@ show_table("function_count_by_wrapper_function_class_force_order_type_and_force_
 ```{r echo = FALSE, out.width="1000px"}
 show_graph("argument_execution_time_by_parameter_class.png")
 ```
+
+
+## Promise Evaluation
+
+### Call Depth
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_count_by_call_depth.png")
+```
+
+```{r echo = FALSE}
+show_table("argument_count_by_call_depth")
+```
+
+### Promise Depth
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_count_by_promise_depth.png")
+```
+
+```{r echo = FALSE}
+show_table("argument_count_by_promise_depth")
+```
+
+### Nested Promise Depth
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_count_by_nested_promise_depth.png")
+```
+
+```{r echo = FALSE}
+show_table("argument_count_by_nested_promise_depth")
+```
