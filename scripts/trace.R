@@ -86,36 +86,12 @@ parse_command_line <- function() {
                     help="Flag to disable metadata analysis",
                     metavar="metadata-analysis"),
 
-        make_option(c("--disable-object-count-size-analysis"),
-                    action="store_true",
-                    default=FALSE,
-                    help="Flag to disable object count size analysis",
-                    metavar="object-count-size-analysis"),
-
         make_option(c("--disable-function-analysis"),
                     action="store_true",
                     default=FALSE,
 
                     help="Flag to disable function analysis",
                     metavar="function-analysis"),
-
-        make_option(c("--disable-promise-type-analysis"),
-                    action="store_true",
-                    default=FALSE,
-                    help="Flag to disable promise type analysis",
-                    metavar="promise-type-analysis"),
-
-        make_option(c("--disable-promise-slot-mutation-analysis"),
-                    action="store_true",
-                    default=FALSE,
-                    help="Flag to disable promise slot mutation analysis",
-                    metavar="promise-slot-mutation-analysis"),
-
-        make_option(c("--disable-promise-evaluation-analysis"),
-                    action="store_true",
-                    default=FALSE,
-                    help="Flag to disable promise evaluation analysis",
-                    metavar="promise-evaluation-analysis"),
 
         make_option(c("--disable-strictness-analysis"),
                     action="store_true",
@@ -147,11 +123,7 @@ parse_command_line <- function() {
          compression_level = args$options$`compression-level`,
          analysis_switch = list(
              enable_metadata_analysis = !args$options$`disable-metadata-analysis`,
-             enable_object_count_size_analysis = !args$options$`disable-object-count-size-analysis`,
              enable_function_analysis = !args$options$`disable-function-analysis`,
-             enable_promise_type_analysis = !args$options$`disable-promise-type-analysis`,
-             enable_promise_slot_mutation_analysis = !args$options$`disable-promise-slot-mutation-analysis`,
-             enable_promise_evaluation_analysis = !args$options$`disable-promise-evaluation-analysis`,
              enable_strictness_analysis = !args$options$`disable-strictness-analysis`,
              enable_side_effect_analysis = !args$options$`disable-side-effect-analysis`))
 }
