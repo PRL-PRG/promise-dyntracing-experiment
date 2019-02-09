@@ -66,8 +66,10 @@ PACKAGE_SETUP_NCPUS := 8
 PACKAGE_SETUP_DIRPATH := ~
 CRAN_LIB_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/CRAN/lib
 CRAN_SRC_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/CRAN/src
+CRAN_LOG_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/CRAN/log
 BIOC_LIB_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/BIOC/lib
 BIOC_SRC_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/BIOC/src
+BIOC_LOG_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/BIOC/log
 
 ################################################################################
 ## GNU Parallel arguments
@@ -248,6 +250,8 @@ add-dependents-and-dependencies:
 
 
 setup-package-repositories:
+	@mkdir -p $(CRAN_LOG_DIRPATH)
+	@mkdir -p $(BIOC_LOG_DIRPATH)
 	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                           \
 	                       --file=scripts/setup-package-repositories.R   \
 	                       --args $(PACKAGE_SETUP_REPOSITORIES)          \
@@ -255,8 +259,10 @@ setup-package-repositories:
 	                              --cran-mirror-url=$(CRAN_MIRROR_URL)   \
 	                              --cran-lib-dirpath=$(CRAN_LIB_DIRPATH) \
 	                              --cran-src-dirpath=$(CRAN_SRC_DIRPATH) \
+	                              --cran-log-dirpath=$(CRAN_LOG_DIRPATH) \
 	                              --bioc-lib-dirpath=$(BIOC_LIB_DIRPATH) \
-	                              --bioc-src-dirpath=$(BIOC_SRC_DIRPATH)
+	                              --bioc-src-dirpath=$(BIOC_SRC_DIRPATH) \
+	                              --bioc-log-dirpath=$(BIOC_LOG_DIRPATH) \
 
 
 reduce-analysis:

@@ -16,7 +16,8 @@ setup_cran <- function(settings) {
                                       '--install-tests',
                                       '--with-keep.source',
                                       '--no-multiarch'),
-                     Ncpus = settings$ncpus)
+                     Ncpus = settings$ncpus,
+                     keep_outputs = settings$cran_log_dirpath)
 }
 
 
@@ -36,7 +37,8 @@ setup_bioc <- function(settings) {
                                           '--no-multiarch'),
                          Ncpus = settings$ncpus,
                          update = TRUE,
-                         ask = FALSE)
+                         ask = FALSE,
+                         keep_outputs = settings$bioc_log_dirpath)
 }
 
 
@@ -82,6 +84,12 @@ parse_program_arguments <- function() {
                     help = "directory in which to store the CRAN package sources",
                     metavar = "cran_src_dirpath"),
 
+        make_option(c("--cran-log-dirpath"),
+                    action = "store",
+                    type = "character",
+                    help = "directory in which to store the CRAN package installation logs",
+                    metavar = "cran_log_dirpath"),
+
         make_option(c("--bioc-lib-dirpath"),
                     action = "store",
                     type = "character",
@@ -92,7 +100,14 @@ parse_program_arguments <- function() {
                     action = "store",
                     type = "character",
                     help = "directory in which to store the BIOC package sources",
-                    metavar = "bioc_src_dirpath")
+                    metavar = "bioc_src_dirpath"),
+
+        make_option(c("--bioc-log-dirpath"),
+                    action = "store",
+                    type = "character",
+                    help = "directory in which to store the BIOC package installation logs",
+                    metavar = "bioc_log_dirpath")
+
     )
 
 
@@ -109,8 +124,10 @@ parse_program_arguments <- function() {
          cran_mirror_url = arguments$options$cran_mirror_url,
          cran_lib_dirpath = arguments$options$cran_lib_dirpath,
          cran_src_dirpath = arguments$options$cran_src_dirpath,
+         cran_log_dirpath = arguments$options$cran_log_dirpath,
          bioc_lib_dirpath = arguments$options$bioc_lib_dirpath,
-         bioc_src_dirpath = arguments$options$bioc_src_dirpath)
+         bioc_src_dirpath = arguments$options$bioc_src_dirpath,
+         bioc_log_dirpath = arguments$options$bioc_log_dirpath)
 }
 
 
