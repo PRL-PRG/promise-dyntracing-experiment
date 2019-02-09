@@ -332,29 +332,29 @@ show_graph("argument_execution_time_by_parameter_class.png")
 ### Call Depth
 
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("argument_count_by_call_depth.png")
+show_graph("argument_count_by_call_depth_and_expression_type.png")
 ```
 
 ```{r echo = FALSE}
-show_table("argument_count_by_call_depth")
+show_table("argument_count_by_call_depth_and_expression_type")
 ```
 
 ### Promise Depth
 
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("argument_count_by_promise_depth.png")
+show_graph("argument_count_by_promise_depth_and_expression_type.png")
 ```
 
 ```{r echo = FALSE}
-show_table("argument_count_by_promise_depth")
+show_table("argument_count_by_promise_depth_and_expression_type")
 ```
 
 ### Nested Promise Depth
 
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("argument_count_by_nested_promise_depth.png")
+show_graph("argument_count_by_nested_promise_depth_and_expression_type.png")
 ```
 
 ```{r echo = FALSE}
-show_table("argument_count_by_nested_promise_depth")
+show_table("argument_count_by_nested_promise_depth_and_expression_type")
 ```

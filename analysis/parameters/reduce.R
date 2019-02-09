@@ -91,21 +91,24 @@ reduce_analysis <- function(analyses) {
 
     argument_call_depth <-
         analyses$arguments %>%
-        select(call_depth) %>%
-        group_by(call_depth) %>%
-        summarize(argument_count = n())
+        select(call_depth, expression_type) %>%
+        group_by(call_depth, expression_type) %>%
+        summarize(argument_count = n()) %>%
+        ungroup()
 
     argument_promise_depth <-
         analyses$arguments %>%
-        select(promise_depth) %>%
-        group_by(promise_depth) %>%
-        summarize(argument_count = n())
+        select(promise_depth, expression_type) %>%
+        group_by(promise_depth, expression_type) %>%
+        summarize(argument_count = n()) %>%
+        ungroup()
 
     argument_nested_promise_depth <-
         analyses$arguments %>%
-        select(nested_promise_depth) %>%
-        group_by(nested_promise_depth) %>%
-        summarize(argument_count = n())
+        select(nested_promise_depth, expression_type) %>%
+        group_by(nested_promise_depth, expression_type) %>%
+        summarize(argument_count = n()) %>%
+        ungroup()
 
     list(parameters = parameters,
          closures = closures,

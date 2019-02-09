@@ -407,59 +407,66 @@ summarize_analyses  <- function(analyses) {
         pull(argument_count) %>%
         sum()
 
-    argument_count_by_call_depth <-
+    argument_count_by_call_depth_and_expression_type <-
         analyses$argument_call_depth %>%
-        group_by(call_depth) %>%
-        summarize(argument_count = sum(argument_count))
+        group_by(call_depth, expression_type) %>%
+        summarize(argument_count = sum(argument_count)) %>%
+        ungroup()
 
     many_argument_call_depth <-
-        argument_count_by_call_depth %>%
+        argument_count_by_call_depth_and_expression_type %>%
         filter(call_depth > 10) %>%
-        pull(argument_count) %>%
-        sum()
+        mutate(call_depth = "> 10") %>%
+        group_by(call_depth, expression_type) %>%
+        summarize(argument_count = sum(argument_count)) %>%
+        ungroup()
 
-    argument_count_by_call_depth <-
-        argument_count_by_call_depth %>%
+    argument_count_by_call_depth_and_expression_type <-
+        argument_count_by_call_depth_and_expression_type %>%
         mutate(call_depth = as.character(call_depth)) %>%
-        rbind(tibble(call_depth = "> 10",
-                     argument_count = many_argument_call_depth)) %>%
+        rbind(many_argument_call_depth) %>%
         mutate(relative_argument_count = argument_count / total_argument_count)
 
 
-    argument_count_by_promise_depth <-
+    argument_count_by_promise_depth_and_expression_type <-
         analyses$argument_promise_depth %>%
-        group_by(promise_depth) %>%
-        summarize(argument_count = sum(argument_count))
+        group_by(promise_depth, expression_type) %>%
+        summarize(argument_count = sum(argument_count)) %>%
+        ungroup()
 
     many_argument_promise_depth <-
-        argument_count_by_promise_depth %>%
+        argument_count_by_promise_depth_and_expression_type %>%
         filter(promise_depth > 10) %>%
-        pull(argument_count) %>%
-        sum()
+        mutate(promise_depth = "> 10") %>%
+        group_by(promise_depth, expression_type) %>%
+        summarize(argument_count = sum(argument_count)) %>%
+        ungroup()
 
-    argument_count_by_promise_depth <-
-        argument_count_by_promise_depth %>%
+    argument_count_by_promise_depth_and_expression_type <-
+        argument_count_by_promise_depth_and_expression_type %>%
         mutate(promise_depth = as.character(promise_depth)) %>%
-        rbind(tibble(promise_depth = "> 10",
-                     argument_count = many_argument_promise_depth)) %>%
+        rbind(many_argument_promise_depth) %>%
         mutate(relative_argument_count = argument_count / total_argument_count)
 
-    argument_count_by_nested_promise_depth <-
+
+    argument_count_by_nested_promise_depth_and_expression_type <-
         analyses$argument_nested_promise_depth %>%
-        group_by(nested_promise_depth) %>%
-        summarize(argument_count = sum(argument_count))
+        group_by(nested_promise_depth, expression_type) %>%
+        summarize(argument_count = sum(argument_count)) %>%
+        ungroup()
 
     many_argument_nested_promise_depth <-
-        argument_count_by_nested_promise_depth %>%
+        argument_count_by_nested_promise_depth_and_expression_type %>%
         filter(nested_promise_depth > 10) %>%
-        pull(argument_count) %>%
-        sum()
+        mutate(nested_promise_depth = "> 10") %>%
+        group_by(nested_promise_depth, expression_type) %>%
+        summarize(argument_count = sum(argument_count)) %>%
+        ungroup()
 
-    argument_count_by_nested_promise_depth <-
-        argument_count_by_nested_promise_depth %>%
+    argument_count_by_nested_promise_depth_and_expression_type <-
+        argument_count_by_nested_promise_depth_and_expression_type %>%
         mutate(nested_promise_depth = as.character(nested_promise_depth)) %>%
-        rbind(tibble(nested_promise_depth = "> 10",
-                     argument_count = many_argument_nested_promise_depth)) %>%
+        rbind(many_argument_nested_promise_depth) %>%
         mutate(relative_argument_count = argument_count / total_argument_count)
 
     list(closures = closures,
@@ -486,9 +493,9 @@ summarize_analyses  <- function(analyses) {
          function_count_by_formal_parameter_count = function_count_by_formal_parameter_count,
          function_count_by_wrapper_force_order_type_and_force_order_count = function_count_by_wrapper_force_order_type_and_force_order_count,
          function_count_by_wrapper_function_class_force_order_type_and_force_order_count = function_count_by_wrapper_function_class_force_order_type_and_force_order_count,
-         argument_count_by_call_depth = argument_count_by_call_depth,
-         argument_count_by_promise_depth = argument_count_by_promise_depth,
-         argument_count_by_nested_promise_depth = argument_count_by_nested_promise_depth)
+         argument_count_by_call_depth_and_expression_type = argument_count_by_call_depth_and_expression_type,
+         argument_count_by_promise_depth_and_expression_type = argument_count_by_promise_depth_and_expression_type,
+         argument_count_by_nested_promise_depth_and_expression_type = argument_count_by_nested_promise_depth_and_expression_type)
 }
 
 

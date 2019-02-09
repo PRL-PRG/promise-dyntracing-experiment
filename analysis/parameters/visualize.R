@@ -366,10 +366,11 @@ visualize_analyses <- function(analyses) {
         pull(argument_count) %>%
         sum()
 
-    argument_count_by_call_depth <-
-        analyses$argument_count_by_call_depth %>%
+    argument_count_by_call_depth_and_expression_type <-
+        analyses$argument_count_by_call_depth_and_expression_type %>%
         ggplot(aes(x = call_depth,
-                   y = relative_argument_count)) +
+                   y = relative_argument_count,
+                   fill = expression_type)) +
         geom_col() +
         scale_x_discrete(limits = c(-2:10, "> 10")) +
         scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
@@ -378,15 +379,16 @@ visualize_analyses <- function(analyses) {
         labs(x = "Call depth",
              y = "Argument count",
              title =  "Argument Count by Call Depth") +
-        scale_fill_gdocs() +
+        ##scale_fill_gdocs() +
         theme(axis.text.x = element_text(angle = 60, hjust = 1),
               legend.position = "bottom")
 
 
-    argument_count_by_promise_depth <-
-        analyses$argument_count_by_promise_depth %>%
+    argument_count_by_promise_depth_and_expression_type <-
+        analyses$argument_count_by_promise_depth_and_expression_type %>%
         ggplot(aes(x = promise_depth,
-                   y = relative_argument_count)) +
+                   y = relative_argument_count,
+                   fill = expression_type)) +
         geom_col() +
         scale_x_discrete(limits = c(-2:10, "> 10")) +
         scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
@@ -395,24 +397,25 @@ visualize_analyses <- function(analyses) {
         labs(x = "Promise depth",
              y = "Argument count",
              title =  "Argument Count by Promise Depth") +
-        scale_fill_gdocs() +
+        ##scale_fill_gdocs() +
         theme(axis.text.x = element_text(angle = 60, hjust = 1),
               legend.position = "bottom")
 
 
-    argument_count_by_nested_promise_depth <-
-        analyses$argument_count_by_nested_promise_depth %>%
+    argument_count_by_nested_promise_depth_and_expression_type <-
+        analyses$argument_count_by_nested_promise_depth_and_expression_type %>%
         ggplot(aes(x = nested_promise_depth,
-                   y = relative_argument_count)) +
+                   y = relative_argument_count,
+                   fill = expression_type)) +
         geom_col() +
-        scale_x_discrete(limits = c(-2:10, "> 10")) +
+        ##scale_x_discrete(limits = c(-2:10, "> 10")) +
         scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
                                                labels = count_labels),
                            labels = relative_labels) +
         labs(x = "Nested Promise depth",
              y = "Argument count",
              title =  "Argument Count by Nested Promise Depth") +
-        scale_fill_gdocs() +
+        ##scale_fill_gdocs() +
         theme(axis.text.x = element_text(angle = 60, hjust = 1),
               legend.position = "bottom")
 
@@ -437,9 +440,9 @@ visualize_analyses <- function(analyses) {
          function_count_by_wrapper_force_order_type_and_force_order_count = function_count_by_wrapper_force_order_type_and_force_order_count,
          wrapper_function_count_by_function_class_force_order_type_and_force_order_count = wrapper_function_count_by_function_class_force_order_type_and_force_order_count,
          nonwrapper_function_count_by_function_class_force_order_type_and_force_order_count = nonwrapper_function_count_by_function_class_force_order_type_and_force_order_count,
-         argument_count_by_call_depth = argument_count_by_call_depth,
-         argument_count_by_promise_depth = argument_count_by_promise_depth,
-         argument_count_by_nested_promise_depth = argument_count_by_nested_promise_depth)
+         argument_count_by_call_depth_and_expression_type = argument_count_by_call_depth_and_expression_type,
+         argument_count_by_promise_depth_and_expression_type = argument_count_by_promise_depth_and_expression_type,
+         argument_count_by_nested_promise_depth_and_expression_type = argument_count_by_nested_promise_depth_and_expression_type)
 
 }
 
