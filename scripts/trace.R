@@ -78,32 +78,7 @@ parse_command_line <- function() {
                     type="integer",
                     default=1,
                     help="Compression level for ZSTD streaming compression",
-                    metavar="compression-level"),
-
-        make_option(c("--disable-metadata-analysis"),
-                    action="store_true",
-                    default=FALSE,
-                    help="Flag to disable metadata analysis",
-                    metavar="metadata-analysis"),
-
-        make_option(c("--disable-function-analysis"),
-                    action="store_true",
-                    default=FALSE,
-
-                    help="Flag to disable function analysis",
-                    metavar="function-analysis"),
-
-        make_option(c("--disable-strictness-analysis"),
-                    action="store_true",
-                    default=FALSE,
-                    help="Flag to disable strictness analysis",
-                    metavar="strictness-analysis"),
-
-        make_option(c("--disable-side-effect-analysis"),
-                    action="store_true",
-                    default=FALSE,
-                    help="Flag to disable side effect analysis",
-                    metavar="side-effect-analysis")
+                    metavar="compression-level")
     )
 
     args <- parse_args(OptionParser(option_list = option_list),
@@ -120,12 +95,7 @@ parse_command_line <- function() {
          trace_dirpath = path(getwd(), path_tidy(args$options$`trace-dirpath`)),
          raw_analysis_dirpath = path(getwd(), path_tidy(args$options$`raw-analysis-dirpath`)),
          binary = args$options$binary,
-         compression_level = args$options$`compression-level`,
-         analysis_switch = list(
-             enable_metadata_analysis = !args$options$`disable-metadata-analysis`,
-             enable_function_analysis = !args$options$`disable-function-analysis`,
-             enable_strictness_analysis = !args$options$`disable-strictness-analysis`,
-             enable_side_effect_analysis = !args$options$`disable-side-effect-analysis`))
+         compression_level = args$options$`compression-level`)
 }
 
 
@@ -238,14 +208,6 @@ indent <- function(lines, spaces = 4) {
 }
 
 
-list_to_string <- function(lst) {
-    ns <- names(lst)
-    vs <- unlist(lst)
-    spaces <- paste0(",\n", paste0(rep(" ", 34), collapse=""))
-    paste0("list(", paste(ns, vs, sep="=", collapse=spaces), ")")
-}
-
-
 wrap_script <- function(settings, script_dirname, script_filename) {
 
     script_dirpath <- path(settings$corpus_dirpath,
@@ -274,8 +236,6 @@ wrap_script <- function(settings, script_dirname, script_filename) {
 
     dir_create(function_dirpath)
 
-    analysis_switch <- list_to_string(settings$analysis_switch)
-
     trace_dirpath <- path(settings$trace_dirpath, "lazy-traces", settings$package)
 
     dir_create(trace_dirpath, recursive = TRUE)
@@ -296,8 +256,7 @@ wrap_script <- function(settings, script_dirname, script_filename) {
         ", enable_trace = {settings$trace}",
         ", truncate = {settings$truncate}",
         ", binary = {settings$binary}",
-        ", compression_level = {settings$compression_level}",
-        ", analysis_switch = list2env({analysis_switch}))",
+        ", compression_level = {settings$compression_level})",
         .sep = "\n")
 
     writeLines(wrapped_code, con = wrapped_script_filepath)

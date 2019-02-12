@@ -83,12 +83,6 @@ DEPENDENCIES_FILEPATH := scripts/dependencies.txt
 ################################################################################
 ## tracer arguments
 ################################################################################
-## By default all analyses are enabled.
-## To disable a particular analysis, do --disable-<analysis-name>-analysis
-## Ex: ANALYSIS_SWITCH=--disable-metadata-analysis\ --disable-strictness-analysis
-## Note the \ which escapes the next space and makes multiple flags part of same
-## variable
-ANALYSIS_SWITCH :=
 BINARY := --binary
 COMPRESSION_LEVEL := 0
 TRUNCATE := --truncate
