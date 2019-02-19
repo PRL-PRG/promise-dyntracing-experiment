@@ -96,10 +96,7 @@ TRACE_ANALYSIS_SCRIPT_TYPE := --vignettes --examples --tests
 ################################################################################
 ## analysis arguments
 ################################################################################
-SCHEMA_DIR := schemas
-STAGE := all
-USE_CACHE := --use-cache
-ANALYSIS := function-strictness
+ANALYSIS := object_types
 
 ################################################################################
 ## data table viewer arguments
@@ -263,17 +260,20 @@ reduce-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_REDUCED_DIRPATH)
 
-	-@$(TIME) parallel --jobs $(PARALLEL_JOB_COUNT)                               \
-	                   --files                                                    \
-	                   --bar                                                      \
-	                   --results $(TRACE_LOGS_REDUCED_DIRPATH)/{1}                \
-	                   --joblog $(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH)             \
-	                   $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                          \
-	                                 --file=analysis/$(ANALYSIS)/reduce.R         \
-	                                 --args $(TRACE_ANALYSIS_RAW_DIRPATH)/{1}     \
-	                                        $(TRACE_ANALYSIS_REDUCED_DIRPATH)/{1} \
-	                                        $(TRACE_ANALYSIS_SCRIPT_TYPE)         \
-	                   "2>&1"                                                     \
+	-@$(TIME) parallel --jobs $(PARALLEL_JOB_COUNT)                                  \
+	                   --files                                                       \
+	                   --bar                                                         \
+	                   --results $(TRACE_LOGS_REDUCED_DIRPATH)/{1}                   \
+	                   --joblog $(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH)                \
+	                   $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                             \
+	                                 --file=analysis/parameters/reduce.R             \
+	                                 --args $(TRACE_ANALYSIS_RAW_DIRPATH)/{1}        \
+	                                        $(TRACE_ANALYSIS_REDUCED_DIRPATH)/{1}    \
+	                                        $(ANALYSIS)                              \
+	                                        $(TRACE_ANALYSIS_SCRIPT_TYPE)            \
+	                                        $(BINARY)                                \
+	                                        --compression-level=$(COMPRESSION_LEVEL) \
+	                   "2>&1"                                                        \
 	                   ::: $(shell cd $(TRACE_ANALYSIS_RAW_DIRPATH) && ls -d */) > /dev/null
 
 
@@ -282,11 +282,13 @@ combine-analysis:
 	@mkdir -p $(TRACE_LOGS_COMBINED_DIRPATH)
 
 	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                              \
-	                       --file=analysis/$(ANALYSIS)/combine.R            \
+	                       --file=analysis/parameters/combine.R             \
 	                       --args $(TRACE_ANALYSIS_REDUCED_DIRPATH)         \
 	                              $(TRACE_ANALYSIS_COMBINED_DIRPATH)        \
 	                              $(TRACE_ANALYSIS_SCRIPT_TYPE)             \
-	                       2>&1 | $(TEE) $(TEE_FLAGS)                       \
+	                              $(BINARY)                                 \
+	                              --compression-level=$(COMPRESSION_LEVEL)  \
+	                              2>&1 | $(TEE) $(TEE_FLAGS)                \
 	                                     $(TRACE_LOGS_COMBINED_DIRPATH)/log
 
 
@@ -295,9 +297,12 @@ summarize-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARIZED_DIRPATH)
 
 	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                \
-	                       --file=analysis/$(ANALYSIS)/summarize.R            \
+	                       --file=analysis/parameters/summarize.R             \
 	                       --args $(TRACE_ANALYSIS_COMBINED_DIRPATH)          \
 	                              $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)        \
+	                              $(ANALYSIS)                                 \
+	                              $(BINARY)                                   \
+	                              --compression-level=$(COMPRESSION_LEVEL)    \
 	                       2>&1 | $(TEE) $(TEE_FLAGS)                         \
 	                                     $(TRACE_LOGS_SUMMARIZED_DIRPATH)/log
 
@@ -319,7 +324,7 @@ report-analysis:
 	@mkdir -p $(TRACE_LOGS_REPORT_DIRPATH)
 
 	@$(TIME) $(XVFB_RUN) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                            \
-	                                   --file=analysis/$(ANALYSIS)/report.R           \
+	                                   --file=analysis/parameters/report.R            \
 	                                   --args $(REPORT_TEMPLATE_FILEPATH)             \
 	                                          $(TRACE_ANALYSIS_REPORT_FILEPATH)       \
 	                                          $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)    \

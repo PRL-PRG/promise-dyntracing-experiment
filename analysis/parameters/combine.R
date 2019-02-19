@@ -38,7 +38,9 @@ combine_reduced_data <- function(settings, reduced_data_table) {
 
     read_data_file_and_mutate <- function(package, script_type,
                                           script_name, data_filepath) {
-        promisedyntracer::read_data_table(data_filepath) %>%
+        promisedyntracer::read_data_table(path_ext_remove(path_ext_remove(data_filepath)),
+                                          binary = settings$binary,
+                                          compression_level = settings$compression_level) %>%
             mutate(package = package,
                    script_type = script_type,
                    script_name = script_name)
@@ -50,7 +52,7 @@ combine_reduced_data <- function(settings, reduced_data_table) {
             info("=> Reading reduced data files ", .data$data_filename[1], "\n")
 
             output_filepath <- path(settings$output_dirpath,
-                                    path_ext_remove(.data$data_filename[1]))
+                                    path_ext_remove(path_ext_remove(.data$data_filename[1])))
 
             .data %>%
                 mutate(data_filepath = path(dirpath, data_filename)) %>%
@@ -58,8 +60,8 @@ combine_reduced_data <- function(settings, reduced_data_table) {
                 pmap(read_data_file_and_mutate) %>%
                 bind_rows() %>%
                 promisedyntracer::write_data_table(output_filepath,
-                                                   binary = FALSE,
-                                                   compression_level = 0)
+                                                   binary = settings$binary,
+                                                   compression_level = settings$compression_level)
 
             info("=> Writing combined data file to ", output_filepath, "\n")
             tibble(output_filepath)
@@ -72,6 +74,10 @@ scan_input_dirpath <- function(settings) {
 
     info("=> Scanning for reduced data files in ", settings$input_dirpath, "\n")
 
+    ext <- promisedyntracer::data_table_extension(settings$binary,
+                                                  settings$compression_level)
+    glob <- paste0("*", ext)
+
     reduced_script_data_dirpaths <-
         settings$input_dirpath %>%
         dir_ls() %>%
@@ -82,7 +88,7 @@ scan_input_dirpath <- function(settings) {
 
     reduced_script_data_filenames <-
         reduced_script_data_dirpaths %>%
-        map(dir_ls, type = "file", glob = "*.csv") %>%
+        map(dir_ls, type = "file", glob = glob) %>%
         map(path_file)
 
     reduced_data_table <-
@@ -125,7 +131,20 @@ parse_program_arguments <- function() {
                     action="store_true",
                     default=FALSE,
                     help="combine reduced data from tests",
-                    metavar="tests")
+                    metavar="tests"),
+
+        make_option(c("--binary"),
+                    action = "store_true",
+                    default = FALSE,
+                    help = "read data in binary format",
+                    metavar = "binary"),
+
+        make_option(c("--compression-level"),
+                    action = "store",
+                    type = "integer",
+                    default = 0,
+                    help = "compression level",
+                    metavar = "compression_level")
     )
 
 
@@ -148,7 +167,9 @@ parse_program_arguments <- function() {
 
     list(input_dirpath = arguments$args[1],
          output_dirpath = arguments$args[2],
-         script_type = script_type)
+         script_type = script_type,
+         binary = arguments$options$binary,
+         compression_level = arguments$options$compression_level)
 }
 
 
