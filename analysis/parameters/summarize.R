@@ -24,6 +24,314 @@ suppressPackageStartupMessages(library(tidyr))
 
 info <- function(...) cat((paste0(...)))
 
+
+object_type <- function(analyses) {
+    ## object type count is already summarized by the tracer.
+    ## we only have to emit the same file again for summarization.
+    object_count_distribution_by_type <-
+        analyses$object_count_distribution_by_type %>%
+        group_by(type) %>%
+        summarize(count = sum(count)) %>%
+        ungroup() %>%
+        mutate(relative_count = count / sum(count))
+
+    list(object_count_distribution_by_type = object_count_distribution_by_type)
+}
+
+functions <- function(analyses) {
+
+    closure_force_order_count <-
+        analyses$closure_force_order_count %>%
+        group_by(wrapper, function_id, force_order, missing_arguments) %>%
+        summarize(call_count = sum(call_count)) %>%
+        ungroup() %>%
+        mutate(force_order = str_split(str_sub(force_order, 2, -2), " "),
+               missing_arguments = str_split(str_sub(missing_arguments, 2, -2), " ")) %>%
+        group_by(wrapper, function_id) %>%
+        do({
+            missing_data <-
+                .data %>%
+                filter(length(missing_arguments) != 0)
+
+            missing_force_orders <- missing_data$force_order
+            all_missing_arguments <- missing_data$missing_arguments
+
+            non_missing_data <-
+                .data %>%
+                filter(length(missing_arguments) == 0)
+
+            non_missing_force_orders <- unique(non_missing_data$force_order)
+
+            compatible_force_orders <-
+                map2(missing_force_orders,
+                     all_missing_arguments,
+                     function(missing_force_order, missing_arguments) {
+                         for (non_missing_force_order in non_missing_force_orders) {
+                             compatible_force_order <-
+                                 non_missing_force_order[! non_missing_force_order %in% missing_arguments]
+                             if(compatible_force_order == missing_force_order) {
+                                 return(non_missing_force_order)
+                             }
+                         }
+                         missing_force_order
+                     })
+
+            non_missing_data <-
+                non_missing_data %>%
+                mutate(compatible_force_order = force_order)
+
+            missing_data <-
+                missing_data %>%
+                mutate(compatible_force_order = compatible_force_orders)
+
+            bind_rows(non_missing_data,
+                      missing_data)
+        }) %>%
+        ungroup()
+
+    pos_seq_to_string <- function(pos_seq_list) {
+        map_chr(pos_seq_list,
+            function(pos_seq) {
+                str_c("(", str_c(pos_seq, collapse = " "), ")")
+            })
+    }
+
+    closure_force_order_count <-
+        closure_force_order_count %>%
+        mutate(force_order = pos_seq_to_string(force_order),
+               compatible_force_order = pos_seq_to_string(compatible_force_order),
+               missing_arguments = pos_seq_to_string(missing_arguments))
+
+    closure_call_count_distribution_by_return_type <-
+        analyses$closure_return_type %>%
+        group_by(return_value_type) %>%
+        summarize(call_count = sum(call_count))
+
+    closure_count_distribution_by_return_type <-
+        analyses$closure_return_type %>%
+        group_by(function_id) %>%
+        summarize(return_value_type = paste(sort(unique(return_value_type)),
+                                            collapse = " or ")) %>%
+        group_by(return_value_type) %>%
+        summarize(closure_count = n())
+
+    closure_count_distribution_by_parameter_count <-
+        analyses$closure_parameter_count %>%
+        group_by(formal_parameter_count) %>%
+        summarize(closure_count = length(unique(function_id)))
+
+    closure_count_distribution_by_wrapper_and_force_order <-
+        closure_force_order_count %>%
+        group_by(wrapper, function_id) %>%
+        summarize(force_order_count = length(unique(force_order))) %>%
+        ungroup() %>%
+        group_by(wrapper, force_order_count) %>%
+        summarize(function_count = n()) %>%
+        ungroup()
+
+    closure_count_distribution_by_wrapper_and_compatible_force_order <-
+        closure_force_order_count %>%
+        group_by(wrapper, function_id) %>%
+        summarize(compatible_force_order_count = length(unique(compatible_force_order))) %>%
+        ungroup() %>%
+        group_by(wrapper, compatible_force_order_count) %>%
+        summarize(function_count = n()) %>%
+        ungroup()
+
+
+    list(closure_force_order_count = closure_force_order_count,
+         closure_call_count_distribution_by_return_type = closure_call_count_distribution_by_return_type,
+         closure_count_distribution_by_return_type = closure_count_distribution_by_return_type,
+         closure_count_distribution_by_parameter_count = closure_count_distribution_by_parameter_count,
+         closure_count_distribution_by_wrapper_and_force_order = closure_count_distribution_by_wrapper_and_force_order,
+         closure_count_distribution_by_wrapper_and_compatible_force_order = closure_count_distribution_by_wrapper_and_compatible_force_order)
+}
+
+argument_promise_relation <- function(analyses) {
+
+    promise_distribution_by_source <-
+        analyses$promise_distribution_by_source %>%
+        group_by(promise_type) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        ungroup
+
+    argument_distribution_by_type <-
+        analyses$argument_distribution_by_type %>%
+        group_by(argument_type) %>%
+        summarize(argument_count = sum(argument_count)) %>%
+        ungroup()
+
+    argument_distribution_by_dot_dot <-
+        analyses$argument_distribution_by_dot_dot %>%
+        group_by(dot_dot) %>%
+        summarize(argument_count = sum(argument_count)) %>%
+        ungroup()
+
+    argument_promise_distribution_by_default <-
+        analyses$argument_promise_distribution_by_default %>%
+        group_by(default) %>%
+        summarize(argument_count = sum(argument_count)) %>%
+        ungroup()
+
+    argument_promise_distribution_by_dot_dot_and_sharing <-
+        analyses$argument_promise_distribution_by_dot_dot_and_sharing %>%
+        group_by(dot_dot, sharing_count) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        ungroup()
+
+    list(promise_distribution_by_source = promise_distribution_by_source,
+         argument_distribution_by_type = argument_distribution_by_type,
+         argument_distribution_by_dot_dot = argument_distribution_by_dot_dot,
+         argument_promise_distribution_by_default = argument_promise_distribution_by_default,
+         argument_promise_distribution_by_dot_dot_and_sharing = argument_promise_distribution_by_dot_dot_and_sharing)
+}
+
+
+promise_use_and_force <- function(analyses) {
+    promise_count_by_category <-
+        analyses$promise_count_by_category %>%
+        group_by(category) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        ungroup()
+
+    argument_promise_count_by_category <-
+        analyses$argument_promise_count_by_category %>%
+        group_by(category) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        ungroup()
+
+    promise_use_counts <-
+        analyses$promise_use_counts %>%
+        group_by(category, use) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        ungroup()
+
+    promise_force_counts <-
+        analyses$promise_force_counts %>%
+        group_by(category, action) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        ungroup()
+
+    escaped_promise_use_counts <-
+        analyses$escaped_promise_use_counts %>%
+        group_by(category, use) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        ungroup()
+
+    escaped_promise_force_counts <-
+        analyses$escaped_promise_force_counts %>%
+        group_by(category, action) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        ungroup()
+
+    list(promise_count_by_category = promise_count_by_category,
+         argument_promise_count_by_category = argument_promise_count_by_category,
+         promise_use_counts = promise_use_counts,
+         promise_force_counts = promise_force_counts,
+         escaped_promise_use_counts = escaped_promise_use_counts,
+         escaped_promise_force_counts = escaped_promise_force_counts)
+}
+
+parameters <- function(analyses) {
+
+    closure_call_count <-
+        analyses$closure_force_order_count %>%
+        group_by(function_id) %>%
+        summarize(call_count = sum(call_count))
+
+    classify_parameter <- function(argument_use_count, call_count) {
+        if_else(argument_use_count == call_count, "Always",
+                if_else(argument_use_count == 0, "Never",
+                        "Sometimes"))
+    }
+
+    formal_parameter_usage_class <-
+        analyses$formal_parameter_usage_counts %>%
+        group_by(function_id, formal_parameter_position) %>%
+        summarize(lookup_use = sum(lookup_use),
+                  metaprogram_use = sum(metaprogram_use),
+                  use = sum(use)) %>%
+        ungroup() %>%
+        left_join(closure_call_count, by = "function_id") %>%
+        mutate(lookup_class = classify_parameter(lookup_use, call_count),
+               metaprogram_class = classify_parameter(metaprogram_use, call_count),
+               both_class = classify_parameter(use, call_count))
+
+    parameter_count_distribution_by_usage_class <-
+        formal_parameter_usage_class %>%
+        select(function_id, formal_parameter_position,
+               Lookup = lookup_class,
+               Metaprogram = metaprogram_class,
+               Both = both_class) %>%
+        gather(parameter_use, parameter_class, -function_id, -formal_parameter_position) %>%
+        group_by(parameter_use, parameter_class) %>%
+        summarize(parameter_position_count = n()) %>%
+        ungroup()
+
+    classify_function <- function(parameter_use) {
+        str_c(as.vector(sort(unique(parameter_use))), collapse = " & ")
+    }
+
+    function_count_distribution_by_usage_class <-
+        formal_parameter_usage_class %>%
+        group_by(function_id) %>%
+        summarize(lookup_class = classify_function(lookup_class),
+                  metaprogram_class = classify_function(metaprogram_class),
+                  both_class = classify_function(both_class)) %>%
+        ungroup() %>%
+        gather(function_use, function_class, -function_id) %>%
+        group_by(function_use, function_class) %>%
+        summarize(function_count = n()) %>%
+        ungroup()
+
+    list(closure_call_count = closure_call_count,
+         formal_parameter_usage_class = formal_parameter_usage_class,
+         parameter_count_distribution_by_usage_class = parameter_count_distribution_by_usage_class,
+         function_count_distribution_by_usage_class = function_count_distribution_by_usage_class)
+
+}
+
+escaped_promise_functions <- function(analyses) {
+    escaped_argument_call_return_value_type <-
+        analyses$escaped_argument_call_return_value_type %>%
+        group_by(return_value_type) %>%
+        summarize(count = sum(count))
+
+    categorize <- function(categories) {
+        if (all(categories == "All")) {
+            "All"
+        }
+        else if (all(categories == "Some")) {
+            "Some"
+        }
+        else {
+            "Both"
+        }
+    }
+
+    escaped_argument_function_category <-
+        analyses$escaped_argument_functions %>%
+        group_by(function_id) %>%
+        summarize(category = categorize(category)) %>%
+        ungroup()
+
+    escaped_argument_function_return_type_and_category <-
+        analyses$escaped_argument_functions %>%
+        distinct(function_id, return_value_type) %>%
+        left_join(escaped_argument_function_category, by = "function_id")
+
+    escaped_argument_function_count_distribution_by_return_type_and_category <-
+        escaped_argument_function_return_type_and_category %>%
+        group_by(category, return_value_type) %>%
+        summarize(function_count = length(unique(function_id))) %>%
+        ungroup()
+
+    list(escaped_argument_call_return_value_type = escaped_argument_call_return_value_type,
+         escaped_argument_function_category = escaped_argument_function_category,
+         escaped_argument_function_return_type_and_category = escaped_argument_function_return_type_and_category,
+         escaped_argument_function_count_distribution_by_return_type_and_category = escaped_argument_function_count_distribution_by_return_type_and_category)
+}
+
 summarize_analyses  <- function(analyses) {
 
     compute_parameter_mode <- function(argument_mode, argument_use_count) {
@@ -503,21 +811,29 @@ summarize_combined_data <- function(settings, combined_data_table) {
 
     info("=> Starting summarization\n")
 
+    summarizer <- eval(as.symbol(settings$analysis))
+
     combined_data_filepaths <- combined_data_table$filepath
 
     summarized_data_filepaths <-
         combined_data_filepaths %>%
-        map(promisedyntracer::read_data_table) %>%
+        path_ext_remove() %>%
+        path_ext_remove() %>%
+        map(promisedyntracer::read_data_table,
+            binary = settings$binary,
+            compression_level = settings$compression_level) %>%
         set_names(path_ext_remove(path_file(combined_data_filepaths))) %>%
-        summarize_analyses() %>%
+        summarizer() %>%
         imap(
             function(df, name) {
                 output_filepath <- path(settings$output_dirpath, name)
 
                 promisedyntracer::write_data_table(df, output_filepath,
-                                                   compression_level = 0,
-                                                   binary = FALSE)
-                path(output_filepath, ext = "csv")
+                                                   binary = settings$binary,
+                                                   compression_level = settings$compression_level)
+                path(output_filepath,
+                     ext = promisedyntracer::data_table_extension(settings$binary,
+                                                                  settings$compression_level))
             }
         )
 
@@ -548,17 +864,46 @@ parse_program_arguments <- function() {
     description <- paste(
         "combined-output-dirpath    directory containing combined data files",
         "summarized-output-dirpath  directory to which summarized data will be exported",
+        "analysis                   name of analysis to run",
         sep = "\n")
+
+    option_list <- list(
+        make_option(c("--binary"),
+                    action = "store_true",
+                    default = FALSE,
+                    help = "read data in binary format",
+                    metavar = "binary"),
+
+        make_option(c("--compression-level"),
+                    action = "store",
+                    type = "integer",
+                    default = 0,
+                    help = "compression level",
+                    metavar = "compression_level")
+    )
 
     option_parser <- OptionParser(usage = usage,
                                   description = description,
                                   add_help_option = TRUE,
-                                  option_list = list())
+                                  option_list = option_list)
 
     arguments <- parse_args2(option_parser)
 
+    analysis_map <- list(
+        object_type = list("object_count_distribution_by_type"),
+
+        arguments = list("promise_distribution_by_source",
+                         "argument_distribution_by_type",
+                         "promise_argument_distribution_by_category",
+                         "promise_distribution_by_sharing")
+    )
+
     list(input_dirpath = arguments$args[1],
-         output_dirpath = arguments$args[2])
+         output_dirpath = arguments$args[2],
+         analysis = arguments$args[3],
+         table_names = analysis_map[[arguments$args[3]]],
+         binary = arguments$options$binary,
+         compression_level = arguments$options$compression_level)
 
 }
 
