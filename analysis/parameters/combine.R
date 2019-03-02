@@ -38,12 +38,21 @@ combine_reduced_data <- function(settings, reduced_data_table) {
 
     read_data_file_and_mutate <- function(package, script_type,
                                           script_name, data_filepath) {
-        promisedyntracer::read_data_table(path_ext_remove(path_ext_remove(data_filepath)),
-                                          binary = settings$binary,
-                                          compression_level = settings$compression_level) %>%
-            mutate(package = package,
-                   script_type = script_type,
-                   script_name = script_name)
+        table <-
+            data_filepath %>%
+            path_ext_remove() %>%
+            path_ext_remove() %>%
+            read_data_table(binary = settings$binary,
+                            compression_level = settings$compression_level)
+
+        if(nrow(table) == 0) {
+            table
+        } else {
+            table %>%
+                mutate(package = package,
+                       script_type = script_type,
+                       script_name = script_name)
+        }
     }
 
     reduced_data_table %>%
@@ -58,6 +67,7 @@ combine_reduced_data <- function(settings, reduced_data_table) {
                 mutate(data_filepath = path(dirpath, data_filename)) %>%
                 select(package, script_type, script_name, data_filepath) %>%
                 pmap(read_data_file_and_mutate) %>%
+                discard(function(df) nrow(df) == 0) %>%
                 bind_rows() %>%
                 promisedyntracer::write_data_table(output_filepath,
                                                    binary = settings$binary,

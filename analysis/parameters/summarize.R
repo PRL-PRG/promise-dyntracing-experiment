@@ -38,27 +38,133 @@ object_type <- function(analyses) {
     list(object_count_distribution_by_type = object_count_distribution_by_type)
 }
 
+## TODO - one of the summarizations has computed relative counts
+##        incorrectly. Values are repeated and their relative count
+##        should be more than 100 but it computes it as 100
 functions <- function(analyses) {
+
+    function_count_by_type <-
+        analyses$function_call_summary %>%
+        group_by(function_type) %>%
+        summarize(function_count = length(unique(function_id))) %>%
+        ungroup() %>%
+        mutate(relative_function_count = function_count / sum(function_count))
+
+    ## this should be length 1
+    total_closure_count <-
+        function_count_by_type %>%
+        filter(function_type == "Closure") %>%
+        pull(function_count)
+
+    function_call_count_by_type <-
+        analyses$function_call_summary %>%
+        group_by(function_type) %>%
+        summarize(call_count = sum(call_count)) %>%
+        ungroup() %>%
+        mutate(relative_call_count = call_count / sum(call_count))
+
+    function_call_count_by_return_value_type <-
+        analyses$function_call_summary %>%
+        filter(!jumped) %>%
+        group_by(function_type, return_value_type) %>%
+        summarize(call_count = sum(call_count)) %>%
+        ungroup() %>%
+        mutate(relative_call_count = call_count / sum(call_count))
+
+    total_function_count <-
+        function_count_by_type %>%
+        pull(function_count) %>%
+        sum()
+
+    function_count_by_return_value_type <-
+        analyses$function_call_summary %>%
+        filter(!jumped) %>%
+        group_by(function_type, return_value_type) %>%
+        summarize(function_count = length(unique(function_id))) %>%
+        ungroup() %>%
+        mutate(relative_function_count = function_count / total_function_count)
+
+    closure_count_distribution_by_parameter_count <-
+        analyses$closure_parameter_count %>%
+        group_by(formal_parameter_count) %>%
+        summarize(closure_count = length(unique(function_id))) %>%
+        ungroup() %>%
+        mutate(relative_closure_count = closure_count / sum(closure_count)) %>%
+        summarize_outliers(formal_parameter_count, closure_count,
+                           relative_closure_count, 5)
+
+    compute_method_type <- function(S3_method, S4_method) {
+        if_else(!S3_method & !S4_method,
+                "Ordinary",
+                if_else(S3_method & !S4_method,
+                        "S3",
+                        if_else(!S3_method & S4_method,
+                                "S4",
+                                "S3 & S4")))
+    }
+
+    function_method_type <-
+        analyses$function_call_summary %>%
+        group_by(function_type, function_id, S3_method, S4_method) %>%
+        summarize(call_count = sum(call_count)) %>%
+        ungroup() %>%
+        mutate(method_type = compute_method_type(S3_method, S4_method)) %>%
+        select(function_type, function_id, method_type, call_count)
+
+    function_call_count_by_method_type <-
+        function_method_type %>%
+        group_by(function_type, method_type) %>%
+        summarize(call_count = sum(call_count)) %>%
+        ungroup() %>%
+        mutate(relative_call_count = call_count / sum(call_count))
+
+    function_count_by_method_type <-
+        function_method_type %>%
+        group_by(function_type, method_type) %>%
+        summarize(function_count = length(unique(function_id))) %>%
+        ungroup() %>%
+        mutate(relative_function_count = function_count / total_function_count)
+
+    split_pos_seq <- function(pos_seq) {
+        map(str_split(str_sub(pos_seq, 2, -2), " "),
+            function(chr_lst) if(length(chr_lst) == 1 && chr_lst == "") c() else chr_lst)
+    }
+
+    pos_seq_eq <- function(pos_seq_1, pos_seq_2) {
+        l1 <- length(pos_seq_1)
+        l2 <- length(pos_seq_2)
+
+        if(l1 != l2) {
+            FALSE
+        }
+        else if(l1 == 0) {
+            TRUE
+        }
+        else {
+            all(pos_seq_1 == pos_seq_2)
+        }
+    }
 
     closure_force_order_count <-
         analyses$closure_force_order_count %>%
         group_by(wrapper, function_id, force_order, missing_arguments) %>%
-        summarize(call_count = sum(call_count)) %>%
+        summarize(formal_parameter_count = first(formal_parameter_count),
+                  call_count = sum(call_count)) %>%
         ungroup() %>%
-        mutate(force_order = str_split(str_sub(force_order, 2, -2), " "),
-               missing_arguments = str_split(str_sub(missing_arguments, 2, -2), " ")) %>%
+        mutate(force_order = split_pos_seq(force_order),
+               missing_arguments = split_pos_seq(missing_arguments)) %>%
         group_by(wrapper, function_id) %>%
         do({
             missing_data <-
                 .data %>%
-                filter(length(missing_arguments) != 0)
+                filter(lengths(missing_arguments) != 0)
 
             missing_force_orders <- missing_data$force_order
             all_missing_arguments <- missing_data$missing_arguments
 
             non_missing_data <-
                 .data %>%
-                filter(length(missing_arguments) == 0)
+                filter(lengths(missing_arguments) == 0)
 
             non_missing_force_orders <- unique(non_missing_data$force_order)
 
@@ -69,7 +175,7 @@ functions <- function(analyses) {
                          for (non_missing_force_order in non_missing_force_orders) {
                              compatible_force_order <-
                                  non_missing_force_order[! non_missing_force_order %in% missing_arguments]
-                             if(compatible_force_order == missing_force_order) {
+                             if(pos_seq_eq(compatible_force_order, missing_force_order)) {
                                  return(non_missing_force_order)
                              }
                          }
@@ -102,134 +208,214 @@ functions <- function(analyses) {
                compatible_force_order = pos_seq_to_string(compatible_force_order),
                missing_arguments = pos_seq_to_string(missing_arguments))
 
-    closure_call_count_distribution_by_return_type <-
-        analyses$closure_return_type %>%
-        group_by(return_value_type) %>%
-        summarize(call_count = sum(call_count))
-
-    closure_count_distribution_by_return_type <-
-        analyses$closure_return_type %>%
-        group_by(function_id) %>%
-        summarize(return_value_type = paste(sort(unique(return_value_type)),
-                                            collapse = " or ")) %>%
-        group_by(return_value_type) %>%
-        summarize(closure_count = n())
-
-    closure_count_distribution_by_parameter_count <-
-        analyses$closure_parameter_count %>%
-        group_by(formal_parameter_count) %>%
-        summarize(closure_count = length(unique(function_id)))
-
-    closure_count_distribution_by_wrapper_and_force_order <-
+    zero_parameter_closure_force_order_count <-
         closure_force_order_count %>%
+        filter(formal_parameter_count == 0) %>%
+        group_by(wrapper) %>%
+        do({
+            r <- nrow(.data)
+            tibble(closure_count = c(r, r),
+                   force_order_type = c("Original", "Compatible"))
+        }) %>%
+        ungroup() %>%
+        mutate(force_order_count = "0",
+               relative_closure_count = closure_count / total_closure_count)
+
+    non_zero_parameter_closure_force_order_count <-
+        closure_force_order_count %>%
+        filter(formal_parameter_count != 0)
+
+    closure_count_distribution_by_wrapper_and_original_force_order <-
+        non_zero_parameter_closure_force_order_count %>%
         group_by(wrapper, function_id) %>%
         summarize(force_order_count = length(unique(force_order))) %>%
         ungroup() %>%
         group_by(wrapper, force_order_count) %>%
-        summarize(function_count = n()) %>%
-        ungroup()
+        summarize(closure_count = n()) %>%
+        ungroup() %>%
+        mutate(relative_closure_count = closure_count / total_closure_count,
+               force_order_type = "Original")
+
 
     closure_count_distribution_by_wrapper_and_compatible_force_order <-
-        closure_force_order_count %>%
+        non_zero_parameter_closure_force_order_count %>%
         group_by(wrapper, function_id) %>%
         summarize(compatible_force_order_count = length(unique(compatible_force_order))) %>%
         ungroup() %>%
         group_by(wrapper, compatible_force_order_count) %>%
-        summarize(function_count = n()) %>%
+        summarize(closure_count = n()) %>%
+        ungroup() %>%
+        mutate(relative_closure_count = closure_count / total_closure_count,
+               force_order_type = "Compatible") %>%
+        select(wrapper, force_order_type,
+               force_order_count = compatible_force_order_count,
+               closure_count, relative_closure_count)
+
+    closure_count_distribution_by_wrapper_and_force_order <-
+        bind_rows(closure_count_distribution_by_wrapper_and_original_force_order,
+                  closure_count_distribution_by_wrapper_and_compatible_force_order)
+
+    closure_count_distribution_by_wrapper_and_force_order_outliers <-
+        closure_count_distribution_by_wrapper_and_force_order %>%
+        filter(force_order_count > 5) %>%
+        group_by(wrapper, force_order_type) %>%
+        summarize(force_order_count = " > 5",
+                  closure_count = sum(closure_count),
+                  relative_closure_count = sum(relative_closure_count)) %>%
         ungroup()
 
+    closure_count_distribution_by_wrapper_and_force_order <-
+        closure_count_distribution_by_wrapper_and_force_order %>%
+        mutate(force_order_count = as.character(force_order_count)) %>%
+        bind_rows(closure_count_distribution_by_wrapper_and_force_order_outliers,
+                  zero_parameter_closure_force_order_count) %>%
+        mutate(wrapper = if_else(wrapper == 0, "Non Wrapper", "Wrapper"))
 
-    list(closure_force_order_count = closure_force_order_count,
-         closure_call_count_distribution_by_return_type = closure_call_count_distribution_by_return_type,
-         closure_count_distribution_by_return_type = closure_count_distribution_by_return_type,
+    list(function_count_by_type = function_count_by_type,
+         function_call_count_by_type = function_call_count_by_type,
+         function_call_count_by_return_value_type = function_call_count_by_return_value_type,
+         function_count_by_return_value_type = function_count_by_return_value_type,
          closure_count_distribution_by_parameter_count = closure_count_distribution_by_parameter_count,
-         closure_count_distribution_by_wrapper_and_force_order = closure_count_distribution_by_wrapper_and_force_order,
-         closure_count_distribution_by_wrapper_and_compatible_force_order = closure_count_distribution_by_wrapper_and_compatible_force_order)
+         function_call_count_by_method_type = function_call_count_by_method_type,
+         function_count_by_method_type = function_count_by_method_type,
+         closure_force_order_count = closure_force_order_count,
+         closure_count_distribution_by_wrapper_and_force_order = closure_count_distribution_by_wrapper_and_force_order)
+
 }
 
 argument_promise_relation <- function(analyses) {
 
-    promise_distribution_by_source <-
-        analyses$promise_distribution_by_source %>%
-        group_by(promise_type) %>%
+    promise_distribution_by_category <-
+        analyses$promise_distribution_by_category %>%
+        group_by(promise_category) %>%
         summarize(promise_count = sum(promise_count)) %>%
-        ungroup
+        ungroup() %>%
+        mutate(relative_promise_count = promise_count / sum(promise_count))
+
 
     argument_distribution_by_type <-
         analyses$argument_distribution_by_type %>%
         group_by(argument_type) %>%
         summarize(argument_count = sum(argument_count)) %>%
-        ungroup()
+        ungroup() %>%
+        mutate(relative_argument_count = argument_count / sum(argument_count)) %>%
+        arrange(desc(relative_argument_count))
 
-    argument_distribution_by_dot_dot <-
-        analyses$argument_distribution_by_dot_dot %>%
-        group_by(dot_dot) %>%
+
+    argument_distribution_by_dot_dot_dot <-
+        analyses$argument_distribution_by_dot_dot_dot %>%
+        group_by(argument_category) %>%
         summarize(argument_count = sum(argument_count)) %>%
-        ungroup()
+        ungroup() %>%
+        mutate(relative_argument_count = argument_count / sum(argument_count))
 
-    argument_promise_distribution_by_default <-
-        analyses$argument_promise_distribution_by_default %>%
-        group_by(default) %>%
+
+    argument_promise_distribution_by_nature <-
+        analyses$argument_promise_distribution_by_nature %>%
+        group_by(argument_nature) %>%
         summarize(argument_count = sum(argument_count)) %>%
-        ungroup()
+        ungroup() %>%
+        mutate(relative_argument_count = argument_count / sum(argument_count))
 
-    argument_promise_distribution_by_dot_dot_and_sharing <-
-        analyses$argument_promise_distribution_by_dot_dot_and_sharing %>%
-        group_by(dot_dot, sharing_count) %>%
+
+    argument_promise_distribution_by_sharing <-
+        analyses$argument_promise_distribution_by_sharing %>%
+        group_by(sharing_count) %>%
         summarize(promise_count = sum(promise_count)) %>%
-        ungroup()
+        ungroup() %>%
+        mutate(relative_promise_count = promise_count / sum(promise_count)) %>%
+        summarize_outliers(sharing_count, promise_count, relative_promise_count, 3)
 
-    list(promise_distribution_by_source = promise_distribution_by_source,
+
+    list(promise_distribution_by_category = promise_distribution_by_category,
          argument_distribution_by_type = argument_distribution_by_type,
-         argument_distribution_by_dot_dot = argument_distribution_by_dot_dot,
-         argument_promise_distribution_by_default = argument_promise_distribution_by_default,
-         argument_promise_distribution_by_dot_dot_and_sharing = argument_promise_distribution_by_dot_dot_and_sharing)
+         argument_distribution_by_dot_dot_dot = argument_distribution_by_dot_dot_dot,
+         argument_promise_distribution_by_nature = argument_promise_distribution_by_nature,
+         argument_promise_distribution_by_sharing = argument_promise_distribution_by_sharing)
+
+}
+
+summarize_outliers <- function(df, grouping_column, count_column, relative_count_column, outlier_value) {
+    grouping_column <- enquo(grouping_column)
+    count_column <- enquo(count_column)
+    relative_count_column <- enquo(relative_count_column)
+
+    outlier_row <-
+        df %>%
+        filter(!! grouping_column > outlier_value) %>%
+        summarize(!!grouping_column := str_c(">", toString(outlier_value), sep = " "),
+                  !!count_column := sum(!!count_column),
+                  !!relative_count_column := sum(!!relative_count_column))
+
+    df <-
+        df %>%
+        mutate(!! grouping_column := as.character(!! grouping_column)) %>%
+        bind_rows(outlier_row)
+
+    df
 }
 
 
-promise_use_and_force <- function(analyses) {
-    promise_count_by_category <-
-        analyses$promise_count_by_category %>%
-        group_by(category) %>%
-        summarize(promise_count = sum(promise_count)) %>%
-        ungroup()
+promise_use_and_action <- function(analyses) {
 
-    argument_promise_count_by_category <-
-        analyses$argument_promise_count_by_category %>%
-        group_by(category) %>%
+    promise_use_distribution_by_category <-
+        analyses$promise_use_distribution_by_category %>%
+        group_by(promise_category, use) %>%
         summarize(promise_count = sum(promise_count)) %>%
-        ungroup()
+        ungroup() %>%
+        mutate(relative_promise_count = promise_count / sum(promise_count))
 
-    promise_use_counts <-
-        analyses$promise_use_counts %>%
-        group_by(category, use) %>%
+    promise_action_distribution_by_category <-
+        analyses$promise_action_distribution_by_category %>%
+        group_by(promise_category, action) %>%
         summarize(promise_count = sum(promise_count)) %>%
-        ungroup()
+        ungroup() %>%
+        mutate(relative_promise_count = promise_count / sum(promise_count))
 
-    promise_force_counts <-
-        analyses$promise_force_counts %>%
-        group_by(category, action) %>%
-        summarize(promise_count = sum(promise_count)) %>%
-        ungroup()
+    list(promise_use_distribution_by_category = promise_use_distribution_by_category,
+         promise_action_distribution_by_category = promise_action_distribution_by_category)
+    ## promise_count_by_category <-
+    ##     analyses$promise_count_by_category %>%
+    ##     group_by(category) %>%
+    ##     summarize(promise_count = sum(promise_count)) %>%
+    ##     ungroup()
 
-    escaped_promise_use_counts <-
-        analyses$escaped_promise_use_counts %>%
-        group_by(category, use) %>%
-        summarize(promise_count = sum(promise_count)) %>%
-        ungroup()
+    ## argument_promise_count_by_category <-
+    ##     analyses$argument_promise_count_by_category %>%
+    ##     group_by(category) %>%
+    ##     summarize(promise_count = sum(promise_count)) %>%
+    ##     ungroup()
 
-    escaped_promise_force_counts <-
-        analyses$escaped_promise_force_counts %>%
-        group_by(category, action) %>%
-        summarize(promise_count = sum(promise_count)) %>%
-        ungroup()
+    ## promise_use_counts <-
+    ##     analyses$promise_use_counts %>%
+    ##     group_by(category, use) %>%
+    ##     summarize(promise_count = sum(promise_count)) %>%
+    ##     ungroup()
 
-    list(promise_count_by_category = promise_count_by_category,
-         argument_promise_count_by_category = argument_promise_count_by_category,
-         promise_use_counts = promise_use_counts,
-         promise_force_counts = promise_force_counts,
-         escaped_promise_use_counts = escaped_promise_use_counts,
-         escaped_promise_force_counts = escaped_promise_force_counts)
+    ## promise_force_counts <-
+    ##     analyses$promise_force_counts %>%
+    ##     group_by(category, action) %>%
+    ##     summarize(promise_count = sum(promise_count)) %>%
+    ##     ungroup()
+
+    ## escaped_promise_use_counts <-
+    ##     analyses$escaped_promise_use_counts %>%
+    ##     group_by(category, use) %>%
+    ##     summarize(promise_count = sum(promise_count)) %>%
+    ##     ungroup()
+
+    ## escaped_promise_force_counts <-
+    ##     analyses$escaped_promise_force_counts %>%
+    ##     group_by(category, action) %>%
+    ##     summarize(promise_count = sum(promise_count)) %>%
+    ##     ungroup()
+
+    ## list(promise_count_by_category = promise_count_by_category,
+    ##      argument_promise_count_by_category = argument_promise_count_by_category,
+    ##      promise_use_counts = promise_use_counts,
+    ##      promise_force_counts = promise_force_counts,
+    ##      escaped_promise_use_counts = escaped_promise_use_counts,
+    ##      escaped_promise_force_counts = escaped_promise_force_counts)
 }
 
 parameters <- function(analyses) {
@@ -291,11 +477,27 @@ parameters <- function(analyses) {
 
 }
 
-escaped_promise_functions <- function(analyses) {
-    escaped_argument_call_return_value_type <-
-        analyses$escaped_argument_call_return_value_type %>%
+escaped_arguments <- function(analyses) {
+
+    escaped_argument_return_value_type <-
+        analyses$escaped_arguments %>%
+        group_by(call_id, function_id) %>%
+        summarize(return_value_type = first(return_value_type)) %>%
+        ungroup()
+
+    escaped_argument_function_call_count_by_return_value_type <-
+        escaped_argument_return_value_type %>%
         group_by(return_value_type) %>%
-        summarize(count = sum(count))
+        summarize(call_count = n()) %>%
+        ungroup() %>%
+        mutate(relative_call_count = call_count / sum(call_count))
+
+    escaped_argument_function_count_by_return_value_type <-
+        escaped_argument_return_value_type %>%
+        group_by(return_value_type) %>%
+        summarize(function_count = length(unique(function_id))) %>%
+        ungroup() %>%
+        mutate(relative_function_count = function_count / sum(function_count))
 
     categorize <- function(categories) {
         if (all(categories == "All")) {
@@ -310,27 +512,53 @@ escaped_promise_functions <- function(analyses) {
     }
 
     escaped_argument_function_category <-
-        analyses$escaped_argument_functions %>%
+        analyses$escaped_arguments %>%
+        group_by(call_id) %>%
+        mutate(category = if_else(n() >= formal_parameter_count, "All", "Some")) %>%
+        ungroup() %>%
         group_by(function_id) %>%
         summarize(category = categorize(category)) %>%
         ungroup()
 
-    escaped_argument_function_return_type_and_category <-
-        analyses$escaped_argument_functions %>%
-        distinct(function_id, return_value_type) %>%
-        left_join(escaped_argument_function_category, by = "function_id")
+    escaped_argument_function_count_by_category <-
+        escaped_argument_function_category %>%
+        group_by(category) %>%
+        summarize(function_count = n()) %>%
+        ungroup() %>%
+        mutate(relative_function_count = function_count / sum(function_count))
 
-    escaped_argument_function_count_distribution_by_return_type_and_category <-
-        escaped_argument_function_return_type_and_category %>%
-        group_by(category, return_value_type) %>%
-        summarize(function_count = length(unique(function_id))) %>%
-        ungroup()
+    ## escaped_argument_function_return_type_and_category <-
+    ##     analyses$escaped_argument_functions %>%
+    ##     distinct(function_id, return_value_type) %>%
+    ##     left_join(escaped_argument_function_category, by = "function_id")
 
-    list(escaped_argument_call_return_value_type = escaped_argument_call_return_value_type,
+    ## escaped_argument_function_count_distribution_by_return_type_and_category <-
+    ##     escaped_argument_function_return_type_and_category %>%
+    ##     group_by(category, return_value_type) %>%
+    ##     summarize(function_count = length(unique(function_id))) %>%
+    ##     ungroup()
+
+    list(escaped_argument_function_call_count_by_return_value_type = escaped_argument_function_call_count_by_return_value_type,
+         escaped_argument_function_count_by_return_value_type = escaped_argument_function_count_by_return_value_type,
          escaped_argument_function_category = escaped_argument_function_category,
-         escaped_argument_function_return_type_and_category = escaped_argument_function_return_type_and_category,
-         escaped_argument_function_count_distribution_by_return_type_and_category = escaped_argument_function_count_distribution_by_return_type_and_category)
+         escaped_argument_function_count_by_category = escaped_argument_function_count_by_category)
+        ## escaped_argument_call_return_value_type = escaped_argument_call_return_value_type,
+        ##  escaped_argument_function_category = escaped_argument_function_category,
+        ##  escaped_argument_function_return_type_and_category = escaped_argument_function_return_type_and_category,
+        ##  escaped_argument_function_count_distribution_by_return_type_and_category = escaped_argument_function_count_distribution_by_return_type_and_category)
 }
+
+
+function_definition <- function(analyses) {
+
+    function_definition  <-
+        analyses$function_definition %>%
+        group_by(function_id) %>%
+        summarize(definition = first(definition))
+
+    list(function_definition = function_definition)
+}
+
 
 summarize_analyses  <- function(analyses) {
 
