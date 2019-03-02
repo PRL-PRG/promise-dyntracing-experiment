@@ -10,6 +10,7 @@ R_DYNTRACE_FLAGS := --slave --no-restore --no-save
 ################################################################################
 TEE := tee
 TEE_FLAGS := --ignore-interrupts
+
 ################################################################################
 ## xvfb
 ################################################################################
@@ -193,10 +194,9 @@ install-corpus:
 
 
 corpus:
-	@echo "Updating vignette list in '$(CORPUS_FILEPATH)'"
-	$(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                \
-	              --file=scripts/make-package-list.R \
-	              --args $(CORPUS_FILEPATH)
+	@$(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                \
+	               --file=scripts/create-corpus.R     \
+	               --args $(CORPUS_FILEPATH)
 
 
 analyze:
