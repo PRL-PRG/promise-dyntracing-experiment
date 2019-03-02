@@ -33,7 +33,6 @@ TRACE_ANALYSIS_SUMMARIZED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/summarized
 TRACE_ANALYSIS_VISUALIZED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/visualized
 TRACE_ANALYSIS_REPORT_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/report
 TRACE_ANALYSIS_REPORT_FILEPATH := $(TRACE_ANALYSIS_REPORT_DIRPATH)/report.html
-TRACE_ANALYSIS_TRACES_DIRPATH := $(ANALYSIS_DIRPATH)/traces
 TRACE_CORPUS_DIRPATH := $(TRACE_DIRPATH)/corpus
 TRACE_LOGS_DIRPATH := $(TRACE_DIRPATH)/logs
 TRACE_LOGS_RAW_DIRPATH := $(TRACE_LOGS_DIRPATH)/raw
@@ -88,7 +87,6 @@ COMPRESSION_LEVEL := 0
 TRUNCATE := --truncate
 ## timeout value in seconds
 TRACING_TIMEOUT := 3600
-ENABLE_TRACE :=
 ## to enable verbose mode, use the flag: --verbose
 VERBOSE :=
 
@@ -120,17 +118,14 @@ define tracer =
 $(TIME) $(R_DYNTRACE) --slave                                                     \
                       --no-restore                                                \
                       --file=$(TRACE_TRACING_SCRIPT_FILEPATH)                     \
-                      --args --r-dyntrace=$(R_DYNTRACE)                           \
-                             --tracing-timeout=$(TRACING_TIMEOUT)                 \
+                      --args --tracing-timeout=$(TRACING_TIMEOUT)                 \
+	                           --r-dyntrace=$(R_DYNTRACE)                           \
                              --corpus-dirpath=$(TRACE_CORPUS_DIRPATH)             \
                              --raw-analysis-dirpath=$(TRACE_ANALYSIS_RAW_DIRPATH) \
-                             --trace-dirpath=$(TRACE_ANALYSIS_TRACES_DIRPATH)     \
-                             $(ENABLE_TRACE)	                                    \
-                             $(BINARY)                                            \
-                             --compression-level=$(COMPRESSION_LEVEL)             \
-                             $(ANALYSIS_SWITCH)                                   \
                              $(VERBOSE)                                           \
-                             $(TRUNCATE)
+                             $(TRUNCATE)                                          \
+                             $(BINARY)                                            \
+                             --compression-level=$(COMPRESSION_LEVEL)
 endef
 
 
@@ -312,9 +307,11 @@ visualize-analysis:
 	@mkdir -p $(TRACE_LOGS_VISUALIZED_DIRPATH)
 
 	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                \
-	                       --file=analysis/$(ANALYSIS)/visualize.R            \
+	                       --file=analysis/parameters/visualize.R             \
 	                       --args $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)        \
 	                              $(TRACE_ANALYSIS_VISUALIZED_DIRPATH)        \
+	                              $(BINARY)                                   \
+	                              --compression-level=$(COMPRESSION_LEVEL)    \
 	                       2>&1 | $(TEE) $(TEE_FLAGS)                         \
 	                                     $(TRACE_LOGS_VISUALIZED_DIRPATH)/log
 

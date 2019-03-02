@@ -19,24 +19,6 @@ parse_command_line <- function() {
                     help="Timeout for tracing a script",
                     metavar="tracing-timeout"),
 
-        make_option(c("--compile"),
-                    action="store_true",
-                    default=FALSE,
-                    help="compile vignettes before execution [default]",
-                    metavar="compile"),
-
-        make_option(c("--verbose"),
-                    action="store_true",
-                    default=FALSE,
-                    help="Flag to enable verbose mode.",
-                    metavar="verbose"),
-
-        make_option(c("--truncate"),
-                    action="store_true",
-                    default=FALSE,
-                    help="Flag to enable overwriting of trace files",
-                    metavar="truncate"),
-
         make_option(c("--r-dyntrace"),
                     action="store",
                     type="character",
@@ -49,23 +31,23 @@ parse_command_line <- function() {
                     help="",
                     metavar="corpus-dirpath"),
 
-        make_option(c("--trace-dirpath"),
-                    action="store",
-                    type="character",
-                    help="Output directory for raw traces",
-                    metavar="trace-dirpath"),
-
         make_option(c("--raw-analysis-dirpath"),
                     action="store",
                     type="character",
                     help="Output directory for raw tracer analysis (*.tdf)",
                     metavar="raw-analysis-dirpath"),
 
-        make_option(c("--enable-trace"),
+        make_option(c("--verbose"),
                     action="store_true",
                     default=FALSE,
-                    help="Flag to enable trace files (*.trace) [default].",
-                    metavar="enable-trace"),
+                    help="Flag to enable verbose mode.",
+                    metavar="verbose"),
+
+        make_option(c("--truncate"),
+                    action="store_true",
+                    default=FALSE,
+                    help="Flag to enable overwriting of trace files",
+                    metavar="truncate"),
 
         make_option(c("--binary"),
                     action="store_true",
@@ -86,14 +68,11 @@ parse_command_line <- function() {
 
     list(package = args$args[1],
          tracing_timeout = args$options$`tracing-timeout`,
-         compile = args$options$compile,
-         verbose = args$options$verbose,
-         truncate = args$options$truncate,
-         trace = args$options$`enable-trace`,
          r_dyntrace = path(getwd(), path_tidy(args$options$`r-dyntrace`)),
          corpus_dirpath = path(getwd(), path_tidy(args$options$`corpus-dirpath`)),
-         trace_dirpath = path(getwd(), path_tidy(args$options$`trace-dirpath`)),
          raw_analysis_dirpath = path(getwd(), path_tidy(args$options$`raw-analysis-dirpath`)),
+         verbose = args$options$verbose,
+         truncate = args$options$truncate,
          binary = args$options$binary,
          compression_level = args$options$`compression-level`)
 }
@@ -232,17 +211,6 @@ wrap_script <- function(settings, script_dirname, script_filename) {
 
     dir_create(raw_output_dirpath)
 
-    function_dirpath <- path(raw_output_dirpath, "functions")
-
-    dir_create(function_dirpath)
-
-    trace_dirpath <- path(settings$trace_dirpath, "lazy-traces", settings$package)
-
-    dir_create(trace_dirpath, recursive = TRUE)
-
-    trace_filepath <- path(trace_dirpath,
-                           str_c(path_ext_remove(script_filename), ".trace"))
-
     wrapped_code <- str_glue(
         "setwd('{script_dirpath}')",
         "library(promisedyntracer)",
@@ -250,10 +218,8 @@ wrap_script <- function(settings, script_dirname, script_filename) {
         "dyntrace_promises({{",
         "{script_code}",
         "}}",
-        ", '{trace_filepath}'",
         ", '{raw_output_dirpath}'",
         ", verbose = {settings$verbose}",
-        ", enable_trace = {settings$trace}",
         ", truncate = {settings$truncate}",
         ", binary = {settings$binary}",
         ", compression_level = {settings$compression_level})",
