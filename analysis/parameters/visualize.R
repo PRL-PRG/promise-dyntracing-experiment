@@ -30,6 +30,30 @@ source("analysis/utils.R")
 info <- function(...) cat((paste0(...)))
 
 
+object_type <- function(analyses) {
+
+    total_object_count <-
+        analyses$object_count_by_type %>%
+        pull(count) %>%
+        sum()
+
+    object_count_by_type <-
+        analyses$object_count_by_type %>%
+        ggplot(aes(x = type, y = relative_count)) +
+        geom_col() +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_object_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Object Type",
+             y = "Object Count",
+             title =  "Object count by Object type") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
+    list(object_count_by_type = object_count_by_type)
+}
+
+
 promise_use_and_action <- function(analyses) {
 
     total_promise_count <-
@@ -80,6 +104,80 @@ promise_use_and_action <- function(analyses) {
 }
 
 
+parameters <- function(analyses) {
+    ## formal_parameter_count_by_usage_class = formal_parameter_count_by_usage_class,
+    ## function_count_distribution_by_usage_class = function_count_distribution_by_usage_class
+
+    total_argument_count <-
+        analyses$argument_count_by_usage %>%
+        pull(argument_count) %>%
+        sum()
+
+    argument_count_by_usage <-
+        analyses$argument_count_by_usage %>%
+        ggplot(aes(x = argument_use,
+                   y = relative_argument_count)) +
+        geom_col() +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Argument Use",
+             y = "Argument Count",
+             title =  "Argument Count by Usage") +
+        scale_fill_gdocs()
+
+    total_parameter_count <-
+        analyses$formal_parameter_count_by_usage %>%
+        pull(parameter_count) %>%
+        sum()
+
+    formal_parameter_count_by_usage <-
+        analyses$formal_parameter_count_by_usage %>%
+        ggplot(aes(x = parameter_use,
+                   y = relative_parameter_count)) +
+        geom_col() +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_parameter_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Parameter Use",
+             y = "Parameter Count",
+             title =  "Parameter Count by Usage") +
+        scale_fill_gdocs()
+
+    formal_parameter_count_by_usage_class <-
+        analyses$formal_parameter_count_by_usage_class %>%
+        ggplot(aes(x = parameter_class,
+                   y = relative_parameter_count)) +
+        geom_col() +
+        facet_wrap(~ parameter_use) +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_parameter_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Parameter Class",
+             y = "Parameter Count",
+             title =  "Parameter count by class") +
+        scale_fill_gdocs()
+
+    closure_count_distribution_by_usage_class <-
+        analyses$closure_count_distribution_by_usage_class %>%
+        ggplot(aes(x = closure_class,
+                   y = closure_count)) +
+        geom_col() +
+        facet_wrap(~ closure_use) +
+        labs(x = "Function Class",
+             y = "Function Count",
+             title =  "Parameter count by class") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+    list(argument_count_by_usage = argument_count_by_usage,
+         formal_parameter_count_by_usage = formal_parameter_count_by_usage,
+         formal_parameter_count_by_usage_class = formal_parameter_count_by_usage_class,
+         closure_count_distribution_by_usage_class = closure_count_distribution_by_usage_class)
+}
+
+
 functions <- function(analyses) {
 
     total_function_count <-
@@ -91,6 +189,40 @@ functions <- function(analyses) {
         analyses$function_call_count_by_type %>%
         pull(call_count) %>%
         sum()
+
+    total_closure_count <-
+        analyses$function_count_by_type %>%
+        filter(function_type == "Closure") %>%
+        pull(function_count) %>%
+        sum()
+
+    total_special_count <-
+        analyses$function_count_by_type %>%
+        filter(function_type == "Special") %>%
+        pull(function_count) %>%
+        sum()
+
+    total_builtin_count <-
+        analyses$function_count_by_type %>%
+        filter(function_type == "Builtin") %>%
+        pull(function_count) %>%
+        sum()
+
+    closure_count_by_call_count <-
+        analyses$closure_count_by_call_count %>%
+        filter(call_count %in%  c(1:10, "> 10")) %>%
+        ggplot(aes(x = call_count,
+                   y = relative_closure_count)) +
+        geom_col() +
+        scale_x_discrete(limits = c(1:10, "> 10")) +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_closure_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Call Count",
+             y = "Closure Count",
+             title =  "Closure count by Call count") +
+        scale_fill_gdocs()
+
 
     function_count_by_type <-
         analyses$function_count_by_type %>%
@@ -105,7 +237,6 @@ functions <- function(analyses) {
              title =  "Function Count by Function Type") +
         scale_fill_gdocs()
 
-
     function_call_count_by_type <-
         analyses$function_call_count_by_type %>%
         ggplot(aes(x = function_type,
@@ -118,7 +249,6 @@ functions <- function(analyses) {
              y = "Call Count",
              title =  "Call Count by Function Type") +
         scale_fill_gdocs()
-
 
     function_call_count_by_return_value_type <-
         analyses$function_call_count_by_return_value_type %>%
@@ -136,31 +266,57 @@ functions <- function(analyses) {
         theme(axis.text.x = element_text(angle = 60, hjust = 1),
               legend.position = "bottom")
 
-
-    function_count_by_return_value_type <-
+    builtin_count_by_return_value_type <-
         analyses$function_count_by_return_value_type %>%
+        filter(function_type == "Builtin") %>%
         ggplot(aes(x = return_value_type,
-                   y = relative_function_count,
-                   fill = function_type)) +
+                   y = relative_function_count)) +
         geom_col(position = "dodge") +
-        scale_y_continuous(sec.axis = sec_axis(~ . * total_function_count,
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_builtin_count,
                                                labels = count_labels),
                            labels = relative_labels) +
         labs(x = "Return Value Type",
              y = "Function Count",
-             title =  "Function Count by Return Value Type") +
+             title =  "Builtin function Count by Return Value Type") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+    special_count_by_return_value_type <-
+        analyses$function_count_by_return_value_type %>%
+        filter(function_type == "Special") %>%
+        ggplot(aes(x = return_value_type,
+                   y = relative_function_count)) +
+        geom_col(position = "dodge") +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_special_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Return Value Type",
+             y = "Function Count",
+             title =  "Special function Count by Return Value Type") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+    closure_count_by_return_value_type <-
+        analyses$function_count_by_return_value_type %>%
+        filter(function_type == "Closure") %>%
+        ggplot(aes(x = return_value_type,
+                   y = relative_function_count)) +
+        geom_col(position = "dodge") +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_closure_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Return Value Type",
+             y = "Function Count",
+             title =  "Closure function Count by Return Value Type") +
         scale_fill_gdocs() +
         theme(axis.text.x = element_text(angle = 60, hjust = 1),
               legend.position = "bottom")
 
 
-    total_closure_count <-
-        analyses$closure_count_distribution_by_parameter_count %>%
-        pull(closure_count) %>%
-        sum()
-
-    closure_count_distribution_by_parameter_count <-
-        analyses$closure_count_distribution_by_parameter_count %>%
+    closure_count_by_formal_parameter_count <-
+        analyses$closure_count_by_formal_parameter_count %>%
         filter(formal_parameter_count %in% c(0:5, "> 5")) %>%
         ggplot(aes(x = formal_parameter_count,
                    y = relative_closure_count)) +
@@ -174,12 +330,26 @@ functions <- function(analyses) {
              title =  "Closure Count by Parameter Count") +
         scale_fill_gdocs()
 
-    function_call_count_by_method_type <-
-        analyses$function_call_count_by_method_type %>%
-        ggplot(aes(x = method_type,
+    function_call_count_by_type_and_jump <-
+        analyses$function_call_count_by_type_and_jump %>%
+        ggplot(aes(x = jumped,
                    y = relative_call_count,
                    fill = function_type)) +
         geom_col(position = "dodge") +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_call_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Jumped",
+             y = "Call Count",
+             title =  "Call count by type and jump") +
+        scale_fill_gdocs()
+
+    function_call_count_by_method_type <-
+        analyses$function_call_count_by_method_type %>%
+        ggplot(aes(x = method_type,
+                   y = relative_call_count)) +
+        geom_col(position = "dodge") +
+        facet_wrap(~ function_type) +
         scale_y_continuous(sec.axis = sec_axis(~ . * total_call_count,
                                                labels = count_labels),
                            labels = relative_labels) +
@@ -193,9 +363,9 @@ functions <- function(analyses) {
     function_count_by_method_type <-
         analyses$function_count_by_method_type %>%
         ggplot(aes(x = method_type,
-                   y = relative_function_count,
-                   fill = function_type)) +
+                   y = relative_function_count)) +
         geom_col(position = "dodge") +
+        facet_wrap(~ function_type) +
         scale_y_continuous(sec.axis = sec_axis(~ . * total_function_count,
                                                labels = count_labels),
                            labels = relative_labels) +
@@ -206,8 +376,8 @@ functions <- function(analyses) {
         theme(axis.text.x = element_text(angle = 60, hjust = 1),
               legend.position = "bottom")
 
-    closure_count_distribution_by_wrapper_and_force_order <-
-        analyses$closure_count_distribution_by_wrapper_and_force_order %>%
+    closure_count_by_wrapper_and_force_order <-
+        analyses$closure_count_by_wrapper_and_force_order %>%
         filter(force_order_count %in% c(0:5, "> 5")) %>%
         ggplot(aes(x = force_order_count,
                    y = relative_closure_count,
@@ -224,14 +394,18 @@ functions <- function(analyses) {
         scale_fill_gdocs() +
         theme(legend.position = "bottom")
 
-    list(function_count_by_type = function_count_by_type,
+    list(closure_count_by_call_count = closure_count_by_call_count,
+         function_count_by_type = function_count_by_type,
          function_call_count_by_type = function_call_count_by_type,
          function_call_count_by_return_value_type = function_call_count_by_return_value_type,
-         function_count_by_return_value_type = function_count_by_return_value_type,
-         closure_count_distribution_by_parameter_count = closure_count_distribution_by_parameter_count,
+         builtin_count_by_return_value_type = builtin_count_by_return_value_type,
+         special_count_by_return_value_type = special_count_by_return_value_type,
+         closure_count_by_return_value_type = closure_count_by_return_value_type,
+         closure_count_by_formal_parameter_count = closure_count_by_formal_parameter_count,
+         function_call_count_by_type_and_jump = function_call_count_by_type_and_jump,
          function_call_count_by_method_type = function_call_count_by_method_type,
          function_count_by_method_type = function_count_by_method_type,
-         closure_count_distribution_by_wrapper_and_force_order = closure_count_distribution_by_wrapper_and_force_order)
+         closure_count_by_wrapper_and_force_order = closure_count_by_wrapper_and_force_order)
 }
 
 
@@ -299,7 +473,7 @@ escaped_arguments <- function(analyses) {
 }
 
 
-visualize_analyses2 <- function(analyses) {
+argument_promise_relation <- function(analyses) {
 
     total_promise_count <-
         analyses$promise_distribution_by_category %>%
@@ -357,7 +531,7 @@ visualize_analyses2 <- function(analyses) {
         scale_fill_gdocs()
 
 
-    total_promise_argument_count <-
+    total_argument_promise_count <-
         analyses$argument_promise_distribution_by_nature %>%
         pull(argument_count) %>%
         sum()
@@ -367,7 +541,7 @@ visualize_analyses2 <- function(analyses) {
         ggplot(aes(x = argument_nature,
                    y = relative_argument_count)) +
         geom_col() +
-        scale_y_continuous(sec.axis = sec_axis(~ . * total_promise_argument_count,
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_promise_count,
                                                labels = count_labels),
                            labels = relative_labels) +
         labs(x = "Argument Nature",
@@ -375,20 +549,14 @@ visualize_analyses2 <- function(analyses) {
              title =  "Argument promise distribution by nature") +
         scale_fill_gdocs()
 
-
-    argument_promise_count <-
-        analyses$argument_promise_distribution_by_dot_dot_dot_and_sharing %>%
-        pull(promise_count) %>%
-        sum()
-
     argument_promise_distribution_by_sharing <-
         analyses$argument_promise_distribution_by_sharing %>%
-        print() %>%
+        filter(sharing_count %in% c(1:3, "> 3")) %>%
         ggplot(aes(x = sharing_count,
                    y = relative_promise_count)) +
         geom_col() +
         scale_x_discrete(limits = c(1:3, "> 3")) +
-        scale_y_continuous(sec.axis = sec_axis(~ . * argument_promise_count,
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_promise_count,
                                                labels = count_labels),
                            labels = relative_labels) +
         labs(x = "Sharing Count",
@@ -826,6 +994,8 @@ visualize_summarized_data <- function(settings, summarized_data_table) {
 
     info("=> Starting visualization\n")
 
+    visualizer <- eval(as.symbol(settings$analysis))
+
     summarized_data_filepaths <- summarized_data_table$filepath
 
     visualized_data_filepaths <-
@@ -834,7 +1004,7 @@ visualize_summarized_data <- function(settings, summarized_data_table) {
             binary = settings$binary,
             compression_level = settings$compression_level) %>%
         set_names(path_ext_remove(path_file(summarized_data_filepaths))) %>%
-        escaped_arguments() %>%
+        visualizer() %>%
         imap(
             function(visualization, name) {
                 output_filepath <- path(settings$output_dirpath,
@@ -874,6 +1044,7 @@ parse_program_arguments <- function() {
     description <- paste(
         "summarized-output-dirpath  directory containing summarized data files",
         "visualized-output-dirpath  directory to which visualizations will be exported",
+        "analysis                   name of analysis to visualize",
         sep = "\n")
 
     option_list <- list(
@@ -900,6 +1071,7 @@ parse_program_arguments <- function() {
 
     list(input_dirpath = arguments$args[1],
          output_dirpath = arguments$args[2],
+         analysis = arguments$args[3],
          binary = arguments$options$binary,
          compression_level = arguments$options$compression_level)
 }
@@ -918,3 +1090,20 @@ main <- function() {
 
 
 main()
+
+
+## ```{r echo = FALSE}
+## show_table("formal_parameter_count_by_usage_class")
+## ```
+
+## ```{r echo = FALSE, out.width="1000px"}
+## show_graph("formal_parameter_count_by_usage_class")
+## ```
+
+## ```{r echo = FALSE}
+## show_table("function_count_distribution_by_usage_class")
+## ```
+
+## ```{r echo = FALSE, out.width="1000px"}
+## show_graph("function_count_distribution_by_usage_class")
+## ```

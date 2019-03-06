@@ -29,14 +29,14 @@ info <- function(...) cat((paste0(...)))
 object_type <- function(analyses) {
     ## object type count is already summarized by the tracer.
     ## we only have to emit the same file again for summarization.
-    list(object_count_distribution_by_type = analyses$object_count)
+    list(object_counts = analyses$object_counts)
 }
 
 
 functions <- function(analyses) {
 
     function_call_summary <-
-        analyses$call_summary %>%
+        analyses$call_summaries %>%
         group_by(function_type, function_id,
                  S3_method, S4_method,
                  jumped, return_value_type) %>%
@@ -44,7 +44,7 @@ functions <- function(analyses) {
         ungroup()
 
     closure_call_summary <-
-        analyses$call_summary %>%
+        analyses$call_summaries %>%
         filter(function_type == "Closure")
 
     ## only take into account closures that are not jumped
@@ -364,46 +364,41 @@ promise_use_and_action <- function(analyses) {
 
 parameters <- function(analyses) {
 
-    ## TODO - add 1 for non promise arguments for lookup etc.
+    ## for each parameter position, we compute 4 points:
+    ## - lookup
+    ## - metaprogram
+    ## - lookup & metaprogram
+    ## - lookup | metaprogram
     formal_parameter_usage_counts <-
         analyses$arguments %>%
+        mutate(direct_force = if_else(argument_type != "Promise", TRUE, direct_force)) %>%
+        mutate(lookup = (as.logical(direct_lookup_count + indirect_lookup_count)
+                         | direct_force | indirect_force),
+               metaprogram = as.logical(direct_metaprogram_count + indirect_metaprogram_count)) %>%
         select(call_id, function_id, formal_parameter_position,
-               preforce, direct_force, direct_lookup_count, direct_metaprogram_count,
-               indirect_force, indirect_lookup_count, indirect_metaprogram_count) %>%
-        mutate(direct_force = as.logical(direct_force),
-               direct_lookup = as.logical(direct_lookup_count),
-               direct_metaprogram = as.logical(direct_metaprogram_count)) %>%
-        mutate(direct_lookup_use = direct_force | direct_lookup,
-               direct_metaprogram_use = direct_metaprogram,
-               direct_use = direct_lookup_use | direct_metaprogram_use) %>%
-        mutate(force = direct_force | as.logical(indirect_force),
-               lookup = direct_lookup | as.logical(indirect_lookup_count),
-               metaprogram = direct_metaprogram | as.logical(indirect_metaprogram_count)) %>%
-        mutate(lookup_use = force | lookup,
-               metaprogram_use = metaprogram,
-               use = lookup_use | metaprogram_use) %>%
-        select(call_id, function_id, formal_parameter_position,
-               direct_lookup_use, direct_metaprogram_use, direct_use,
-               lookup_use, metaprogram_use, use) %>%
-        group_by(call_id, formal_parameter_position) %>%
-        summarize(function_id = first(function_id),
-                  direct_metaprogram_use = any(direct_metaprogram_use),
-                  direct_lookup_use = any(direct_lookup_use),
-                  direct_use = any(direct_use),
-                  metaprogram_use = any(metaprogram_use),
-                  lookup_use = any(lookup_use),
-                  use = any(use)) %>%
-        ungroup() %>%
-        group_by(function_id, formal_parameter_position) %>%
-        summarize(direct_lookup_use = sum(direct_lookup_use),
-                  direct_metaprogram_use = sum(direct_metaprogram_use),
-                  direct_use = sum(direct_use),
-                  lookup_use = sum(lookup_use),
-                  metaprogram_use = sum(metaprogram_use),
-                  use = sum(use)) %>%
+               lookup, metaprogram) %>%
+        group_by(function_id, formal_parameter_position, call_id) %>%
+        summarize(metaprogram = any(metaprogram),
+                  lookup = any(lookup)) %>%
+        mutate(either = metaprogram | lookup,
+               both = metaprogram & lookup) %>%
+        summarize(lookup = sum(lookup),
+                  metaprogram = sum(metaprogram),
+                  either = sum(either),
+                  both = sum(both),
+                  call_count = n()) %>%
         ungroup()
 
-    list(formal_parameter_usage_counts = formal_parameter_usage_counts)
+    execution_times <-
+        analyses$arguments %>%
+        select(function_id, formal_parameter_position, direct_force, execution_time) %>%
+        mutate(execution_time = execution_time / 1000000) %>%
+        filter(direct_force != 0 & execution_time >= 1) %>%
+        group_by(function_id, formal_parameter_position, execution_time) %>%
+        summarize(argument_count = 1.0 * n())
+
+    list(formal_parameter_usage_counts = formal_parameter_usage_counts,
+         execution_times = execution_times)
 }
 
 
@@ -673,11 +668,11 @@ parse_program_arguments <- function() {
     }
 
     analysis_map <- list(
-        object_type = list("object_count"),
-        functions = list("call_summary"),
+        object_type = list("object_counts"),
+        functions = list("call_summaries"),
         argument_promise_relation = list("arguments", "promises"),
         promise_use_and_action = list("promises", "escaped_arguments"),
-        parameters = list("arguments", "call_summary"),
+        parameters = list("arguments"),
         functions = list("call_summary"),
         escaped_arguments = list("escaped_arguments"),
         function_definition = list("function_definition")

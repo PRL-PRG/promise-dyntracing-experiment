@@ -254,12 +254,13 @@ setup-package-repositories:
 reduce-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_REDUCED_DIRPATH)
+	@mkdir -p $(TRACE_LOGS_REDUCED_DIRPATH)/$(ANALYSIS)
 
 	-@$(TIME) parallel --jobs $(PARALLEL_JOB_COUNT)                                  \
 	                   --files                                                       \
 	                   --bar                                                         \
-	                   --results $(TRACE_LOGS_REDUCED_DIRPATH)/{1}                   \
-	                   --joblog $(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH)                \
+	                   --results $(TRACE_LOGS_REDUCED_DIRPATH)/$(ANALYSIS)/{1}       \
+	                   --joblog $(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH)/$(ANALYSIS)    \
 	                   $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                             \
 	                                 --file=analysis/parameters/reduce.R             \
 	                                 --args $(TRACE_ANALYSIS_RAW_DIRPATH)/{1}        \
@@ -310,6 +311,7 @@ visualize-analysis:
 	                       --file=analysis/parameters/visualize.R             \
 	                       --args $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)        \
 	                              $(TRACE_ANALYSIS_VISUALIZED_DIRPATH)        \
+	                              $(ANALYSIS)                                 \
 	                              $(BINARY)                                   \
 	                              --compression-level=$(COMPRESSION_LEVEL)    \
 	                       2>&1 | $(TEE) $(TEE_FLAGS)                         \
@@ -326,6 +328,8 @@ report-analysis:
 	                                          $(TRACE_ANALYSIS_REPORT_FILEPATH)       \
 	                                          $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)    \
 	                                          $(TRACE_ANALYSIS_VISUALIZED_DIRPATH)    \
+	                                          $(BINARY)                               \
+	                                      --compression-level=$(COMPRESSION_LEVEL)    \
 	                                   2>&1 | $(TEE) $(TEE_FLAGS)                     \
 	                                                 $(TRACE_LOGS_REPORT_DIRPATH)/log
 

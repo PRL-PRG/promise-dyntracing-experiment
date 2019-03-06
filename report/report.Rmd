@@ -1,5 +1,5 @@
 ---
-title: "Laziness in R"
+title: "The Promise that R makes"
 output:
   html_document:
     toc: true
@@ -7,6 +7,8 @@ output:
 params:
   summarized_data_dirpath: ../latest/analysis/summarized
   visualized_data_dirpath: ../latest/analysis/visualized
+  binary: FALSE
+  compression_level: 0
   image_format: png
 editor_options:
   chunk_output_type: console
@@ -27,7 +29,6 @@ editor_options:
 </style>
 
 ```{r echo = FALSE, message = FALSE}
-
 library(DT)
 library(fs)
 library(png)
@@ -39,322 +40,245 @@ library(knitr)
 library(png)
 library(grid)
 library(gridExtra)
+library(promisedyntracer)
 ```
 
-```{r datatsets, echo = FALSE}
-import_data_table <- function(name) {
-    promisedyntracer::read_data_table(path(params$summarized_data_dirpath, name))
-}
-
+```{r datatsets, echo = FALSE, message = TRUE}
 show_table <- function(tablename) {
-  datatable(import_data_table(str_c(tablename, "csv", sep = ".")),
-            fillContainer = TRUE,
-            filter = "top")
+    path(params$summarized_data_dirpath, tablename) %>%
+    read_data_table(binary = params$binary, 
+                    compression_level = params$compression_level) %>%
+    datatable(fillContainer = TRUE, filter = "top")
 }
 
 show_graph <- function(graphname) {
-    include_graphics(path(params$visualized_data_dirpath, graphname))
+    path(params$visualized_data_dirpath, graphname, ext = "png") %>%
+    include_graphics()
 }
 
 show_graphs <- function(first_graphname, second_graphname) {
     load_graph <- function(graphname) {
         grid::rasterGrob(as.raster(readPNG(path(params$visualized_data_dirpath, 
-                                                graphname))),
+                                                graphname, 
+                                                ext = "png"))),
                          interpolate = TRUE)
     }
     grid.arrange(load_graph(first_graphname),
                  load_graph(second_graphname),
                  ncol = 2)
 }
-
+```
+```{r utilities, echo = FALSE}
 count_labels <-
-  Vectorize(function(x, digits = 2) {
-
-    paste_round <- function(value, div, suffix, sep)
-        paste(round(value/div, digits), suffix, sep = sep)
-
-    if(is.na(x)) {
-      "NA"
-    } else if(x < 10^3) {
-      paste0(x)
-    } else if(x < 10^6) {
-      paste_round(x, 1000, "K", sep=" ")
-    } else if(x < 10^9) {
-      paste_round(x, 10^6, "M", sep=" ")
-    } else {
-      paste_round(x, 10^9, "B", sep=" ")
-    }
-  },
-  "x")
-```
-```{r echo = FALSE}
-unique_closures <- 
-    import_data_table("closures.csv") %>%
-    group_by(function_id) %>%
-    summarize(call_count = first(call_count),
-              formal_parameter_count = first(formal_parameter_count)) %>%
-    mutate(argument_count = call_count * formal_parameter_count)
-```
-This report summarizes the findings on the use of laziness in R.
-
-Data from 15 packages and 26 vignettes.
-
-* Number of functions: `r count_labels(length(unique_closures$function_id))`
-
-* Number of calls: `r count_labels(sum(unique_closures$call_count))`
-
-* Number of parameters: `r count_labels(sum(unique_closures$formal_parameter_count))`
-
-* Number of arguments: `r count_labels(sum(unique_closures$argument_count))`
-
-## Closures
-
-### Closure Data
-```{r echo = FALSE}
-show_table("closures")
+    Vectorize(function(x, digits = 2) {
+    
+      paste_round <- function(value, div, suffix, sep)
+          paste(round(value/div, digits), suffix, sep = sep)
+    
+      if(is.na(x)) {
+        "NA"
+      } else if(x < 10^3) {
+        paste0(x)
+      } else if(x < 10^6) {
+        paste_round(x, 1000, "K", sep=" ")
+      } else if(x < 10^9) {
+        paste_round(x, 10^6, "M", sep=" ")
+      } else {
+        paste_round(x, 10^9, "B", sep=" ")
+      }
+    },
+    "x")
 ```
 
-### Closure count by Call count
-
-The following figure shows the distribution of the number of calls made to closures.
 
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("function_count_by_call_count.png")
+show_graph("object_count_by_type")
 ```
 
 ```{r echo = FALSE}
-show_table("function_count_by_call_count")
+show_table("object_count_by_type")
 ```
 
-#### Observations
-
-* Very few functions are called only once. We can remove these functions from the remaining analyses without affecting the representativity of our results.
-
-* Majority of functions are called more than once.
-
-
-### Closure count by Formal Parameter count
-
-The following figure shows the distribution of the number of parameters of closures.
-
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("function_count_by_formal_parameter_count.png")
+show_graph("function_call_count_by_type")
 ```
 
 ```{r echo = FALSE}
-show_table("function_count_by_formal_parameter_count")
+show_table("function_call_count_by_type")
 ```
-
-#### Observations
-- Majority of functions have one, two or three parameters.
-- A very small number of functions have zero parameters.
-
-
-## Arguments
-
-### Argument count by Argument Mode
 
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("argument_count_by_argument_mode.png")
-
-```
-```{r echo = FALSE}
-show_table("argument_count_by_argument_mode")
-```
-
-### Argument count by Argument Use Mode
-
-```{r echo = FALSE, out.width="1000px"}
-show_graph("argument_count_by_argument_use_mode.png")
+show_graph("function_count_by_type")
 ```
 
 ```{r echo = FALSE}
-show_table("argument_count_by_argument_use_mode")
+show_table("function_count_by_type")
 ```
 
-### Argument count by Argument Use Mode and Argument Mode
-
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("argument_count_by_argument_use_mode_and_argument_mode.png")
+show_graph("function_call_count_by_method_type")
 ```
 
 ```{r echo = FALSE}
-show_table("argument_count_by_argument_use_mode_and_argument_mode")
+show_table("function_call_count_by_method_type")
 ```
 
-### Argument count by Argument Mode and Argument Use Mode
-
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("argument_count_by_argument_mode_and_argument_use_mode.png")
+show_graph("function_count_by_method_type")
 ```
 
 ```{r echo = FALSE}
-show_table("argument_count_by_argument_mode_and_argument_use_mode")
+show_table("function_count_by_method_type")
 ```
-
-
-## Parameters
-
-### Parameter count by Parameter Mode
 
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("parameter_count_by_parameter_mode.png")
-```
-```{r echo = FALSE}
-show_table("parameter_count_by_parameter_mode")
-```
-
-### Parameter count by Parameter Class
-
-```{r echo = FALSE, out.width="1000px"}
-show_graph("parameter_count_by_parameter_class.png")
+show_graph("closure_count_by_call_count")
 ```
 
 ```{r echo = FALSE}
-show_table("parameter_count_by_parameter_class")
+show_table("closure_count_by_call_count")
 ```
 
-### Parameter count by Parameter use Mode
-
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("parameter_count_by_parameter_use_mode.png")
+show_graph("closure_count_by_formal_parameter_count")
 ```
 
 ```{r echo = FALSE}
-show_table("parameter_count_by_parameter_use_mode")
+show_table("closure_count_by_formal_parameter_count")
 ```
-
-### Parameter count by Parameter Class and Parameter Mode
 
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("parameter_count_by_parameter_class_and_parameter_mode.png")
-```
-```{r echo = FALSE}
-show_table("parameter_count_by_parameter_class_and_parameter_mode")
-```
-
-### Parameter count by Parameter Mode and Parameter Class
-
-```{r echo = FALSE, out.width="1000px"}
-show_graph("parameter_count_by_parameter_mode_and_parameter_class.png")
+show_graph("function_call_count_by_return_value_type")
 ```
 
 ```{r echo = FALSE}
-show_table("parameter_count_by_parameter_mode_and_parameter_class")
+show_table("function_call_count_by_return_value_type")
 ```
 
-### Parameter count by Parameter Class and Parameter Use Mode
+```{r echo = FALSE, out.width="1000px"}
+show_graph("builtin_count_by_return_value_type")
+```
 
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("parameter_count_by_parameter_class_and_parameter_use_mode.png")
+show_graph("special_count_by_return_value_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("closure_count_by_return_value_type")
 ```
 
 ```{r echo = FALSE}
-show_table("parameter_count_by_parameter_class_and_parameter_use_mode")
+show_table("function_count_by_return_value_type")
 ```
 
-### Parameter count by Parameter Use Mode and Parameter Class
-
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("parameter_count_by_parameter_use_mode_and_parameter_class.png")
+show_graph("closure_count_by_wrapper_and_force_order")
 ```
 
 ```{r echo = FALSE}
-show_table("parameter_count_by_parameter_use_mode_and_parameter_class")
+show_table("closure_count_by_wrapper_and_force_order")
 ```
 
-### Parameter count by Parameter Mode and Parameter Use Mode
-
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("parameter_count_by_parameter_mode_and_parameter_use_mode.png")
+show_graph("function_call_count_by_type_and_jump")
 ```
 
 ```{r echo = FALSE}
-show_table("parameter_count_by_parameter_mode_and_parameter_use_mode")
+show_table("function_call_count_by_type_and_jump")
 ```
 
-### Parameter count by Parameter Use Mode and Parameter Mode
-
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("parameter_count_by_parameter_use_mode_and_parameter_mode.png")
+show_graph("function_call_count_by_type_and_jump")
 ```
 
 ```{r echo = FALSE}
-show_table("parameter_count_by_parameter_use_mode_and_parameter_mode")
+show_table("function_call_count_by_type_and_jump")
 ```
 
-## Arguments and Parameters
-
-### Argument count by Parameter Class, Argument Mode and Argument Use Mode
-
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("argument_count_by_parameter_class_and_argument_mode_and_argument_use_mode.png")
+show_graph("promise_distribution_by_category")
 ```
 
 ```{r echo = FALSE}
-show_table("argument_count_by_parameter_class_and_argument_mode_and_argument_use_mode")
+show_table("promise_distribution_by_category")
 ```
 
-## Force Order
-
-### Function count by Wrapper, Force Order Type and Force Order count
-
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("function_count_by_wrapper_force_order_type_and_force_order_count.png")
+show_graph("argument_distribution_by_type")
 ```
 
 ```{r echo = FALSE}
-show_table("function_count_by_wrapper_force_order_type_and_force_order_count")
+show_table("argument_distribution_by_type")
 ```
 
-### Function count by Wrapper, Function Class, Force Order Type and Force Order count
+```{r echo = FALSE, out.width="1000px"}         
+show_graph("argument_distribution_by_dot_dot_dot")
+```
+
+```{r echo = FALSE}         
+show_table("argument_distribution_by_dot_dot_dot")
+```
+
+```{r echo = FALSE, out.width="1000px"}         
+show_graph("argument_promise_distribution_by_nature")
+```
+
+```{r echo = FALSE}         
+show_table("argument_promise_distribution_by_nature")
+```
 
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("wrapper_function_count_by_function_class_force_order_type_and_force_order_count.png")
-```
-```{r echo = FALSE, out.width="1000px"}
-show_graph("nonwrapper_function_count_by_function_class_force_order_type_and_force_order_count.png")
+show_graph("argument_promise_distribution_by_sharing")
 ```
 
 ```{r echo = FALSE}
-show_table("function_count_by_wrapper_function_class_force_order_type_and_force_order_count")
+show_table("argument_promise_distribution_by_sharing")
 ```
 
-## Argument execution time
-
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("argument_execution_time_by_parameter_class.png")
-```
-
-
-## Promise Evaluation
-
-### Call Depth
-
-```{r echo = FALSE, out.width="1000px"}
-show_graph("argument_count_by_call_depth_and_expression_type.png")
+show_graph("promise_use_distribution_by_category")
 ```
 
 ```{r echo = FALSE}
-show_table("argument_count_by_call_depth_and_expression_type")
+show_table("promise_use_distribution_by_category")
 ```
 
-### Promise Depth
-
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("argument_count_by_promise_depth_and_expression_type.png")
+show_graph("promise_action_distribution_by_category")
 ```
 
 ```{r echo = FALSE}
-show_table("argument_count_by_promise_depth_and_expression_type")
+show_table("promise_action_distribution_by_category")
 ```
 
-### Nested Promise Depth
-
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("argument_count_by_nested_promise_depth_and_expression_type.png")
+show_graph("argument_count_by_usage")
 ```
 
 ```{r echo = FALSE}
-show_table("argument_count_by_nested_promise_depth_and_expression_type")
+show_table("argument_count_by_usage")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("formal_parameter_count_by_usage")
+```
+
+```{r echo = FALSE}
+show_table("formal_parameter_count_by_usage")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("formal_parameter_count_by_usage_class")
+```
+
+```{r echo = FALSE}
+show_table("formal_parameter_count_by_usage_class")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("closure_count_distribution_by_usage_class")
+```
+
+```{r echo = FALSE}
+show_table("closure_count_distribution_by_usage_class")
 ```

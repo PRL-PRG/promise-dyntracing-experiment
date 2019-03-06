@@ -7,6 +7,7 @@ library(magrittr)
 library(optparse)
 
 options(tibble.width = Inf)
+#options(warn = 2)
 
 count_lines_of_code <- function(settings) {
 
@@ -42,15 +43,6 @@ analyze_corpus <- function(settings) {
                "INVALID"))))
     }
 
-
-    compute_functions_size <- function(path) {
-        path %>%
-            dir_ls() %>%
-            file_info() %>%
-            pull(size) %>%
-            sum()
-    }
-
     count_data <- count_lines_of_code(settings)
 
     corpus_table <-
@@ -70,11 +62,6 @@ analyze_corpus <- function(settings) {
         mutate(status = compute_status(!is.na(BEGIN), !is.na(FINISH),
                                        !is.na(ERROR), !is.na(NOERROR))) %>%
         select(-BEGIN, -FINISH, -ERROR, -NOERROR) %>%
-        mutate(functions = compute_functions_size(path(settings$input_raw_data_dirpath,
-                                                       package_name,
-                                                       script_type,
-                                                       script_name,
-                                                       "functions"))) %>%
         left_join(count_data, by = c("package_name", "script_type", "script_name"))
 
     status_table <-
@@ -90,8 +77,11 @@ analyze_corpus <- function(settings) {
         corpus_table %>%
         filter(status == "SUCCESSFUL") %>%
         group_by(script_type) %>%
-        summarize(code = sum(code), blank = sum(blank), comment = sum(blank)) %>%
+        summarize(code = sum(code, na.rm = TRUE),
+                  blank = sum(blank, na.rm = TRUE),
+                  comment = sum(comment, na.rm = TRUE)) %>%
         ungroup()
+
 
     code_table_total <-
         code_table %>%
@@ -102,13 +92,12 @@ analyze_corpus <- function(settings) {
     code_table <-
         bind_rows(code_table, code_table_total)
 
-
     size_table <-
         corpus_table %>%
         filter(status == "SUCCESSFUL") %>%
         select(-code, -blank, -comment, -status,
                -script_name, -package_name,
-               -CONFIGURATION, -ENVVAR) %>%
+               -CONFIGURATION) %>%
         gather(filename, size, -script_type) %>%
         group_by(script_type, filename) %>%
         summarize(size = sum(size)) %>%
@@ -137,6 +126,10 @@ analyze_corpus <- function(settings) {
          status_table = status_table,
          code_table = code_table,
          size_table = size_table)
+
+    print(code_table)
+
+    print(size_table)
 
     status_table
 }

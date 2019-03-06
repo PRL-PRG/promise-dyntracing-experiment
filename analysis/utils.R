@@ -130,8 +130,10 @@ count_labels <-
       paste_round(x, 1000, "K", sep=" ")
     } else if(x < 10^9) {
       paste_round(x, 10^6, "M", sep=" ")
-    } else {
+    } else if(x < 10^12) {
       paste_round(x, 10^9, "B", sep=" ")
+    } else {
+        paste_round(x, 10^12, "T", sep=" ")
     }
   },
   "x")

@@ -28,20 +28,32 @@ info <- function(...) cat((paste0(...)))
 object_type <- function(analyses) {
     ## object type count is already summarized by the tracer.
     ## we only have to emit the same file again for summarization.
-    object_count_distribution_by_type <-
-        analyses$object_count_distribution_by_type %>%
+    object_count_by_type <-
+        analyses$object_counts %>%
         group_by(type) %>%
         summarize(count = sum(count)) %>%
         ungroup() %>%
         mutate(relative_count = count / sum(count))
 
-    list(object_count_distribution_by_type = object_count_distribution_by_type)
+    list(object_count_by_type = object_count_by_type)
 }
 
 ## TODO - one of the summarizations has computed relative counts
 ##        incorrectly. Values are repeated and their relative count
 ##        should be more than 100 but it computes it as 100
 functions <- function(analyses) {
+
+    closure_count_by_call_count <-
+        analyses$function_call_summary %>%
+        filter(function_type == "Closure") %>%
+        group_by(function_id) %>%
+        summarize(call_count = sum(call_count)) %>%
+        ungroup() %>%
+        group_by(call_count) %>%
+        summarize(closure_count = length(unique(function_id))) %>%
+        mutate(relative_closure_count = closure_count / sum(closure_count)) %>%
+        ungroup() %>%
+        summarize_outliers(call_count, closure_count, relative_closure_count, 10)
 
     function_count_by_type <-
         analyses$function_call_summary %>%
@@ -50,10 +62,24 @@ functions <- function(analyses) {
         ungroup() %>%
         mutate(relative_function_count = function_count / sum(function_count))
 
-    ## this should be length 1
+    total_function_count <-
+        function_count_by_type %>%
+        pull(function_count) %>%
+        sum()
+
     total_closure_count <-
         function_count_by_type %>%
         filter(function_type == "Closure") %>%
+        pull(function_count)
+
+    total_special_count <-
+        function_count_by_type %>%
+        filter(function_type == "Special") %>%
+        pull(function_count)
+
+    total_builtin_count <-
+        function_count_by_type %>%
+        filter(function_type == "Builtin") %>%
         pull(function_count)
 
     function_call_count_by_type <-
@@ -71,20 +97,19 @@ functions <- function(analyses) {
         ungroup() %>%
         mutate(relative_call_count = call_count / sum(call_count))
 
-    total_function_count <-
-        function_count_by_type %>%
-        pull(function_count) %>%
-        sum()
-
     function_count_by_return_value_type <-
         analyses$function_call_summary %>%
         filter(!jumped) %>%
         group_by(function_type, return_value_type) %>%
         summarize(function_count = length(unique(function_id))) %>%
         ungroup() %>%
+        left_join(
+            function_count_by_type %>%
+            select(function_type, total_function_count = function_count),
+            by = "function_type") %>%
         mutate(relative_function_count = function_count / total_function_count)
 
-    closure_count_distribution_by_parameter_count <-
+    closure_count_by_formal_parameter_count <-
         analyses$closure_parameter_count %>%
         group_by(formal_parameter_count) %>%
         summarize(closure_count = length(unique(function_id))) %>%
@@ -92,6 +117,20 @@ functions <- function(analyses) {
         mutate(relative_closure_count = closure_count / sum(closure_count)) %>%
         summarize_outliers(formal_parameter_count, closure_count,
                            relative_closure_count, 5)
+
+    function_call_count_by_type_and_jump <-
+        analyses$function_call_summary %>%
+        group_by(function_type, jumped) %>%
+        summarize(call_count = sum(call_count)) %>%
+        ungroup() %>%
+        mutate(relative_call_count = call_count / sum(call_count))
+
+    function_call_count_by_type_and_jump <-
+        analyses$function_call_summary %>%
+        group_by(function_type, jumped) %>%
+        summarize(call_count = sum(call_count)) %>%
+        ungroup() %>%
+        mutate(relative_call_count = call_count / sum(call_count))
 
     compute_method_type <- function(S3_method, S4_method) {
         if_else(!S3_method & !S4_method,
@@ -221,12 +260,12 @@ functions <- function(analyses) {
         mutate(force_order_count = "0",
                relative_closure_count = closure_count / total_closure_count)
 
-    non_zero_parameter_closure_force_order_count <-
+    non_zero_parameter_multicall_closure_force_order_count <-
         closure_force_order_count %>%
-        filter(formal_parameter_count != 0)
+        filter(formal_parameter_count != 0 & call_count > 1)
 
     closure_count_distribution_by_wrapper_and_original_force_order <-
-        non_zero_parameter_closure_force_order_count %>%
+        non_zero_parameter_multicall_closure_force_order_count %>%
         group_by(wrapper, function_id) %>%
         summarize(force_order_count = length(unique(force_order))) %>%
         ungroup() %>%
@@ -236,9 +275,8 @@ functions <- function(analyses) {
         mutate(relative_closure_count = closure_count / total_closure_count,
                force_order_type = "Original")
 
-
     closure_count_distribution_by_wrapper_and_compatible_force_order <-
-        non_zero_parameter_closure_force_order_count %>%
+        non_zero_parameter_multicall_closure_force_order_count %>%
         group_by(wrapper, function_id) %>%
         summarize(compatible_force_order_count = length(unique(compatible_force_order))) %>%
         ungroup() %>%
@@ -264,23 +302,24 @@ functions <- function(analyses) {
                   relative_closure_count = sum(relative_closure_count)) %>%
         ungroup()
 
-    closure_count_distribution_by_wrapper_and_force_order <-
+    closure_count_by_wrapper_and_force_order <-
         closure_count_distribution_by_wrapper_and_force_order %>%
         mutate(force_order_count = as.character(force_order_count)) %>%
         bind_rows(closure_count_distribution_by_wrapper_and_force_order_outliers,
                   zero_parameter_closure_force_order_count) %>%
         mutate(wrapper = if_else(wrapper == 0, "Non Wrapper", "Wrapper"))
 
-    list(function_count_by_type = function_count_by_type,
+    list(closure_count_by_call_count = closure_count_by_call_count,
+         function_count_by_type = function_count_by_type,
          function_call_count_by_type = function_call_count_by_type,
          function_call_count_by_return_value_type = function_call_count_by_return_value_type,
          function_count_by_return_value_type = function_count_by_return_value_type,
-         closure_count_distribution_by_parameter_count = closure_count_distribution_by_parameter_count,
+         closure_count_by_formal_parameter_count = closure_count_by_formal_parameter_count,
+         function_call_count_by_type_and_jump = function_call_count_by_type_and_jump,
          function_call_count_by_method_type = function_call_count_by_method_type,
          function_count_by_method_type = function_count_by_method_type,
          closure_force_order_count = closure_force_order_count,
-         closure_count_distribution_by_wrapper_and_force_order = closure_count_distribution_by_wrapper_and_force_order)
-
+         closure_count_by_wrapper_and_force_order = closure_count_by_wrapper_and_force_order)
 }
 
 argument_promise_relation <- function(analyses) {
@@ -420,60 +459,128 @@ promise_use_and_action <- function(analyses) {
 
 parameters <- function(analyses) {
 
-    closure_call_count <-
-        analyses$closure_force_order_count %>%
-        group_by(function_id) %>%
-        summarize(call_count = sum(call_count))
-
     classify_parameter <- function(argument_use_count, call_count) {
         if_else(argument_use_count == call_count, "Always",
                 if_else(argument_use_count == 0, "Never",
                         "Sometimes"))
     }
 
+    total_argument_count <-
+        analyses$formal_parameter_usage_counts %>%
+        pull(call_count) %>%
+        as.double() %>%
+        sum()
+
+    looked_up_and_metaprogrammed_argument_count <-
+        analyses$formal_parameter_usage_counts %>%
+        pull(both) %>%
+        as.double() %>%
+        sum()
+
+    looked_up_argument_count <-
+        analyses$formal_parameter_usage_counts %>%
+        pull(lookup) %>%
+        as.double() %>%
+        sum() %>%
+        `-`(looked_up_and_metaprogrammed_argument_count)
+
+    metaprogrammed_argument_count <-
+        analyses$formal_parameter_usage_counts %>%
+        pull(metaprogram) %>%
+        as.double() %>%
+        sum() %>%
+        `-`(looked_up_and_metaprogrammed_argument_count)
+
+    none_argument_count <- (total_argument_count -
+                            looked_up_argument_count -
+                            metaprogrammed_argument_count -
+                            looked_up_and_metaprogrammed_argument_count)
+
+    ## todo - this does not include ... argument counts
+    argument_count_by_usage <-
+        tibble(argument_use = c("Lookup", "Metaprogram", "Both", "None"),
+               argument_count = c(looked_up_argument_count,
+                                  metaprogrammed_argument_count,
+                                  looked_up_and_metaprogrammed_argument_count,
+                                  none_argument_count)) %>%
+        mutate(relative_argument_count = argument_count / total_argument_count)
+
+    #formal_parameter_count_by_usage <-
+
     formal_parameter_usage_class <-
         analyses$formal_parameter_usage_counts %>%
         group_by(function_id, formal_parameter_position) %>%
-        summarize(lookup_use = sum(lookup_use),
-                  metaprogram_use = sum(metaprogram_use),
-                  use = sum(use)) %>%
+        summarize(lookup = sum(lookup),
+                  metaprogram = sum(metaprogram),
+                  either = sum(either),
+                  call_count = sum(call_count)) %>%
         ungroup() %>%
-        left_join(closure_call_count, by = "function_id") %>%
-        mutate(lookup_class = classify_parameter(lookup_use, call_count),
-               metaprogram_class = classify_parameter(metaprogram_use, call_count),
-               both_class = classify_parameter(use, call_count))
+        mutate(lookup_class = classify_parameter(lookup, call_count),
+               metaprogram_class = classify_parameter(metaprogram, call_count),
+               either_class = classify_parameter(either, call_count)) %>%
+        mutate(parameter_use = if_else((lookup == call_count) & (metaprogram == 0), "Lookup",
+                                       if_else((lookup == 0) & (metaprogram == call_count), "Metaprogram",
+                                               if_else((metaprogram == 0) & (lookup == 0), "Nothing",
+                                                       "Lookup & Metaprogram"))))
 
-    parameter_count_distribution_by_usage_class <-
+    total_formal_parameter_count <-
         formal_parameter_usage_class %>%
-        select(function_id, formal_parameter_position,
+        nrow()
+
+    ## TODO this is important
+    formal_parameter_count_by_usage <-
+        formal_parameter_usage_class %>%
+        group_by(parameter_use) %>%
+        summarize(parameter_count = n()) %>%
+        ungroup() %>%
+        mutate(relative_parameter_count = parameter_count / sum(parameter_count))
+
+
+    formal_parameter_count_by_usage_class <-
+        formal_parameter_usage_class %>%
+        select(function_id,
+               formal_parameter_position,
                Lookup = lookup_class,
                Metaprogram = metaprogram_class,
-               Both = both_class) %>%
-        gather(parameter_use, parameter_class, -function_id, -formal_parameter_position) %>%
+               Either  = either_class) %>%
+        gather(parameter_use,
+               parameter_class,
+               -function_id,
+               -formal_parameter_position) %>%
         group_by(parameter_use, parameter_class) %>%
-        summarize(parameter_position_count = n()) %>%
-        ungroup()
+        summarize(parameter_count = n()) %>%
+        ungroup() %>%
+        mutate(relative_parameter_count = parameter_count / total_formal_parameter_count)
 
     classify_function <- function(parameter_use) {
         str_c(as.vector(sort(unique(parameter_use))), collapse = " & ")
     }
 
-    function_count_distribution_by_usage_class <-
+    total_closure_count <-
+        analyses$function_call_summary %>%
+        filter(function_type == "Closure") %>%
+        pull(function_id) %>%
+        unique() %>%
+        length()
+
+    closure_count_distribution_by_usage_class <-
         formal_parameter_usage_class %>%
         group_by(function_id) %>%
         summarize(lookup_class = classify_function(lookup_class),
                   metaprogram_class = classify_function(metaprogram_class),
-                  both_class = classify_function(both_class)) %>%
+                  either_class = classify_function(either_class)) %>%
         ungroup() %>%
-        gather(function_use, function_class, -function_id) %>%
-        group_by(function_use, function_class) %>%
-        summarize(function_count = n()) %>%
-        ungroup()
+        gather(closure_use, closure_class, -function_id) %>%
+        group_by(closure_use, closure_class) %>%
+        summarize(closure_count = n()) %>%
+        ungroup() %>%
+        mutate(relative_closure_count = closure_count / total_closure_count)
 
-    list(closure_call_count = closure_call_count,
+    list(argument_count_by_usage = argument_count_by_usage,
+         formal_parameter_count_by_usage = formal_parameter_count_by_usage,
          formal_parameter_usage_class = formal_parameter_usage_class,
-         parameter_count_distribution_by_usage_class = parameter_count_distribution_by_usage_class,
-         function_count_distribution_by_usage_class = function_count_distribution_by_usage_class)
+         formal_parameter_count_by_usage_class = formal_parameter_count_by_usage_class,
+         closure_count_distribution_by_usage_class = closure_count_distribution_by_usage_class)
 
 }
 
@@ -1046,11 +1153,24 @@ summarize_combined_data <- function(settings, combined_data_table) {
     summarized_data_filepaths <-
         combined_data_filepaths %>%
         path_ext_remove() %>%
-        path_ext_remove() %>%
-        map(promisedyntracer::read_data_table,
-            binary = settings$binary,
-            compression_level = settings$compression_level) %>%
-        set_names(path_ext_remove(path_file(combined_data_filepaths))) %>%
+        path_ext_remove()
+        ## map(promisedyntracer::read_data_table,
+        ##     binary = settings$binary,
+        ##     compression_level = settings$compression_level) %>%
+        ## set_names(path_ext_remove(path_file(combined_data_filepaths))) %>%
+
+    analyses <- new.env(parent = emptyenv(), hash = TRUE)
+
+    map(summarized_data_filepaths,
+        function(summarized_data_filepath) {
+            delayedAssign(path_file(summarized_data_filepath),
+                          read_data_table(summarized_data_filepath,
+                                          binary = settings$binary,
+                                          compression_level = settings$compression_level),
+                          assign.env = analyses)
+        })
+
+    analyses %>%
         summarizer() %>%
         imap(
             function(df, name) {
