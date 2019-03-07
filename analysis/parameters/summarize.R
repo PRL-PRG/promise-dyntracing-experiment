@@ -634,6 +634,168 @@ escaped_arguments <- function(analyses) {
         ungroup() %>%
         mutate(relative_function_count = function_count / sum(function_count))
 
+    escaped_argument_count_by_nature <-
+        analyses$escaped_arguments %>%
+        group_by(default) %>%
+        summarize(argument_count = n()) %>%
+        ungroup() %>%
+        mutate(relative_argument_count = argument_count / sum(argument_count)) %>%
+        mutate(argument_nature = c("Non Default", "Default")[default + 1]) %>%
+        select(argument_nature, argument_count, relative_argument_count)
+
+    escaped_argument_count_by_dispatch_type <-
+        analyses$escaped_arguments %>%
+        mutate(dispatch_type = if_else(!S3_dispatch & !S4_dispatch, "Ordinary",
+                                       if_else(S3_dispatch & !S4_dispatch, "S3",
+                                               if_else(!S3_dispatch & S4_dispatch, "S4",
+                                                       "Both")))) %>%
+        group_by(dispatch_type) %>%
+        summarize(argument_count = n()) %>%
+        ungroup() %>%
+        mutate(relative_argument_count = argument_count / sum(argument_count))
+
+    escaped_argument_count_by_expression_type <-
+        analyses$escaped_arguments %>%
+        group_by(expression_type) %>%
+        summarize(argument_count = n()) %>%
+        ungroup() %>%
+        mutate(relative_argument_count = argument_count / sum(argument_count))
+
+    escaped_argument_count_by_value_type <-
+        analyses$escaped_arguments %>%
+        group_by(value_type) %>%
+        summarize(argument_count = n()) %>%
+        ungroup() %>%
+        mutate(relative_argument_count = argument_count / sum(argument_count))
+
+
+    summarize_before_and_after <- function(df, before_column, after_column, type_column) {
+        before_column <- enquo(before_column)
+        after_column <- enquo(after_column)
+        type_column <- enquo(type_column)
+
+        df <-
+            df %>%
+            mutate(!!type_column :=
+                       if_else(!!before_column != 0 & !!after_column == 0, "Before Escape",
+                               if_else(!!before_column == 0 & !!after_column != 0, "After Escape",
+                                       if_else(!!before_column != 0 & !!after_column != 0, "Both Times",
+                                               "Never")))) %>%
+            group_by(!!type_column) %>%
+            summarize(argument_count = n()) %>%
+            ungroup() %>%
+            mutate(relative_argument_count = argument_count / sum(argument_count))
+
+        df
+    }
+
+    escaped_argument_count_by_force_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_force_count,
+                                   after_escape_force_count,
+                                   force_type)
+
+    escaped_argument_count_by_metaprogram_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_metaprogram_count,
+                                   after_escape_metaprogram_count,
+                                   metaprogram_type)
+
+
+    escaped_argument_count_by_lookup_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_value_lookup_count,
+                                   after_escape_value_lookup_count,
+                                   lookup_type)
+
+    escaped_argument_count_by_direct_self_scope_mutation_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_direct_self_scope_mutation_count,
+                                   after_escape_direct_self_scope_mutation_count,
+                                   direct_self_scope_mutation_type)
+
+    escaped_argument_count_by_indirect_self_scope_mutation_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_indirect_self_scope_mutation_count,
+                                   after_escape_indirect_self_scope_mutation_count,
+                                   indirect_self_scope_mutation_type)
+
+    escaped_argument_count_by_direct_lexical_scope_mutation_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_direct_lexical_scope_mutation_count,
+                                   after_escape_direct_lexical_scope_mutation_count,
+                                   direct_lexical_scope_mutation_type)
+
+    escaped_argument_count_by_indirect_lexical_scope_mutation_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_indirect_lexical_scope_mutation_count,
+                                   after_escape_indirect_lexical_scope_mutation_count,
+                                   indirect_lexical_scope_mutation_type)
+
+    escaped_argument_count_by_direct_non_lexical_scope_mutation_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_direct_non_lexical_scope_mutation_count,
+                                   after_escape_direct_non_lexical_scope_mutation_count,
+                                   direct_non_lexical_scope_mutation_type)
+
+    escaped_argument_count_by_indirect_non_lexical_scope_mutation_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_indirect_non_lexical_scope_mutation_count,
+                                   after_escape_indirect_non_lexical_scope_mutation_count,
+                                   indirect_non_lexical_scope_mutation_type)
+
+    escaped_argument_count_by_direct_self_scope_observation_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_direct_self_scope_observation_count,
+                                   after_escape_direct_self_scope_observation_count,
+                                   direct_self_scope_observation_type)
+
+    escaped_argument_count_by_indirect_self_scope_observation_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_indirect_self_scope_observation_count,
+                                   after_escape_indirect_self_scope_observation_count,
+                                   indirect_self_scope_observation_type)
+
+    escaped_argument_count_by_direct_lexical_scope_observation_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_direct_lexical_scope_observation_count,
+                                   after_escape_direct_lexical_scope_observation_count,
+                                   direct_lexical_scope_observation_type)
+
+    escaped_argument_count_by_indirect_lexical_scope_observation_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_indirect_lexical_scope_observation_count,
+                                   after_escape_indirect_lexical_scope_observation_count,
+                                   indirect_lexical_scope_observation_type)
+
+    escaped_argument_count_by_direct_non_lexical_scope_observation_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_direct_non_lexical_scope_observation_count,
+                                   after_escape_direct_non_lexical_scope_observation_count,
+                                   direct_non_lexical_scope_observation_type)
+
+    escaped_argument_count_by_indirect_non_lexical_scope_observation_type <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_indirect_non_lexical_scope_observation_count,
+                                   after_escape_indirect_non_lexical_scope_observation_count,
+                                   indirect_non_lexical_scope_observation_type)
+
+
+    ## "before_escape_indirect_self_scope_mutation_count",
+    ## "before_escape_direct_lexical_scope_mutation_count",
+    ## "before_escape_indirect_lexical_scope_mutation_count",
+    ## "before_escape_direct_non_lexical_scope_mutation_count",
+    ## "before_escape_indirect_non_lexical_scope_mutation_count",
+    ## "before_escape_direct_self_scope_observation_count",
+    ## "before_escape_indirect_self_scope_observation_count",
+    ## "before_escape_direct_lexical_scope_observation_count",
+    ## "before_escape_indirect_lexical_scope_observation_count",
+    ## "before_escape_direct_non_lexical_scope_observation_count",
+    ## "before_escape_indirect_non_lexical_scope_observation_count"
+
+    ## escaped_parameter_numbers <-
+    ##     group_by(function_id, formal_parameter_position) %>%
+    ##     summarize(argument_count = n())
     ## escaped_argument_function_return_type_and_category <-
     ##     analyses$escaped_argument_functions %>%
     ##     distinct(function_id, return_value_type) %>%
@@ -645,10 +807,31 @@ escaped_arguments <- function(analyses) {
     ##     summarize(function_count = length(unique(function_id))) %>%
     ##     ungroup()
 
+
     list(escaped_argument_function_call_count_by_return_value_type = escaped_argument_function_call_count_by_return_value_type,
          escaped_argument_function_count_by_return_value_type = escaped_argument_function_count_by_return_value_type,
          escaped_argument_function_category = escaped_argument_function_category,
-         escaped_argument_function_count_by_category = escaped_argument_function_count_by_category)
+         escaped_argument_function_count_by_category = escaped_argument_function_count_by_category,
+         escaped_argument_count_by_nature = escaped_argument_count_by_nature,
+         escaped_argument_count_by_dispatch_type = escaped_argument_count_by_dispatch_type,
+         escaped_argument_count_by_expression_type = escaped_argument_count_by_expression_type,
+         escaped_argument_count_by_value_type = escaped_argument_count_by_value_type,
+         escaped_argument_count_by_force_type = escaped_argument_count_by_force_type,
+         escaped_argument_count_by_metaprogram_type = escaped_argument_count_by_metaprogram_type,
+         escaped_argument_count_by_lookup_type = escaped_argument_count_by_lookup_type,
+         escaped_argument_count_by_direct_self_scope_mutation_type = escaped_argument_count_by_direct_self_scope_mutation_type,
+         escaped_argument_count_by_indirect_self_scope_mutation_type = escaped_argument_count_by_indirect_self_scope_mutation_type,
+         escaped_argument_count_by_direct_lexical_scope_mutation_type = escaped_argument_count_by_direct_lexical_scope_mutation_type,
+         escaped_argument_count_by_indirect_lexical_scope_mutation_type = escaped_argument_count_by_indirect_lexical_scope_mutation_type,
+         escaped_argument_count_by_direct_non_lexical_scope_mutation_type = escaped_argument_count_by_direct_non_lexical_scope_mutation_type,
+         escaped_argument_count_by_indirect_non_lexical_scope_mutation_type = escaped_argument_count_by_indirect_non_lexical_scope_mutation_type,
+         escaped_argument_count_by_direct_self_scope_observation_type = escaped_argument_count_by_direct_self_scope_observation_type,
+         escaped_argument_count_by_indirect_self_scope_observation_type = escaped_argument_count_by_indirect_self_scope_observation_type,
+         escaped_argument_count_by_direct_lexical_scope_observation_type = escaped_argument_count_by_direct_lexical_scope_observation_type,
+         escaped_argument_count_by_indirect_lexical_scope_observation_type = escaped_argument_count_by_indirect_lexical_scope_observation_type,
+         escaped_argument_count_by_direct_non_lexical_scope_observation_type = escaped_argument_count_by_direct_non_lexical_scope_observation_type,
+         escaped_argument_count_by_indirect_non_lexical_scope_observation_type = escaped_argument_count_by_indirect_non_lexical_scope_observation_type)
+
         ## escaped_argument_call_return_value_type = escaped_argument_call_return_value_type,
         ##  escaped_argument_function_category = escaped_argument_function_category,
         ##  escaped_argument_function_return_type_and_category = escaped_argument_function_return_type_and_category,

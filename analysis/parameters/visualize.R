@@ -467,9 +467,267 @@ escaped_arguments <- function(analyses) {
         theme(axis.text.x = element_text(angle = 60, hjust = 1),
               legend.position = "bottom")
 
+    total_argument_count <-
+        analyses$escaped_argument_count_by_nature %>%
+        pull(argument_count) %>%
+        sum()
+
+    escaped_argument_count_by_nature <-
+        analyses$escaped_argument_count_by_nature %>%
+        ggplot(aes(x = argument_nature,
+                   y = relative_argument_count)) +
+        geom_col() +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Argument Nature",
+             y = "Argument Count",
+             title =  "Escaped Argument count by nature") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+    escaped_argument_count_by_dispatch_type <-
+        analyses$escaped_argument_count_by_dispatch_type %>%
+        ggplot(aes(x = dispatch_type,
+                   y = relative_argument_count)) +
+        geom_col() +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Dispatch Type",
+             y = "Argument Count",
+             title =  "Escaped Argument count by dispatch type") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+
+    escaped_argument_count_by_expression_type <-
+        analyses$escaped_argument_count_by_expression_type %>%
+        ggplot(aes(x = expression_type,
+                   y = relative_argument_count)) +
+        geom_col() +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Expression Type",
+             y = "Escaped Argument Count",
+             title =  "Escaped Argument count by expression type") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+    escaped_argument_count_by_value_type <-
+        analyses$escaped_argument_count_by_value_type %>%
+        ggplot(aes(x = value_type,
+                   y = relative_argument_count)) +
+        geom_col() +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Value Type",
+             y = "Escaped Argument Count",
+             title =  "Escaped Argument count by value type") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+    escaped_argument_count_by_force_type <-
+        analyses$escaped_argument_count_by_force_type %>%
+        ggplot(aes(x = force_type,
+                   y = relative_argument_count)) +
+        geom_col() +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Force Type",
+             y = "Escaped Argument Count",
+             title =  "Escaped Argument count by force type") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+
+    escaped_argument_count_by_metaprogram_type <-
+        analyses$escaped_argument_count_by_metaprogram_type %>%
+        ggplot(aes(x = metaprogram_type,
+                   y = relative_argument_count)) +
+        geom_col() +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Metaprogram Type",
+             y = "Escaped Argument Count",
+             title =  "Escaped Argument count by metaprogram type") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+
+    escaped_argument_count_by_lookup_type <-
+        analyses$escaped_argument_count_by_lookup_type %>%
+        ggplot(aes(x = lookup_type,
+                   y = relative_argument_count)) +
+        geom_col() +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Lookup Type",
+             y = "Escaped Argument Count",
+             title =  "Escaped Argument count by lookup type") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+
+    visualize_before_after <- function(df, x, y, total_argument_count,
+                                       x_label, y_label, title) {
+        x = enquo(x)
+        y = enquo(y)
+
+        df %>%
+            ggplot(aes(x = !!x, y = !!y)) +
+            geom_col() +
+            scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
+                                                   labels = count_labels),
+                               labels = relative_labels) +
+            labs(x = x_label, y = y_label, title =  title) +
+            scale_fill_gdocs() +
+            theme(axis.text.x = element_text(angle = 60, hjust = 1), legend.position = "bottom")
+    }
+
+    escaped_argument_count_by_direct_self_scope_mutation_type <-
+        analyses$escaped_argument_count_by_direct_self_scope_mutation_type %>%
+        visualize_before_after(direct_self_scope_mutation_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Direct self scope mutation type",
+                               "Escaped argument count",
+                               "Escaped argument count by direct self scope mutation type")
+
+
+    escaped_argument_count_by_indirect_self_scope_mutation_type <-
+        analyses$escaped_argument_count_by_indirect_self_scope_mutation_type %>%
+        visualize_before_after(indirect_self_scope_mutation_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Indirect self scope mutation type",
+                               "Escaped argument count",
+                               "Escaped argument count by indirect self scope mutation type")
+
+    escaped_argument_count_by_direct_lexical_scope_mutation_type <-
+        analyses$escaped_argument_count_by_direct_lexical_scope_mutation_type %>%
+        visualize_before_after(direct_lexical_scope_mutation_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Direct lexical scope mutation type",
+                               "Escaped argument count",
+                               "Escaped argument count by direct lexical scope mutation type")
+
+    escaped_argument_count_by_indirect_lexical_scope_mutation_type <-
+        analyses$escaped_argument_count_by_indirect_lexical_scope_mutation_type %>%
+        visualize_before_after(indirect_lexical_scope_mutation_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Indirect lexical scope mutation type",
+                               "Escaped argument count",
+                               "Escaped argument count by indirect lexical scope mutation type")
+
+    escaped_argument_count_by_direct_non_lexical_scope_mutation_type <-
+        analyses$escaped_argument_count_by_direct_non_lexical_scope_mutation_type %>%
+        visualize_before_after(direct_non_lexical_scope_mutation_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Direct non lexical scope mutation type",
+                               "Escaped argument count",
+                               "Escaped argument count by direct non lexical scope mutation type")
+
+    escaped_argument_count_by_indirect_non_lexical_scope_mutation_type <-
+        analyses$escaped_argument_count_by_indirect_non_lexical_scope_mutation_type %>%
+        visualize_before_after(indirect_non_lexical_scope_mutation_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Indirect non lexical scope mutation type",
+                               "Escaped argument count",
+                               "Escaped argument count by indirect non lexical scope mutation type")
+
+    escaped_argument_count_by_direct_self_scope_observation_type <-
+        analyses$escaped_argument_count_by_direct_self_scope_observation_type %>%
+        visualize_before_after(direct_self_scope_observation_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Direct self scope observation type",
+                               "Escaped argument count",
+                               "Escaped argument count by direct self scope observation type")
+
+    escaped_argument_count_by_indirect_self_scope_observation_type <-
+        analyses$escaped_argument_count_by_indirect_self_scope_observation_type %>%
+        visualize_before_after(indirect_self_scope_observation_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Indirect self scope observation type",
+                               "Escaped argument count",
+                               "Escaped argument count by indirect self scope observation type")
+
+    escaped_argument_count_by_direct_lexical_scope_observation_type <-
+        analyses$escaped_argument_count_by_direct_lexical_scope_observation_type %>%
+        visualize_before_after(direct_lexical_scope_observation_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Direct lexical scope observation type",
+                               "Escaped argument count",
+                               "Escaped argument count by direct lexical scope observation type")
+
+    escaped_argument_count_by_indirect_lexical_scope_observation_type <-
+        analyses$escaped_argument_count_by_indirect_lexical_scope_observation_type %>%
+        visualize_before_after(indirect_lexical_scope_observation_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Indirect lexical scope observation type",
+                               "Escaped argument count",
+                               "Escaped argument count by indirect lexical scope observation type")
+
+    escaped_argument_count_by_direct_non_lexical_scope_observation_type <-
+        analyses$escaped_argument_count_by_direct_non_lexical_scope_observation_type %>%
+        visualize_before_after(direct_non_lexical_scope_observation_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Direct non lexical scope observation type",
+                               "Escaped argument count",
+                               "Escaped argument count by direct non lexical scope mutation type")
+
+    escaped_argument_count_by_indirect_non_lexical_scope_observation_type <-
+        analyses$escaped_argument_count_by_indirect_non_lexical_scope_observation_type %>%
+        visualize_before_after(indirect_non_lexical_scope_observation_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Indirect non lexical scope observation type",
+                               "Escaped argument count",
+                               "Escaped argument count by indirect non lexical scope observation type")
+
     list(escaped_argument_function_call_count_by_return_value_type = escaped_argument_function_call_count_by_return_value_type,
          escaped_argument_function_count_by_return_value_type = escaped_argument_function_count_by_return_value_type,
-         escaped_argument_function_count_by_category = escaped_argument_function_count_by_category)
+         escaped_argument_function_count_by_category = escaped_argument_function_count_by_category,
+         escaped_argument_count_by_nature = escaped_argument_count_by_nature,
+         escaped_argument_count_by_dispatch_type = escaped_argument_count_by_dispatch_type,
+         escaped_argument_count_by_expression_type = escaped_argument_count_by_expression_type,
+         escaped_argument_count_by_value_type = escaped_argument_count_by_value_type,
+         escaped_argument_count_by_force_type = escaped_argument_count_by_force_type,
+         escaped_argument_count_by_metaprogram_type = escaped_argument_count_by_metaprogram_type,
+         escaped_argument_count_by_lookup_type = escaped_argument_count_by_lookup_type,
+         escaped_argument_count_by_direct_self_scope_mutation_type = escaped_argument_count_by_direct_self_scope_mutation_type,
+         escaped_argument_count_by_indirect_self_scope_mutation_type = escaped_argument_count_by_indirect_self_scope_mutation_type,
+         escaped_argument_count_by_direct_lexical_scope_mutation_type = escaped_argument_count_by_direct_lexical_scope_mutation_type,
+         escaped_argument_count_by_indirect_lexical_scope_mutation_type = escaped_argument_count_by_indirect_lexical_scope_mutation_type,
+         escaped_argument_count_by_direct_non_lexical_scope_mutation_type = escaped_argument_count_by_direct_non_lexical_scope_mutation_type,
+         escaped_argument_count_by_indirect_non_lexical_scope_mutation_type = escaped_argument_count_by_indirect_non_lexical_scope_mutation_type,
+         escaped_argument_count_by_direct_self_scope_observation_type = escaped_argument_count_by_direct_self_scope_observation_type,
+         escaped_argument_count_by_indirect_self_scope_observation_type = escaped_argument_count_by_indirect_self_scope_observation_type,
+         escaped_argument_count_by_direct_lexical_scope_observation_type = escaped_argument_count_by_direct_lexical_scope_observation_type,
+         escaped_argument_count_by_indirect_lexical_scope_observation_type = escaped_argument_count_by_indirect_lexical_scope_observation_type,
+         escaped_argument_count_by_direct_non_lexical_scope_observation_type = escaped_argument_count_by_direct_non_lexical_scope_observation_type,
+         escaped_argument_count_by_indirect_non_lexical_scope_observation_type = escaped_argument_count_by_indirect_non_lexical_scope_observation_type)
 }
 
 
