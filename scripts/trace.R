@@ -6,6 +6,7 @@ suppressPackageStartupMessages(library("fs"))
 suppressPackageStartupMessages(library("purrr"))
 suppressPackageStartupMessages(library("readr"))
 suppressPackageStartupMessages(library("magrittr"))
+suppressPackageStartupMessages(library("processx"))
 
 
 parse_command_line <- function() {
@@ -248,9 +249,10 @@ run_script <- function(settings, script_filepath) {
 
     cat("Executing ", script_filepath, "\n")
 
-    system2(command = settings$r_dyntrace,
-            args = str_c("--file=", script_filepath),
-            timeout = settings$tracing_timeout)
+    processx::run(command = settings$r_dyntrace,
+                  args = str_c("--file=", script_filepath),
+                  timeout = settings$tracing_timeout,
+                  cleanup_tree = TRUE)
 
     script_filepath
 }
