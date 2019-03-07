@@ -19,7 +19,7 @@ XVFB_RUN := xvfb-run
 ################################################################################
 ## time
 ################################################################################
-TIME := time
+TIME := time --portability
 
 ################################################################################
 ## tracer output directory paths
@@ -28,6 +28,7 @@ TRACE_DIRPATH := $(shell date +'%Y-%m-%d-%H-%M-%S')
 LATEST_TRACE_DIRPATH := $(shell readlink -f latest)
 TRACE_ANALYSIS_DIRPATH := $(TRACE_DIRPATH)/analysis
 TRACE_ANALYSIS_RAW_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/raw
+TRACE_ANALYSIS_CORPUS_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/corpus
 TRACE_ANALYSIS_REDUCED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/reduced
 TRACE_ANALYSIS_COMBINED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/combined
 TRACE_ANALYSIS_SUMMARIZED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/summarized
@@ -337,6 +338,7 @@ report-analysis:
 analyze-corpus:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_CORPUS_DIRPATH)
+	@mkdir -p $(TRACE_ANALYSIS_CORPUS_DIRPATH)
 
 	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                              \
 	  	                    --file=analysis/corpus.R                        \

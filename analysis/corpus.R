@@ -5,19 +5,27 @@ library(dplyr)
 library(purrr)
 library(magrittr)
 library(optparse)
+library(stringr)
+library(readr)
 
 options(tibble.width = Inf)
-#options(warn = 2)
 
 count_lines_of_code <- function(settings) {
 
-    cloc_output <- run(command = "cloc",
-                       args = c("--by-file",
-                                "--quiet",
-                                "--hide-rate",
-                                "--csv",
-                                settings$input_corpus_dirpath))
+    cloc_output <- run(command = "sh",
+                       args = c("-c",
+                                str_c("cloc",
+                                      "--by-file",
+                                      "--quiet",
+                                      "--hide-rate",
+                                      "--csv",
+                                      "--include-lang='R'",
+                                      settings$input_corpus_dirpath,
+                                      sep = " ")),
+                       echo_cmd = TRUE)
+
     print(cloc_output$stderr)
+
     if(is.na(cloc_output$status) | cloc_output$status != 0) {
         stop("The cloc process exited with a non zero exit status")
     }
@@ -126,23 +134,32 @@ analyze_corpus <- function(settings) {
          status_table = status_table,
          code_table = code_table,
          size_table = size_table)
-
-    print(code_table)
-
-    print(size_table)
-
-    status_table
 }
 
+serialize_analyses <- function(analyses, settings) {
 
+    imap(analyses,
+         function(df, name) {
+             write_csv(df,
+                       path(settings$output_corpus_data_dirpath,
+                            name,
+                            ext = "csv"))
+         })
+
+    path(settings$output_corpus_data_dirpath,
+         names(analyses),
+         ext = "csv")
+}
 
 parse_program_arguments <- function() {
-    usage <- "%prog reduced-output-dirpath combined-output-dirpath"
-    description <- paste(
-        "reduced-output-dirpath    directory containing reduced data files (scanned recursively)",
-        "combined-output-dirpath   directory to which combined data will be exported",
-        sep = "\n")
 
+    usage <- "%prog input-corpus-dirpath input-raw-data-dirpath output-corpus-data-dirpath"
+
+    description <- paste(
+        "input-corpus-dirpath       directory containing corpus files",
+        "input-raw-data-dirpath     directory containing raw analysis data",
+        "output-corpus-data-dirpath directory in which the output files will be stored",
+        sep = "\n")
 
     option_parser <- OptionParser(usage = usage,
                                   description = description,
@@ -160,7 +177,8 @@ parse_program_arguments <- function() {
 main <- function() {
     settings <- parse_program_arguments()
     print(settings)
-    analyze_corpus(settings)
+    analyses <- analyze_corpus(settings)
+    serialize_analyses(analyses, settings)
 }
 
 main()
