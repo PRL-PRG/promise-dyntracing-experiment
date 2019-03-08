@@ -613,22 +613,39 @@ reduce_raw_analysis_data <- function(settings, script_table) {
 
     reduce_raw_analysis_datum <-
         function(package, script_type, scriptname, dirpath,
-                 raw_data_dirpath, valid, raw_analysis_filename) {
+                 raw_data_dirpath, valid) {
 
             info("=> Reducing ", scriptname, " from ", package, "\n")
-            raw_analysis_filename <- raw_analysis_filename[[1]]
+
             reduced_analysis_dirpath <- path(settings$output_dirpath,
                                              script_type,
                                              scriptname)
+
             dir_create(reduced_analysis_dirpath)
 
+            analyses <- new.env(parent = emptyenv(), hash = TRUE)
+
+            path(settings$input_dirpath,
+                 script_type,
+                 scriptname) %>%
+                dir_ls() %>%
+                map(function(raw_data_filepath) {
+                    name <- path_ext_remove(path_ext_remove(path_file(raw_data_filepath)))
+
+                    if (name %in% c("BEGIN", "NOERROR", "FINISH", "ERROR")) {
+                        NULL
+                    }
+                    else {
+                        delayedAssign(name,
+                                      read_data_table(path_ext_remove(path_ext_remove(raw_data_filepath)),
+                                                      binary = settings$binary,
+                                                      compression_level = settings$compression_level),
+                                      assign.env = analyses)
+                    }
+                })
+
             output_filepaths <-
-                path(settings$input_dirpath,
-                     script_type,
-                     scriptname,
-                     raw_analysis_filename) %>%
-                map(reader) %>%
-                setNames(path_ext_remove(raw_analysis_filename)) %>%
+                analyses %>%
                 reducer() %>%
                 imap(function(table, table_name) {
                     filepath <- path(reduced_analysis_dirpath,
@@ -672,8 +689,7 @@ scan_input_dirpath <- function(settings) {
                script_type = path_file(path_dir(script_dirpaths)),
                scriptname = path_file(script_dirpaths),
                dirpath = script_dirpaths,
-               valid = map_lgl(script_dirpaths, script_is_valid),
-               raw_analysis_filename = list(list(settings$table_names)))
+               valid = map_lgl(script_dirpaths, script_is_valid))
 
     info("=> Found ", nrow(script_table), " scripts, ",
          sum(pull(script_table, valid)), " valid.\n")
@@ -744,20 +760,9 @@ parse_program_arguments <- function() {
         stop("script type not specified (--vignettes, --examples, --tests)")
     }
 
-    analysis_map <- list(
-        object_type = list("object_counts"),
-        functions = list("call_summaries"),
-        arguments = list("arguments"),
-        parameters = list("arguments"),
-        promises = list("promises"),
-        escaped_arguments = list("escaped_arguments"),
-        function_definitions = list("function_definitions")
-    )
-
     list(input_dirpath = arguments$args[1],
          output_dirpath = arguments$args[2],
          analysis = arguments$args[3],
-         table_names = analysis_map[[arguments$args[3]]],
          script_type = script_type,
          binary = arguments$options$binary,
          compression_level = as.integer(arguments$options$compression_level))
