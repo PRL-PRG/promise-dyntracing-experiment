@@ -111,219 +111,6 @@ arguments <- function(analyses) {
          argument_promise_distribution_by_sharing = argument_promise_distribution_by_sharing)
 }
 
-promise_use_and_action <- function(analyses) {
-
-    summarize_use <- function(table) {
-        lookup_promise_count <-
-            table %>%
-            filter(lookup & !metaprogram) %>%
-            nrow()
-
-        metaprogrammed_promise_count <-
-            table %>%
-            filter(!lookup & metaprogram) %>%
-            nrow()
-
-        lookup_and_metaprogrammed_promise_count <-
-            table %>%
-            filter(lookup & metaprogram) %>%
-            nrow()
-
-        unused_promise_count <-
-            table %>%
-            filter(!lookup & !metaprogram) %>%
-            nrow()
-
-        tibble(use = c("Lookup", "Metaprogram", "Lookup & Metaprogram", "Unused"),
-               promise_count = c(lookup_promise_count,
-                                 metaprogrammed_promise_count,
-                                 lookup_and_metaprogrammed_promise_count,
-                                 unused_promise_count))
-    }
-
-    summarize_action <- function(table) {
-
-        preforced_promise_count <-
-            table %>%
-            filter(preforce & !force) %>%
-            nrow()
-
-        forced_promise_count <-
-            table %>%
-            filter(!preforce & force) %>%
-            nrow()
-
-        preforced_and_forced_promise_count <-
-            table %>%
-            filter(preforce & force) %>%
-            nrow()
-
-        nonforced_promise_count <-
-            table %>%
-            filter(!preforce & !force) %>%
-            nrow()
-
-        tibble(action = c("Preforce", "Force", "Preforce & Force", "Not Forced"),
-               promise_count = c(preforced_promise_count,
-                                 forced_promise_count,
-                                 preforced_and_forced_promise_count,
-                                 nonforced_promise_count))
-    }
-
-    ############################################################################
-    ## Escaped Promises
-    ############################################################################
-
-    ## print("here1")
-    ## print(analyses$escaped_arguments)
-    ## escaped_argument_promises <-
-    ##     analyses$escaped_arguments %>%
-    ##     ## this filter is probably redundant because only escaped promises
-    ##     ## are tracked. having it here is not going to affect the output
-    ##     ## though.
-    ##     print() %>%
-    ##     mutate(before_escape_force = as.logical(before_escape_force_count),
-    ##            before_escape_lookup = as.logical(before_escape_value_lookup_count),
-    ##            before_escape_metaprogram = as.logical(before_escape_metaprogram_count),
-    ##            after_escape_force = as.logical(after_escape_force_count),
-    ##            after_escape_lookup = as.logical(after_escape_value_lookup_count),
-    ##            after_escape_metaprogram = as.logical(after_escape_metaprogram_count)) %>%
-    ##     print() %>%
-    ##     mutate(before_escape_lookup = before_escape_lookup | before_escape_force | preforce,
-    ##            after_escape_lookup = after_escape_lookup | after_escape_force)
-
-    ## print("here2")
-
-    ## before_escape_argument_promise_use_counts <-
-    ##     escaped_argument_promises %>%
-    ##     select(lookup = before_escape_lookup,
-    ##            metaprogram = before_escape_metaprogram) %>%
-    ##     summarize_use() %>%
-    ##     add_column(category = "Before Escape Argument", .before = 1)
-
-    ## print("here3")
-    ## after_escape_argument_promise_use_counts <-
-    ##     escaped_argument_promises %>%
-    ##     select(lookup = after_escape_lookup,
-    ##            metaprogram = after_escape_metaprogram) %>%
-    ##     summarize_use() %>%
-    ##     add_column(category = "After Escape Argument", .before = 1)
-
-    ## before_escape_argument_promise_force_counts <-
-    ##     escaped_argument_promises %>%
-    ##     select(preforce,
-    ##            force = before_escape_force) %>%
-    ##     summarize_force_time() %>%
-    ##     add_column(category = "Before Escape Argument", .before = 1)
-
-    ## after_escape_argument_promise_force_counts <-
-    ##     escaped_argument_promises %>%
-    ##     select(preforce,
-    ##            force = after_escape_force) %>%
-    ##     summarize_force_time() %>%
-    ##     add_column(category = "After Escape Argument", .before = 1)
-
-    ## difference_escape_argument_promise_force_counts <-
-    ##     escaped_argument_promises %>%
-    ##     filter(!before_escape_force & after_escape_force) %>%
-    ##     nrow()
-
-    ## difference_escape_argument_promise_lookup_counts <-
-    ##     escaped_argument_promises %>%
-    ##     filter(!before_escape_lookup & after_escape_lookup) %>%
-    ##     nrow()
-
-    ## difference_escape_argument_promise_metaprogram_counts <-
-    ##     escaped_argument_promises %>%
-    ##     filter(!before_escape_metaprogram & after_escape_metaprogram) %>%
-    ##     nrow()
-
-    ## difference_escape_argument_promise_lookup_counts <-
-    ##     escaped_argument_promises %>%
-    ##     filter(!before_escape_lookup & after_escape_lookup) %>%
-    ##     nrow()
-
-    ############################################################################
-    ## Argument Promises
-    ############################################################################
-    promises <-
-        analyses$promises %>%
-        mutate(force = as.logical(force_count),
-               lookup = as.logical(value_lookup_count),
-               metaprogram = as.logical(metaprogram_count)) %>%
-        mutate(lookup = force | lookup) %>%
-        select(promise_category = argument, force, lookup, metaprogram, preforce) %>%
-        mutate(promise_category = c("Non Argument", "Argument")[promise_category + 1])
-
-    promise_use_distribution_by_category <-
-        promises %>%
-        group_by(promise_category) %>%
-        do(summarize_use(.data)) %>%
-        ungroup()
-
-    promise_action_distribution_by_category <-
-        promises %>%
-        group_by(promise_category) %>%
-        do(summarize_action(.data)) %>%
-        ungroup()
-
-    list(promise_use_distribution_by_category = promise_use_distribution_by_category,
-         promise_action_distribution_by_category = promise_action_distribution_by_category)
-
-    ## argument_promise_force_counts <-
-    ##     argument_promises %>%
-    ##     summarize_force_time() %>%
-    ##     add_column(category = "Argument", .before = 1)
-
-    ## ############################################################################
-    ## ## Non Argument Promises
-    ## ############################################################################
-    ## non_argument_promises <-
-    ##     analyses$promises %>%
-    ##     filter(!argument) %>%
-    ##     select(preforce, force_count, value_lookup_count, metaprogram_count) %>%
-    ##     mutate(force = as.logical(force_count),
-    ##            lookup = as.logical(value_lookup_count),
-    ##            metaprogram = as.logical(metaprogram_count)) %>%
-    ##     mutate(lookup = lookup | force | preforce)
-
-    ## non_argument_promise_use_counts <-
-    ##     non_argument_promises %>%
-    ##     summarize_use() %>%
-    ##     add_column(category = "Non Argument", .before = 1)
-
-    ## non_argument_promise_force_counts <-
-    ##     non_argument_promises %>%
-    ##     summarize_force_time() %>%
-    ##     add_column(category = "Non Argument", .before = 1)
-
-    ############################################################################
-    ## Result
-    ############################################################################
-
-    ## promise_count_by_category <- tibble(
-    ##     category = c("Argument Promise", "Non Argument Promise"),
-    ##     promise_count = c(nrow(argument_promises), nrow(non_argument_promises))
-    ## )
-
-    ## argument_promise_count_by_category <- tibble(
-    ##     category = c("Unescaped Argument Promise", "Escaped Argument Promise"),
-    ##     promise_count = c(nrow(argument_promises) - nrow(escaped_argument_promises),
-    ##                       nrow(escaped_argument_promises))
-    ## )
-
-    ## list(promise_count_by_category = promise_count_by_category,
-    ##      argument_promise_count_by_category = argument_promise_count_by_category,
-    ##      promise_use_counts = bind_rows(argument_promise_use_counts,
-    ##                                     non_argument_promise_use_counts),
-    ##      promise_force_counts = bind_rows(argument_promise_force_counts,
-    ##                                       non_argument_promise_force_counts))
-    ##      ## escaped_promise_use_counts = bind_rows(before_escape_argument_promise_use_counts,
-    ##      ##                                        after_escape_argument_promise_use_counts),
-    ##      ## escaped_promise_force_counts = bind_rows(before_escape_argument_promise_force_counts,
-    ##      ##                                          after_escape_argument_promise_force_counts))
-}
-
 
 parameters <- function(analyses) {
 
@@ -469,10 +256,11 @@ promises <- function(analyses) {
     argument_promise_count_by_dispatch_type <-
         argument_promises %>%
         select(S3_dispatch, S4_dispatch) %>%
-        mutate(dispatch_type = if_else(!S3_dispatch & !S4_dispatch, "No Dispatch",
-                                       if_else(S3_dispatch & !S4_dispatch, "S3 Dispatch",
-                                               if_else(!S3_dispatch & S4_dispatch, "S4 Dispatch",
-                                                       "Both")))) %>%
+        mutate(dispatch_type =
+                   if_else(!S3_dispatch & !S4_dispatch, "No Dispatch",
+                           if_else(S3_dispatch & !S4_dispatch, "S3 Dispatch",
+                                   if_else(!S3_dispatch & S4_dispatch, "S4 Dispatch",
+                                           "Both")))) %>%
         group_by(dispatch_type) %>%
         summarize(promise_count = n()) %>%
         ungroup()
@@ -599,6 +387,84 @@ promises <- function(analyses) {
         summarize_side_effect(indirect_non_lexical_scope_observation_count,
                               "indirect_non_lexical_scope_observation")
 
+    summarize_use <- function(table) {
+        lookup_promise_count <-
+            table %>%
+            filter(lookup & !metaprogram) %>%
+            nrow()
+
+        metaprogrammed_promise_count <-
+            table %>%
+            filter(!lookup & metaprogram) %>%
+            nrow()
+
+        lookup_and_metaprogrammed_promise_count <-
+            table %>%
+            filter(lookup & metaprogram) %>%
+            nrow()
+
+        unused_promise_count <-
+            table %>%
+            filter(!lookup & !metaprogram) %>%
+            nrow()
+
+        tibble(use = c("Lookup", "Metaprogram", "Lookup & Metaprogram", "Unused"),
+               promise_count = c(lookup_promise_count,
+                                 metaprogrammed_promise_count,
+                                 lookup_and_metaprogrammed_promise_count,
+                                 unused_promise_count))
+    }
+
+    summarize_action <- function(table) {
+
+        preforced_promise_count <-
+            table %>%
+            filter(preforce & !force) %>%
+            nrow()
+
+        forced_promise_count <-
+            table %>%
+            filter(!preforce & force) %>%
+            nrow()
+
+        preforced_and_forced_promise_count <-
+            table %>%
+            filter(preforce & force) %>%
+            nrow()
+
+        nonforced_promise_count <-
+            table %>%
+            filter(!preforce & !force) %>%
+            nrow()
+
+        tibble(action = c("Preforce", "Force", "Preforce & Force", "Not Forced"),
+               promise_count = c(preforced_promise_count,
+                                 forced_promise_count,
+                                 preforced_and_forced_promise_count,
+                                 nonforced_promise_count))
+    }
+
+    promises <-
+        analyses$promises %>%
+        mutate(force = as.logical(force_count),
+               lookup = as.logical(value_lookup_count),
+               metaprogram = as.logical(metaprogram_count)) %>%
+        mutate(lookup = force | lookup) %>%
+        select(promise_category = argument, force, lookup, metaprogram, preforce) %>%
+        mutate(promise_category = c("Non Argument", "Argument")[promise_category + 1])
+
+    promise_use_distribution_by_category <-
+        promises %>%
+        group_by(promise_category) %>%
+        do(summarize_use(.data)) %>%
+        ungroup()
+
+    promise_action_distribution_by_category <-
+        promises %>%
+        group_by(promise_category) %>%
+        do(summarize_action(.data)) %>%
+        ungroup()
+
     list(promise_count_by_category = promise_count_by_category,
          argument_promise_count_by_expression_type = argument_promise_count_by_expression_type,
          non_argument_promise_count_by_expression_type = non_argument_promise_count_by_expression_type,
@@ -628,14 +494,15 @@ promises <- function(analyses) {
          promise_count_by_direct_lexical_scope_observation = promise_count_by_direct_lexical_scope_observation,
          promise_count_by_indirect_lexical_scope_observation = promise_count_by_indirect_lexical_scope_observation,
          promise_count_by_direct_non_lexical_scope_observation = promise_count_by_direct_non_lexical_scope_observation,
-         promise_count_by_indirect_non_lexical_scope_observation = promise_count_by_indirect_non_lexical_scope_observation)
+         promise_count_by_indirect_non_lexical_scope_observation = promise_count_by_indirect_non_lexical_scope_observation,
+         promise_use_distribution_by_category = promise_use_distribution_by_category,
+         promise_action_distribution_by_category = promise_action_distribution_by_category)
 }
 
 
-function_definition <- function(analyses) {
-    list(function_definition = analyses$function_definition)
+function_definitions <- function(analyses) {
+    list(function_definitions = analyses$function_definitions)
 }
-
 
 
 reduce_analysis <- function(analyses) {
@@ -881,12 +748,10 @@ parse_program_arguments <- function() {
         object_type = list("object_counts"),
         functions = list("call_summaries"),
         arguments = list("arguments"),
-        promise_use_and_action = list("promises", "escaped_arguments"),
         parameters = list("arguments"),
         promises = list("promises"),
-        functions = list("call_summary"),
         escaped_arguments = list("escaped_arguments"),
-        function_definition = list("function_definition")
+        function_definitions = list("function_definitions")
     )
 
     list(input_dirpath = arguments$args[1],

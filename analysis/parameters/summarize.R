@@ -24,6 +24,28 @@ suppressPackageStartupMessages(library(tidyr))
 
 info <- function(...) cat((paste0(...)))
 
+summarize_outliers <- function(df, grouping_column,
+                               count_column, relative_count_column,
+                               outlier_value) {
+
+    grouping_column <- enquo(grouping_column)
+    count_column <- enquo(count_column)
+    relative_count_column <- enquo(relative_count_column)
+
+    outlier_row <-
+        df %>%
+        filter(!! grouping_column > outlier_value) %>%
+        summarize(!!grouping_column := str_c(">", toString(outlier_value), sep = " "),
+                  !!count_column := sum(!!count_column),
+                  !!relative_count_column := sum(!!relative_count_column))
+
+    df <-
+        df %>%
+        mutate(!! grouping_column := as.character(!! grouping_column)) %>%
+        bind_rows(outlier_row)
+
+    df
+}
 
 object_type <- function(analyses) {
     ## object type count is already summarized by the tracer.
@@ -364,88 +386,6 @@ arguments <- function(analyses) {
 
 }
 
-summarize_outliers <- function(df, grouping_column, count_column, relative_count_column, outlier_value) {
-    grouping_column <- enquo(grouping_column)
-    count_column <- enquo(count_column)
-    relative_count_column <- enquo(relative_count_column)
-
-    outlier_row <-
-        df %>%
-        filter(!! grouping_column > outlier_value) %>%
-        summarize(!!grouping_column := str_c(">", toString(outlier_value), sep = " "),
-                  !!count_column := sum(!!count_column),
-                  !!relative_count_column := sum(!!relative_count_column))
-
-    df <-
-        df %>%
-        mutate(!! grouping_column := as.character(!! grouping_column)) %>%
-        bind_rows(outlier_row)
-
-    df
-}
-
-
-promise_use_and_action <- function(analyses) {
-
-    promise_use_distribution_by_category <-
-        analyses$promise_use_distribution_by_category %>%
-        group_by(promise_category, use) %>%
-        summarize(promise_count = sum(promise_count)) %>%
-        ungroup() %>%
-        mutate(relative_promise_count = promise_count / sum(promise_count))
-
-    promise_action_distribution_by_category <-
-        analyses$promise_action_distribution_by_category %>%
-        group_by(promise_category, action) %>%
-        summarize(promise_count = sum(promise_count)) %>%
-        ungroup() %>%
-        mutate(relative_promise_count = promise_count / sum(promise_count))
-
-    list(promise_use_distribution_by_category = promise_use_distribution_by_category,
-         promise_action_distribution_by_category = promise_action_distribution_by_category)
-    ## promise_count_by_category <-
-    ##     analyses$promise_count_by_category %>%
-    ##     group_by(category) %>%
-    ##     summarize(promise_count = sum(promise_count)) %>%
-    ##     ungroup()
-
-    ## argument_promise_count_by_category <-
-    ##     analyses$argument_promise_count_by_category %>%
-    ##     group_by(category) %>%
-    ##     summarize(promise_count = sum(promise_count)) %>%
-    ##     ungroup()
-
-    ## promise_use_counts <-
-    ##     analyses$promise_use_counts %>%
-    ##     group_by(category, use) %>%
-    ##     summarize(promise_count = sum(promise_count)) %>%
-    ##     ungroup()
-
-    ## promise_force_counts <-
-    ##     analyses$promise_force_counts %>%
-    ##     group_by(category, action) %>%
-    ##     summarize(promise_count = sum(promise_count)) %>%
-    ##     ungroup()
-
-    ## escaped_promise_use_counts <-
-    ##     analyses$escaped_promise_use_counts %>%
-    ##     group_by(category, use) %>%
-    ##     summarize(promise_count = sum(promise_count)) %>%
-    ##     ungroup()
-
-    ## escaped_promise_force_counts <-
-    ##     analyses$escaped_promise_force_counts %>%
-    ##     group_by(category, action) %>%
-    ##     summarize(promise_count = sum(promise_count)) %>%
-    ##     ungroup()
-
-    ## list(promise_count_by_category = promise_count_by_category,
-    ##      argument_promise_count_by_category = argument_promise_count_by_category,
-    ##      promise_use_counts = promise_use_counts,
-    ##      promise_force_counts = promise_force_counts,
-    ##      escaped_promise_use_counts = escaped_promise_use_counts,
-    ##      escaped_promise_force_counts = escaped_promise_force_counts)
-}
 
 parameters <- function(analyses) {
 
@@ -739,6 +679,19 @@ promises <- function(analyses) {
         analyses$promise_count_by_indirect_non_lexical_scope_observation %>%
         summarize_event_counts(indirect_non_lexical_scope_observation)
 
+    promise_use_distribution_by_category <-
+        analyses$promise_use_distribution_by_category %>%
+        group_by(promise_category, use) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        ungroup() %>%
+        mutate(relative_promise_count = promise_count / sum(promise_count))
+
+    promise_action_distribution_by_category <-
+        analyses$promise_action_distribution_by_category %>%
+        group_by(promise_category, action) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        ungroup() %>%
+        mutate(relative_promise_count = promise_count / sum(promise_count))
 
     list(promise_count_by_category = promise_count_by_category,
          argument_promise_count_by_expression_type = argument_promise_count_by_expression_type,
@@ -769,7 +722,9 @@ promises <- function(analyses) {
          promise_count_by_direct_lexical_scope_observation = promise_count_by_direct_lexical_scope_observation,
          promise_count_by_indirect_lexical_scope_observation = promise_count_by_indirect_lexical_scope_observation,
          promise_count_by_direct_non_lexical_scope_observation = promise_count_by_direct_non_lexical_scope_observation,
-         promise_count_by_indirect_non_lexical_scope_observation = promise_count_by_indirect_non_lexical_scope_observation)
+         promise_count_by_indirect_non_lexical_scope_observation = promise_count_by_indirect_non_lexical_scope_observation,
+         promise_use_distribution_by_category = promise_use_distribution_by_category,
+         promise_action_distribution_by_category = promise_action_distribution_by_category)
 
 }
 
@@ -1029,14 +984,14 @@ escaped_arguments <- function(analyses) {
 }
 
 
-function_definition <- function(analyses) {
+function_definitions <- function(analyses) {
 
-    function_definition  <-
-        analyses$function_definition %>%
+    function_definitions  <-
+        analyses$function_definitions %>%
         group_by(function_id) %>%
         summarize(definition = first(definition))
 
-    list(function_definition = function_definition)
+    list(function_definitions = function_definitions)
 }
 
 

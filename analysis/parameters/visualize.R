@@ -54,56 +54,6 @@ object_type <- function(analyses) {
 }
 
 
-promise_use_and_action <- function(analyses) {
-
-    total_promise_count <-
-        analyses$promise_use_distribution_by_category %>%
-        pull(promise_count) %>%
-        sum()
-
-    promise_use_distribution_by_category <-
-        analyses$promise_use_distribution_by_category %>%
-        ggplot(aes(x = use,
-                   y = relative_promise_count,
-                   fill = promise_category)) +
-        geom_col(position = "dodge") +
-        scale_y_continuous(sec.axis = sec_axis(~ . * total_promise_count,
-                                               labels = count_labels),
-                           labels = relative_labels) +
-        labs(x = "Promise Use",
-             y = "Promise Count",
-             title =  "Promise use distribution by category") +
-        scale_fill_gdocs() +
-        theme(legend.position = "bottom")
-
-    total_promise_count <-
-        analyses$promise_action_distribution_by_category %>%
-        pull(promise_count) %>%
-        sum()
-
-    promise_action_distribution_by_category <-
-        analyses$promise_action_distribution_by_category %>%
-        ggplot(aes(x = action,
-                   y = relative_promise_count,
-                   fill = promise_category)) +
-        geom_col(position = "dodge") +
-        scale_y_continuous(sec.axis = sec_axis(~ . * total_promise_count,
-                                               labels = count_labels),
-                           labels = relative_labels) +
-        labs(x = "Promise Action",
-             y = "Promise Count",
-             title =  "Promise action distribution by category") +
-        scale_fill_gdocs() +
-        theme(legend.position = "bottom")
-
-
-###promise_action_distribution_by_category = promise_action_distribution_by_category
-
-    list(promise_use_distribution_by_category = promise_use_distribution_by_category,
-         promise_action_distribution_by_category = promise_action_distribution_by_category)
-}
-
-
 parameters <- function(analyses) {
     ## formal_parameter_count_by_usage_class = formal_parameter_count_by_usage_class,
     ## function_count_distribution_by_usage_class = function_count_distribution_by_usage_class
@@ -1086,6 +1036,46 @@ promises <- function(analyses) {
                                "Promise Count",
                                "Promise count by indirect non lexical scope observation")
 
+        total_promise_count <-
+        analyses$promise_use_distribution_by_category %>%
+        pull(promise_count) %>%
+        sum()
+
+    promise_use_distribution_by_category <-
+        analyses$promise_use_distribution_by_category %>%
+        ggplot(aes(x = use,
+                   y = relative_promise_count,
+                   fill = promise_category)) +
+        geom_col(position = "dodge") +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_promise_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Promise Use",
+             y = "Promise Count",
+             title =  "Promise use distribution by category") +
+        scale_fill_gdocs() +
+        theme(legend.position = "bottom")
+
+    total_promise_count <-
+        analyses$promise_action_distribution_by_category %>%
+        pull(promise_count) %>%
+        sum()
+
+    promise_action_distribution_by_category <-
+        analyses$promise_action_distribution_by_category %>%
+        ggplot(aes(x = action,
+                   y = relative_promise_count,
+                   fill = promise_category)) +
+        geom_col(position = "dodge") +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_promise_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Promise Action",
+             y = "Promise Count",
+             title =  "Promise action distribution by category") +
+        scale_fill_gdocs() +
+        theme(legend.position = "bottom")
+
     list(promise_count_by_category = promise_count_by_category,
          argument_promise_count_by_expression_type = argument_promise_count_by_expression_type,
          non_argument_promise_count_by_expression_type = non_argument_promise_count_by_expression_type,
@@ -1115,7 +1105,9 @@ promises <- function(analyses) {
          promise_count_by_direct_lexical_scope_observation = promise_count_by_direct_lexical_scope_observation,
          promise_count_by_indirect_lexical_scope_observation = promise_count_by_indirect_lexical_scope_observation,
          promise_count_by_direct_non_lexical_scope_observation = promise_count_by_direct_non_lexical_scope_observation,
-         promise_count_by_indirect_non_lexical_scope_observation = promise_count_by_indirect_non_lexical_scope_observation)
+         promise_count_by_indirect_non_lexical_scope_observation = promise_count_by_indirect_non_lexical_scope_observation,
+         promise_use_distribution_by_category = promise_use_distribution_by_category,
+         promise_action_distribution_by_category = promise_action_distribution_by_category)
 
 }
 

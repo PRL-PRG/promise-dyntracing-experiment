@@ -228,22 +228,6 @@ show_table("argument_promise_distribution_by_sharing")
 ```
 
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("promise_use_distribution_by_category")
-```
-
-```{r echo = FALSE}
-show_table("promise_use_distribution_by_category")
-```
-
-```{r echo = FALSE, out.width="1000px"}
-show_graph("promise_action_distribution_by_category")
-```
-
-```{r echo = FALSE}
-show_table("promise_action_distribution_by_category")
-```
-
-```{r echo = FALSE, out.width="1000px"}
 show_graph("argument_count_by_usage")
 ```
 
@@ -690,4 +674,20 @@ show_graph("promise_count_by_indirect_non_lexical_scope_observation")
 
 ```{r echo = FALSE}
 show_table("promise_count_by_indirect_non_lexical_scope_observation")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_use_distribution_by_category")
+```
+
+```{r echo = FALSE}
+show_table("promise_use_distribution_by_category")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_action_distribution_by_category")
+```
+
+```{r echo = FALSE}
+show_table("promise_action_distribution_by_category")
 ```
