@@ -68,19 +68,11 @@ functions <- function(analyses) {
 }
 
 
-argument_promise_relation <- function(analyses) {
+arguments <- function(analyses) {
 
     argument_promises <-
         analyses$arguments %>%
         filter(argument_type == "Promise")
-
-    promise_distribution_by_category <-
-        analyses$promises %>%
-        group_by(argument) %>%
-        summarize(promise_count = n()) %>%
-        ungroup() %>%
-        mutate(promise_category = c("Non Argument", "Argument")[argument + 1]) %>%
-        select(promise_category, promise_count)
 
     argument_distribution_by_type <-
         analyses$arguments %>%
@@ -113,40 +105,11 @@ argument_promise_relation <- function(analyses) {
         summarize(promise_count = n()) %>%
         ungroup()
 
-    list(promise_distribution_by_category = promise_distribution_by_category,
-         argument_distribution_by_type = argument_distribution_by_type,
+    list(argument_distribution_by_type = argument_distribution_by_type,
          argument_distribution_by_dot_dot_dot = argument_distribution_by_dot_dot_dot,
          argument_promise_distribution_by_nature = argument_promise_distribution_by_nature,
          argument_promise_distribution_by_sharing = argument_promise_distribution_by_sharing)
 }
-
-## TODO - makefile should output logs in different files.
-promise_forcing <- function(analyses) {
-    argument_promises <-
-        analyses$promises %>%
-        filter(argument)
-
-    argument_promise_count <-
-        argument_promises %>%
-        pull(value_id) %>%
-        unique() %>%
-        length()
-
-    non_local_return_argument_promises <-
-        argument_promises %>%
-        filter(non_local_return)
-
-    non_local_return_argument_promise_count <-
-        non_local_return_argument_promises %>%
-        pull(value_id) %>%
-        unique() %>%
-        length()
-
-    ## TODO - how many calls are jumped when non local return happens?
-
-    list()
-}
-
 
 promise_use_and_action <- function(analyses) {
 
@@ -405,20 +368,267 @@ parameters <- function(analyses) {
 escaped_arguments <- function(analyses) {
 
     list(escaped_arguments = analyses$escaped_arguments)
-    ## escaped_argument_functions <-
-    ##     analyses$escaped_arguments %>%
-    ##     group_by(call_id) %>%
-    ##     mutate(category = if_else(n() == formal_parameter_count, "All", "Some")) %>%
-    ##     ungroup() %>%
-    ##     select(-call_id)
+}
 
-    ## escaped_argument_call_return_value_type <-
-    ##     analyses$escaped_arguments %>%
-    ##     group_by(return_value_type) %>%
-    ##     summarize(count = length(unique(call_id)))
 
-    ## list(escaped_argument_functions = escaped_argument_functions,
-    ##      escaped_argument_call_return_value_type = escaped_argument_call_return_value_type)
+promises <- function(analyses) {
+    ## TODO
+    ## "call_depth",
+    ## "promise_depth",
+    ## "nested_promise_depth",
+
+    ## TODO - makefile should output logs in different files.
+    ## promise_forcing <- function(analyses) {
+    ##     argument_promises <-
+    ##         analyses$promises %>%
+    ##         filter(argument)
+
+    ##     argument_promise_count <-
+    ##         argument_promises %>%
+    ##         pull(value_id) %>%
+    ##         unique() %>%
+    ##         length()
+
+    ##     non_local_return_argument_promises <-
+    ##         argument_promises %>%
+    ##         filter(non_local_return)
+
+    ##     non_local_return_argument_promise_count <-
+    ##         non_local_return_argument_promises %>%
+    ##         pull(value_id) %>%
+    ##         unique() %>%
+    ##         length()
+
+    ##     ## TODO - how many calls are jumped when non local return happens?
+
+    ##     list()
+    ## }
+
+    argument_promises <-
+        analyses$promises %>%
+        filter(argument)
+
+    non_argument_promises <-
+        analyses$promises %>%
+        filter(!argument)
+
+    promise_count_by_category <-
+        tibble(
+            promise_category = c("Non Argument", "Argument"),
+            promise_count = c(nrow(non_argument_promises), nrow(argument_promises))
+        )
+
+    argument_promise_count_by_expression_type <-
+        argument_promises %>%
+        group_by(expression_type) %>%
+        summarize(promise_count = n()) %>%
+        ungroup()
+
+    non_argument_promise_count_by_expression_type <-
+        non_argument_promises %>%
+        group_by(expression_type) %>%
+        summarize(promise_count = n()) %>%
+        ungroup()
+
+    argument_promise_count_by_value_type <-
+        argument_promises %>%
+        group_by(value_type) %>%
+        summarize(promise_count = n()) %>%
+        ungroup()
+
+    non_argument_promise_count_by_value_type <-
+        non_argument_promises %>%
+        group_by(value_type) %>%
+        summarize(promise_count = n()) %>%
+        ungroup()
+
+    argument_promise_count_by_creation_scope <-
+        argument_promises %>%
+        group_by(creation_scope) %>%
+        summarize(promise_count = n()) %>%
+        ungroup()
+
+    non_argument_promise_count_by_creation_scope <-
+        non_argument_promises %>%
+        group_by(creation_scope) %>%
+        summarize(promise_count = n()) %>%
+        ungroup()
+
+    argument_promise_count_by_forcing_scope <-
+        argument_promises %>%
+        group_by(forcing_scope) %>%
+        summarize(promise_count = n()) %>%
+        ungroup()
+
+    non_argument_promise_count_by_forcing_scope <-
+        non_argument_promises %>%
+        group_by(forcing_scope) %>%
+        summarize(promise_count = n()) %>%
+        ungroup()
+
+    argument_promise_count_by_dispatch_type <-
+        argument_promises %>%
+        select(S3_dispatch, S4_dispatch) %>%
+        mutate(dispatch_type = if_else(!S3_dispatch & !S4_dispatch, "No Dispatch",
+                                       if_else(S3_dispatch & !S4_dispatch, "S3 Dispatch",
+                                               if_else(!S3_dispatch & S4_dispatch, "S4 Dispatch",
+                                                       "Both")))) %>%
+        group_by(dispatch_type) %>%
+        summarize(promise_count = n()) %>%
+        ungroup()
+
+    summarize_event_counts <- function(df, group_column) {
+        group_column <- enquo(group_column)
+
+        df %>%
+            group_by(!!group_column) %>%
+            summarize(promise_count = n()) %>%
+            ungroup()
+    }
+
+    promise_count_by_force_count <-
+        argument_promises %>%
+        summarize_event_counts(force_count)
+
+    promise_count_by_metaprogram_count <-
+        argument_promises %>%
+        summarize_event_counts(metaprogram_count)
+
+    promise_count_by_value_lookup_count <-
+        argument_promises %>%
+        summarize_event_counts(value_lookup_count)
+
+    promise_count_by_value_assign_count <-
+        argument_promises %>%
+        summarize_event_counts(value_assign_count)
+
+    promise_count_by_expression_lookup_count <-
+        argument_promises %>%
+        summarize_event_counts(expression_lookup_count)
+
+    promise_count_by_expression_assign_count <-
+        argument_promises %>%
+        summarize_event_counts(expression_assign_count)
+
+    promise_count_by_environment_lookup_count <-
+        argument_promises %>%
+        summarize_event_counts(environment_lookup_count)
+
+    promise_count_by_environment_assign_count <-
+        argument_promises %>%
+        summarize_event_counts(environment_assign_count)
+
+
+    summarize_side_effect <- function(df, side_effect_column, type_column) {
+        side_effect_column <- enquo(side_effect_column)
+
+        total_argument_promise_count <-
+            nrow(df)
+
+        side_effect_promise_count <-
+            df %>%
+            pull(!!side_effect_column) %>%
+            as.logical() %>%
+            sum()
+
+        no_side_effect_promise_count <-
+            total_argument_promise_count - side_effect_promise_count
+
+        tibble(c("Yes", "No"),
+               c(side_effect_promise_count, no_side_effect_promise_count)) %>%
+            `colnames<-`(c(type_column, "promise_count"))
+    }
+
+    promise_count_by_direct_self_scope_mutation <-
+        argument_promises %>%
+        summarize_side_effect(direct_self_scope_mutation_count,
+                              "direct_self_scope_mutation")
+
+    promise_count_by_indirect_self_scope_mutation <-
+        argument_promises %>%
+        summarize_side_effect(indirect_self_scope_mutation_count,
+                              "indirect_self_scope_mutation")
+
+    promise_count_by_direct_lexical_scope_mutation <-
+        argument_promises %>%
+        summarize_side_effect(direct_lexical_scope_mutation_count,
+                              "direct_lexical_scope_mutation")
+
+    promise_count_by_indirect_lexical_scope_mutation <-
+        argument_promises %>%
+        summarize_side_effect(indirect_lexical_scope_mutation_count,
+                              "indirect_lexical_scope_mutation")
+
+    promise_count_by_direct_non_lexical_scope_mutation <-
+        argument_promises %>%
+        summarize_side_effect(direct_non_lexical_scope_mutation_count,
+                              "direct_non_lexical_scope_mutation")
+
+    promise_count_by_indirect_non_lexical_scope_mutation <-
+        argument_promises %>%
+        summarize_side_effect(indirect_non_lexical_scope_mutation_count,
+                              "indirect_non_lexical_scope_mutation")
+
+    promise_count_by_direct_self_scope_observation <-
+        argument_promises %>%
+        summarize_side_effect(direct_self_scope_observation_count,
+                              "direct_self_scope_observation")
+
+    promise_count_by_indirect_self_scope_observation <-
+        argument_promises %>%
+        summarize_side_effect(indirect_self_scope_observation_count,
+                              "indirect_self_scope_observation")
+
+    promise_count_by_direct_lexical_scope_observation <-
+        argument_promises %>%
+        summarize_side_effect(direct_lexical_scope_observation_count,
+                              "direct_lexical_scope_observation")
+
+    promise_count_by_indirect_lexical_scope_observation <-
+        argument_promises %>%
+        summarize_side_effect(indirect_lexical_scope_observation_count,
+                              "indirect_lexical_scope_observation")
+
+    promise_count_by_direct_non_lexical_scope_observation <-
+        argument_promises %>%
+        summarize_side_effect(direct_non_lexical_scope_observation_count,
+                              "direct_non_lexical_scope_observation")
+
+    promise_count_by_indirect_non_lexical_scope_observation <-
+        argument_promises %>%
+        summarize_side_effect(indirect_non_lexical_scope_observation_count,
+                              "indirect_non_lexical_scope_observation")
+
+    list(promise_count_by_category = promise_count_by_category,
+         argument_promise_count_by_expression_type = argument_promise_count_by_expression_type,
+         non_argument_promise_count_by_expression_type = non_argument_promise_count_by_expression_type,
+         argument_promise_count_by_value_type = argument_promise_count_by_value_type,
+         non_argument_promise_count_by_value_type = non_argument_promise_count_by_value_type,
+         argument_promise_count_by_creation_scope = argument_promise_count_by_creation_scope,
+         non_argument_promise_count_by_creation_scope = non_argument_promise_count_by_creation_scope,
+         argument_promise_count_by_forcing_scope = argument_promise_count_by_forcing_scope,
+         non_argument_promise_count_by_forcing_scope = non_argument_promise_count_by_forcing_scope,
+         argument_promise_count_by_dispatch_type = argument_promise_count_by_dispatch_type,
+         promise_count_by_force_count = promise_count_by_force_count,
+         promise_count_by_metaprogram_count = promise_count_by_metaprogram_count,
+         promise_count_by_value_lookup_count = promise_count_by_value_lookup_count,
+         promise_count_by_value_assign_count = promise_count_by_value_assign_count,
+         promise_count_by_expression_lookup_count = promise_count_by_expression_lookup_count,
+         promise_count_by_expression_assign_count = promise_count_by_expression_assign_count,
+         promise_count_by_environment_lookup_count = promise_count_by_environment_lookup_count,
+         promise_count_by_environment_assign_count = promise_count_by_environment_assign_count,
+         promise_count_by_direct_self_scope_mutation = promise_count_by_direct_self_scope_mutation,
+         promise_count_by_indirect_self_scope_mutation = promise_count_by_indirect_self_scope_mutation,
+         promise_count_by_direct_lexical_scope_mutation = promise_count_by_direct_lexical_scope_mutation,
+         promise_count_by_indirect_lexical_scope_mutation = promise_count_by_indirect_lexical_scope_mutation,
+         promise_count_by_direct_non_lexical_scope_mutation = promise_count_by_direct_non_lexical_scope_mutation,
+         promise_count_by_indirect_non_lexical_scope_mutation = promise_count_by_indirect_non_lexical_scope_mutation,
+         promise_count_by_direct_self_scope_observation = promise_count_by_direct_self_scope_observation,
+         promise_count_by_indirect_self_scope_observation = promise_count_by_indirect_self_scope_observation,
+         promise_count_by_direct_lexical_scope_observation = promise_count_by_direct_lexical_scope_observation,
+         promise_count_by_indirect_lexical_scope_observation = promise_count_by_indirect_lexical_scope_observation,
+         promise_count_by_direct_non_lexical_scope_observation = promise_count_by_direct_non_lexical_scope_observation,
+         promise_count_by_indirect_non_lexical_scope_observation = promise_count_by_indirect_non_lexical_scope_observation)
 }
 
 
@@ -670,9 +880,10 @@ parse_program_arguments <- function() {
     analysis_map <- list(
         object_type = list("object_counts"),
         functions = list("call_summaries"),
-        argument_promise_relation = list("arguments", "promises"),
+        arguments = list("arguments"),
         promise_use_and_action = list("promises", "escaped_arguments"),
         parameters = list("arguments"),
+        promises = list("promises"),
         functions = list("call_summary"),
         escaped_arguments = list("escaped_arguments"),
         function_definition = list("function_definition")

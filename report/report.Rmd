@@ -196,14 +196,6 @@ show_table("function_call_count_by_type_and_jump")
 ```
 
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("promise_distribution_by_category")
-```
-
-```{r echo = FALSE}
-show_table("promise_distribution_by_category")
-```
-
-```{r echo = FALSE, out.width="1000px"}
 show_graph("argument_distribution_by_type")
 ```
 
@@ -459,3 +451,243 @@ show_graph("escaped_argument_count_by_indirect_non_lexical_scope_observation_typ
 show_table("escaped_argument_count_by_indirect_non_lexical_scope_observation_type")
 ```
 
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_category")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_category")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_promise_count_by_expression_type")
+```
+
+```{r echo = FALSE}
+show_table("argument_promise_count_by_expression_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("non_argument_promise_count_by_expression_type")
+```
+
+```{r echo = FALSE}
+show_table("non_argument_promise_count_by_expression_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_promise_count_by_value_type")
+```
+
+```{r echo = FALSE}
+show_table("argument_promise_count_by_value_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("non_argument_promise_count_by_value_type")
+```
+
+```{r echo = FALSE}
+show_table("non_argument_promise_count_by_value_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_promise_count_by_creation_scope")
+```
+
+```{r echo = FALSE}
+show_table("argument_promise_count_by_creation_scope")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("non_argument_promise_count_by_creation_scope")
+```
+
+```{r echo = FALSE}
+show_table("non_argument_promise_count_by_creation_scope")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_promise_count_by_forcing_scope")
+```
+
+```{r echo = FALSE}
+show_table("argument_promise_count_by_forcing_scope")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("non_argument_promise_count_by_forcing_scope")
+```
+
+```{r echo = FALSE}
+show_table("non_argument_promise_count_by_forcing_scope")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_promise_count_by_dispatch_type")
+```
+
+```{r echo = FALSE}
+show_table("argument_promise_count_by_dispatch_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_force_count")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_force_count")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_metaprogram_count")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_metaprogram_count")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_value_lookup_count")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_value_lookup_count")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_value_assign_count")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_value_assign_count")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_expression_lookup_count")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_expression_lookup_count")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_expression_assign_count")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_expression_assign_count")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_environment_lookup_count")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_environment_lookup_count")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_environment_assign_count")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_environment_assign_count")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_direct_self_scope_mutation")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_direct_self_scope_mutation")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_indirect_self_scope_mutation")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_indirect_self_scope_mutation")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_direct_lexical_scope_mutation")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_direct_lexical_scope_mutation")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_indirect_lexical_scope_mutation")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_indirect_lexical_scope_mutation")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_direct_non_lexical_scope_mutation")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_direct_non_lexical_scope_mutation")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_indirect_non_lexical_scope_mutation")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_indirect_non_lexical_scope_mutation")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_direct_self_scope_observation")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_direct_self_scope_observation")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_indirect_self_scope_observation")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_indirect_self_scope_observation")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_direct_lexical_scope_observation")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_direct_lexical_scope_observation")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_indirect_lexical_scope_observation")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_indirect_lexical_scope_observation")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_direct_non_lexical_scope_observation")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_direct_non_lexical_scope_observation")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_indirect_non_lexical_scope_observation")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_indirect_non_lexical_scope_observation")
+```
