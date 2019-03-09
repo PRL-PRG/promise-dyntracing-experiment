@@ -27,6 +27,60 @@ suppressPackageStartupMessages(library(scales))
 
 source("analysis/utils.R")
 
+visualize_event_counts <- function(df,
+                                   group_column,
+                                   count_column,
+                                   relative_count_column,
+                                   x_label, y_label, title,
+                                   x_limits = NULL,
+                                   flip = FALSE) {
+
+    group_column <- enquo(group_column)
+    count_column <- enquo(count_column)
+    relative_count_column <- enquo(relative_count_column)
+
+    if (!is.null(x_limits)) {
+        df <-
+            df %>%
+            filter(!!group_column %in% x_limits)
+    }
+
+    total_count <-
+        df %>%
+        pull(!!count_column) %>%
+        sum()
+
+    graph <-
+        df %>%
+        ggplot(aes(!!group_column,
+                   !!relative_count_column)) +
+        geom_col()
+
+    if (flip) {
+        graph <-
+            graph +
+            coord_flip()
+    }
+
+    if (!is.null(x_limits)) {
+        graph <-
+            graph +
+            scale_x_discrete(limits = x_limits)
+    }
+
+    graph <-
+        graph +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = x_label, y = y_label, title = title) +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+    graph
+}
+
 info <- function(...) cat((paste0(...)))
 
 
@@ -684,139 +738,142 @@ escaped_arguments <- function(analyses) {
 
 arguments <- function(analyses) {
 
-    total_argument_count <-
-        analyses$argument_distribution_by_type %>%
-        pull(argument_count) %>%
-        sum()
+    argument_count_by_type <-
+        analyses$argument_count_by_type %>%
+        visualize_event_counts(argument_type,
+                               argument_count,
+                               relative_argument_count,
+                               "Argument Type",
+                               "Argument Count",
+                               "Argument count by type")
 
-    argument_distribution_by_type <-
-        analyses$argument_distribution_by_type %>%
-        ggplot(aes(x = reorder(argument_type, -relative_argument_count, identity),
-                   y = argument_count)) +
-        geom_col() +
-        scale_y_log10(sec.axis = sec_axis(~ . / total_argument_count,
-                                          labels = relative_labels),
-                      labels = count_labels) +
-        labs(x = "Argument Type",
-             y = "Argument Count",
-             title =  "Argument distribution by type") +
-        scale_fill_gdocs()
+    non_missing_argument_count_by_dot_dot_dot <-
+        analyses$non_missing_argument_count_by_dot_dot_dot %>%
+        visualize_event_counts(argument_category,
+                               argument_count,
+                               relative_argument_count,
+                               "Argument Category",
+                               "Argument Count",
+                               "Non missing argument count by ...")
 
+    promise_argument_count_by_nature <-
+        analyses$promise_argument_count_by_nature %>%
+        visualize_event_counts(argument_nature,
+                               argument_count,
+                               relative_argument_count,
+                               "Argument Nature",
+                               "Argument Count",
+                               "Promise argument count by nature")
 
-    total_argument_count <-
-        analyses$argument_distribution_by_dot_dot_dot %>%
-        pull(argument_count) %>%
-        sum()
+    promise_argument_count_by_sharing <-
+        analyses$promise_argument_count_by_sharing %>%
+        visualize_event_counts(sharing_count,
+                               promise_count,
+                               relative_promise_count,
+                               "Sharing count",
+                               "Promise count",
+                               "Promise argument count by sharing count",
+                               x_limits = c(1:3, "> 3"))
 
-    argument_distribution_by_dot_dot_dot <-
-        analyses$argument_distribution_by_dot_dot_dot %>%
-        ggplot(aes(x = reorder(argument_category, -relative_argument_count, identity),
-                   y = relative_argument_count)) +
-        geom_col() +
-        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
-                                               labels = count_labels),
-                           labels = relative_labels) +
-        labs(x = "Argument Category",
-             y = "Argument Count",
-             title =  "Argument distribution by type") +
-        scale_fill_gdocs()
+    promise_argument_count_by_expression_type <-
+        analyses$promise_argument_count_by_expression_type %>%
+        visualize_event_counts(expression_type,
+                               argument_count,
+                               relative_argument_count,
+                               "Expression Type",
+                               "Argument count",
+                               "Promise argument count by expression type")
 
+    promise_argument_count_by_value_type <-
+        analyses$promise_argument_count_by_value_type %>%
+        visualize_event_counts(value_type,
+                               argument_count,
+                               relative_argument_count,
+                               "Expression Type",
+                               "Argument count",
+                               "Promise argument count by value type")
 
-    total_argument_promise_count <-
-        analyses$argument_promise_distribution_by_nature %>%
-        pull(argument_count) %>%
-        sum()
+    promise_argument_count_by_force_type <-
+        analyses$promise_argument_count_by_force_type %>%
+        visualize_event_counts(force_type,
+                               argument_count,
+                               relative_argument_count,
+                               "Force Type",
+                               "Argument count",
+                               "Promise argument count by force type")
 
-    argument_promise_distribution_by_nature <-
-        analyses$argument_promise_distribution_by_nature %>%
-        ggplot(aes(x = argument_nature,
-                   y = relative_argument_count)) +
-        geom_col() +
-        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_promise_count,
-                                               labels = count_labels),
-                           labels = relative_labels) +
-        labs(x = "Argument Nature",
-             y = "Argument Count",
-             title =  "Argument promise distribution by nature") +
-        scale_fill_gdocs()
+    promise_argument_count_by_direct_lookup_count <-
+        analyses$promise_argument_count_by_direct_lookup_count %>%
+        visualize_event_counts(direct_lookup_count,
+                               argument_count,
+                               relative_argument_count,
+                               "Direct lookup count",
+                               "Argument count",
+                               "Promise argument count by direct lookup count",
+                               x_limits = c(0:5, "> 5"))
 
-    argument_promise_distribution_by_sharing <-
-        analyses$argument_promise_distribution_by_sharing %>%
-        filter(sharing_count %in% c(1:3, "> 3")) %>%
-        ggplot(aes(x = sharing_count,
-                   y = relative_promise_count)) +
-        geom_col() +
-        scale_x_discrete(limits = c(1:3, "> 3")) +
-        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_promise_count,
-                                               labels = count_labels),
-                           labels = relative_labels) +
-        labs(x = "Sharing Count",
-             y = "Promise Count",
-             title =  "Promise distribution by argument category and sharing") +
-        scale_fill_gdocs() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1))
+    promise_argument_count_by_direct_and_indirect_lookup_count <-
+        analyses$promise_argument_count_by_direct_and_indirect_lookup_count %>%
+        visualize_event_counts(direct_and_indirect_lookup_count,
+                               argument_count,
+                               relative_argument_count,
+                               "Direct and indirect lookup count",
+                               "Argument count",
+                               "Promise argument count by direct and indirect lookup count",
+                               x_limits = c(0:5, "> 5"))
 
+    promise_argument_count_by_direct_metaprogram_count <-
+        analyses$promise_argument_count_by_direct_metaprogram_count %>%
+        visualize_event_counts(direct_metaprogram_count,
+                               argument_count,
+                               relative_argument_count,
+                               "Direct metaprogram count",
+                               "Argument count",
+                               "Promise argument count by direct metaprogram count",
+                               x_limits = c(0:5, "> 5"))
 
-    list(argument_distribution_by_type = argument_distribution_by_type,
-         argument_distribution_by_dot_dot_dot = argument_distribution_by_dot_dot_dot,
-         argument_promise_distribution_by_nature = argument_promise_distribution_by_nature,
-         argument_promise_distribution_by_sharing = argument_promise_distribution_by_sharing)
+    promise_argument_count_by_direct_and_indirect_metaprogram_count <-
+        analyses$promise_argument_count_by_direct_and_indirect_metaprogram_count %>%
+        visualize_event_counts(direct_and_indirect_metaprogram_count,
+                               argument_count,
+                               relative_argument_count,
+                               "Direct and indirect metaprogram count",
+                               "Argument count",
+                               "Promise argument count by direct and indirect metaprogram count",
+                               x_limits = c(0:5, "> 5"))
+
+    promise_argument_count_by_dispatch_type <-
+        analyses$promise_argument_count_by_dispatch_type %>%
+        visualize_event_counts(dispatch_type,
+                               argument_count,
+                               relative_argument_count,
+                               "Dispatch Type",
+                               "Argument count",
+                               "Promise argument count by dispatch type")
+
+    list(argument_count_by_type = argument_count_by_type,
+         non_missing_argument_count_by_dot_dot_dot = non_missing_argument_count_by_dot_dot_dot,
+         promise_argument_count_by_nature = promise_argument_count_by_nature,
+         promise_argument_count_by_sharing = promise_argument_count_by_sharing,
+         promise_argument_count_by_expression_type = promise_argument_count_by_expression_type,
+         promise_argument_count_by_value_type = promise_argument_count_by_value_type,
+         promise_argument_count_by_force_type = promise_argument_count_by_force_type,
+         promise_argument_count_by_direct_lookup_count = promise_argument_count_by_direct_lookup_count,
+         promise_argument_count_by_direct_and_indirect_lookup_count = promise_argument_count_by_direct_and_indirect_lookup_count,
+         promise_argument_count_by_direct_metaprogram_count = promise_argument_count_by_direct_metaprogram_count,
+         promise_argument_count_by_direct_and_indirect_metaprogram_count = promise_argument_count_by_direct_and_indirect_metaprogram_count,
+         promise_argument_count_by_dispatch_type = promise_argument_count_by_dispatch_type)
+
 }
 
 
 promises <- function(analyses) {
 
-    visualize_event_counts <- function(df, group_column,
-                                       x_label, y_label, title,
-                                       x_limits = NULL,
-                                       flip = FALSE) {
-        group_column <- enquo(group_column)
-
-        if (!is.null(x_limits)) {
-            df <-
-                df %>%
-                filter(!!group_column %in% x_limits)
-        }
-
-        total_promise_count <-
-            df %>%
-            pull(promise_count) %>%
-            sum()
-
-        graph <-
-            df %>%
-            ggplot(aes(!!group_column,
-                       relative_promise_count)) +
-            geom_col()
-
-        if (flip) {
-            graph <-
-                graph +
-                coord_flip()
-        }
-
-        if (!is.null(x_limits)) {
-            graph <-
-                graph +
-                scale_x_discrete(limits = x_limits)
-        }
-
-        graph <-
-            graph +
-            scale_y_continuous(sec.axis = sec_axis(~ . * total_promise_count,
-                                                   labels = count_labels),
-                               labels = relative_labels) +
-            labs(x = x_label, y = y_label, title = title) +
-            scale_fill_gdocs() +
-            theme(axis.text.x = element_text(angle = 60, hjust = 1),
-                  legend.position = "bottom")
-
-        graph
-    }
-
     promise_count_by_category <-
         analyses$promise_count_by_category %>%
         visualize_event_counts(promise_category,
+                               promise_count,
+                               relative_promise_count,
                                "Promise Category",
                                "Promise Count",
                                "Promise Count by Category")
@@ -824,6 +881,8 @@ promises <- function(analyses) {
     argument_promise_count_by_expression_type <-
         analyses$argument_promise_count_by_expression_type %>%
         visualize_event_counts(expression_type,
+                               promise_count,
+                               relative_promise_count,
                                "Expression Type",
                                "Promise Count",
                                "Argument Promise Count by Expression Type")
@@ -831,6 +890,8 @@ promises <- function(analyses) {
     non_argument_promise_count_by_expression_type <-
         analyses$non_argument_promise_count_by_expression_type %>%
         visualize_event_counts(expression_type,
+                               promise_count,
+                               relative_promise_count,
                                "Expression Type",
                                "Promise Count",
                                "Non Argument Promise Count by Expression Type")
@@ -838,6 +899,8 @@ promises <- function(analyses) {
     argument_promise_count_by_value_type <-
         analyses$argument_promise_count_by_value_type %>%
         visualize_event_counts(value_type,
+                               promise_count,
+                               relative_promise_count,
                                "Value Type",
                                "Promise Count",
                                "Argument Promise Count by Value Type")
@@ -845,6 +908,8 @@ promises <- function(analyses) {
     non_argument_promise_count_by_value_type <-
         analyses$non_argument_promise_count_by_value_type %>%
         visualize_event_counts(value_type,
+                               promise_count,
+                               relative_promise_count,
                                "Value Type",
                                "Promise Count",
                                "Non Argument Promise Count by Value Type")
@@ -852,6 +917,8 @@ promises <- function(analyses) {
     argument_promise_count_by_creation_scope <-
         analyses$argument_promise_count_by_creation_scope %>%
         visualize_event_counts(creation_scope,
+                               promise_count,
+                               relative_promise_count,
                                "Creation Scope",
                                "Promise Count",
                                "Argument Promise Count by Creation Scope",
@@ -860,6 +927,8 @@ promises <- function(analyses) {
     non_argument_promise_count_by_creation_scope <-
         analyses$non_argument_promise_count_by_creation_scope %>%
         visualize_event_counts(creation_scope,
+                               promise_count,
+                               relative_promise_count,
                                "Creation Scope",
                                "Promise Count",
                                "Non Argument Promise Count by Creation Scope",
@@ -868,6 +937,8 @@ promises <- function(analyses) {
     argument_promise_count_by_forcing_scope <-
         analyses$argument_promise_count_by_forcing_scope %>%
         visualize_event_counts(forcing_scope,
+                               promise_count,
+                               relative_promise_count,
                                "Forcing Scope",
                                "Promise Count",
                                "Argument Promise Count by Forcing Scope",
@@ -876,6 +947,8 @@ promises <- function(analyses) {
     non_argument_promise_count_by_forcing_scope <-
         analyses$non_argument_promise_count_by_forcing_scope %>%
         visualize_event_counts(forcing_scope,
+                               promise_count,
+                               relative_promise_count,
                                "Forcing Scope",
                                "Promise Count",
                                "Non Argument Promise Count by Forcing Scope",
@@ -884,13 +957,47 @@ promises <- function(analyses) {
     argument_promise_count_by_dispatch_type <-
         analyses$argument_promise_count_by_dispatch_type %>%
         visualize_event_counts(dispatch_type,
+                               promise_count,
+                               relative_promise_count,
                                "Dispatch Type",
                                "Promise Count",
                                "Argument Promise Count by dispatch type")
 
+    argument_promise_count_by_call_depth <-
+        analyses$argument_promise_count_by_call_depth %>%
+        visualize_event_counts(call_depth,
+                               promise_count,
+                               relative_promise_count,
+                               "Call depth",
+                               "Promise Count",
+                               "Argument promise count by call depth",
+                               x_limits = c(0:10, "> 10"))
+
+    argument_promise_count_by_promise_depth <-
+        analyses$argument_promise_count_by_promise_depth %>%
+        visualize_event_counts(promise_depth,
+                               promise_count,
+                               relative_promise_count,
+                               "Promise Depth",
+                               "Promise Count",
+                               "Argument promise count by promise depth",
+                               x_limits = c(0:10, "> 10"))
+
+    argument_promise_count_by_nested_promise_depth <-
+        analyses$argument_promise_count_by_nested_promise_depth %>%
+        visualize_event_counts(nested_promise_depth,
+                               promise_count,
+                               relative_promise_count,
+                               "Nested Promise Depth",
+                               "Promise Count",
+                               "Argument promise count by nested promise depth",
+                               x_limits = c(0:10, "> 10"))
+
     promise_count_by_force_count <-
         analyses$promise_count_by_force_count %>%
         visualize_event_counts(force_count,
+                               promise_count,
+                               relative_promise_count,
                                "Force Count",
                                "Promise Count",
                                "Promise count by force count",
@@ -899,6 +1006,8 @@ promises <- function(analyses) {
     promise_count_by_metaprogram_count <-
         analyses$promise_count_by_metaprogram_count %>%
         visualize_event_counts(metaprogram_count,
+                               promise_count,
+                               relative_promise_count,
                                "Metaprogram Count",
                                "Promise Count",
                                "Promise count by metaprogram count",
@@ -907,6 +1016,8 @@ promises <- function(analyses) {
     promise_count_by_value_lookup_count <-
         analyses$promise_count_by_value_lookup_count %>%
         visualize_event_counts(value_lookup_count,
+                               promise_count,
+                               relative_promise_count,
                                "Value Lookup Count",
                                "Promise Count",
                                "Promise count by value lookup count",
@@ -915,6 +1026,8 @@ promises <- function(analyses) {
     promise_count_by_value_assign_count <-
         analyses$promise_count_by_value_assign_count %>%
         visualize_event_counts(value_assign_count,
+                               promise_count,
+                               relative_promise_count,
                                "Value Assign Count",
                                "Promise Count",
                                "Promise count by value assign count",
@@ -923,6 +1036,8 @@ promises <- function(analyses) {
     promise_count_by_expression_lookup_count <-
         analyses$promise_count_by_expression_lookup_count %>%
         visualize_event_counts(expression_lookup_count,
+                               promise_count,
+                               relative_promise_count,
                                "Expression Lookup Count",
                                "Promise Count",
                                "Promise count by expression lookup count",
@@ -931,6 +1046,8 @@ promises <- function(analyses) {
     promise_count_by_expression_assign_count <-
         analyses$promise_count_by_expression_assign_count %>%
         visualize_event_counts(expression_assign_count,
+                               promise_count,
+                               relative_promise_count,
                                "Expression Assign Count",
                                "Promise Count",
                                "Promise count by expression assign count",
@@ -939,6 +1056,8 @@ promises <- function(analyses) {
     promise_count_by_environment_lookup_count <-
         analyses$promise_count_by_environment_lookup_count %>%
         visualize_event_counts(environment_lookup_count,
+                               promise_count,
+                               relative_promise_count,
                                "Environment Lookup Count",
                                "Promise Count",
                                "Promise count by environment lookup count",
@@ -947,6 +1066,8 @@ promises <- function(analyses) {
     promise_count_by_environment_assign_count <-
         analyses$promise_count_by_environment_assign_count %>%
         visualize_event_counts(environment_assign_count,
+                               promise_count,
+                               relative_promise_count,
                                "Environment Assign Count",
                                "Promise Count",
                                "Promise count by environment assign count",
@@ -955,6 +1076,8 @@ promises <- function(analyses) {
     promise_count_by_direct_self_scope_mutation <-
         analyses$promise_count_by_direct_self_scope_mutation %>%
         visualize_event_counts(direct_self_scope_mutation,
+                               promise_count,
+                               relative_promise_count,
                                "Direct self scope mutation",
                                "Promise Count",
                                "Promise count by direct self scope mutation")
@@ -962,6 +1085,8 @@ promises <- function(analyses) {
     promise_count_by_indirect_self_scope_mutation <-
         analyses$promise_count_by_indirect_self_scope_mutation %>%
         visualize_event_counts(indirect_self_scope_mutation,
+                               promise_count,
+                               relative_promise_count,
                                "Indirect self scope mutation",
                                "Promise Count",
                                "Promise count by indirect self scope mutation")
@@ -969,6 +1094,8 @@ promises <- function(analyses) {
     promise_count_by_direct_lexical_scope_mutation <-
         analyses$promise_count_by_direct_lexical_scope_mutation %>%
         visualize_event_counts(direct_lexical_scope_mutation,
+                               promise_count,
+                               relative_promise_count,
                                "Direct lexical scope mutation",
                                "Promise Count",
                                "Promise count by direct lexical scope mutation")
@@ -976,6 +1103,8 @@ promises <- function(analyses) {
     promise_count_by_indirect_lexical_scope_mutation <-
         analyses$promise_count_by_indirect_lexical_scope_mutation %>%
         visualize_event_counts(indirect_lexical_scope_mutation,
+                               promise_count,
+                               relative_promise_count,
                                "Indirect lexical scope mutation",
                                "Promise Count",
                                "Promise count by indirect lexical scope mutation")
@@ -983,6 +1112,8 @@ promises <- function(analyses) {
     promise_count_by_direct_non_lexical_scope_mutation <-
         analyses$promise_count_by_direct_non_lexical_scope_mutation %>%
         visualize_event_counts(direct_non_lexical_scope_mutation,
+                               promise_count,
+                               relative_promise_count,
                                "Direct non lexical scope mutation",
                                "Promise Count",
                                "Promise count by direct non lexical scope mutation")
@@ -990,6 +1121,8 @@ promises <- function(analyses) {
     promise_count_by_indirect_non_lexical_scope_mutation <-
         analyses$promise_count_by_indirect_non_lexical_scope_mutation %>%
         visualize_event_counts(indirect_non_lexical_scope_mutation,
+                               promise_count,
+                               relative_promise_count,
                                "Indirect non lexical scope mutation",
                                "Promise Count",
                                "Promise count by indirect non lexical scope mutation")
@@ -997,6 +1130,8 @@ promises <- function(analyses) {
     promise_count_by_direct_self_scope_observation <-
         analyses$promise_count_by_direct_self_scope_observation %>%
         visualize_event_counts(direct_self_scope_observation,
+                               promise_count,
+                               relative_promise_count,
                                "Direct self scope observation",
                                "Promise Count",
                                "Promise count by direct self scope observation")
@@ -1004,6 +1139,8 @@ promises <- function(analyses) {
     promise_count_by_indirect_self_scope_observation <-
         analyses$promise_count_by_indirect_self_scope_observation %>%
         visualize_event_counts(indirect_self_scope_observation,
+                               promise_count,
+                               relative_promise_count,
                                "Indirect self scope observation",
                                "Promise Count",
                                "Promise count by indirect self scope observation")
@@ -1011,6 +1148,8 @@ promises <- function(analyses) {
     promise_count_by_direct_lexical_scope_observation <-
         analyses$promise_count_by_direct_lexical_scope_observation %>%
         visualize_event_counts(direct_lexical_scope_observation,
+                               promise_count,
+                               relative_promise_count,
                                "Direct lexical scope observation",
                                "Promise Count",
                                "Promise count by direct lexical scope observation")
@@ -1018,6 +1157,8 @@ promises <- function(analyses) {
     promise_count_by_indirect_lexical_scope_observation <-
         analyses$promise_count_by_indirect_lexical_scope_observation %>%
         visualize_event_counts(indirect_lexical_scope_observation,
+                               promise_count,
+                               relative_promise_count,
                                "Indirect lexical scope observation",
                                "Promise Count",
                                "Promise count by indirect lexical scope observation")
@@ -1025,6 +1166,8 @@ promises <- function(analyses) {
     promise_count_by_direct_non_lexical_scope_observation <-
         analyses$promise_count_by_direct_non_lexical_scope_observation %>%
         visualize_event_counts(direct_non_lexical_scope_observation,
+                               promise_count,
+                               relative_promise_count,
                                "Direct non lexical scope observation",
                                "Promise Count",
                                "Promise count by direct non lexical scope observation")
@@ -1032,11 +1175,13 @@ promises <- function(analyses) {
     promise_count_by_indirect_non_lexical_scope_observation <-
         analyses$promise_count_by_indirect_non_lexical_scope_observation %>%
         visualize_event_counts(indirect_non_lexical_scope_observation,
+                               promise_count,
+                               relative_promise_count,
                                "Indirect non lexical scope observation",
                                "Promise Count",
                                "Promise count by indirect non lexical scope observation")
 
-        total_promise_count <-
+    total_promise_count <-
         analyses$promise_use_distribution_by_category %>%
         pull(promise_count) %>%
         sum()
@@ -1086,6 +1231,9 @@ promises <- function(analyses) {
          argument_promise_count_by_forcing_scope = argument_promise_count_by_forcing_scope,
          non_argument_promise_count_by_forcing_scope = non_argument_promise_count_by_forcing_scope,
          argument_promise_count_by_dispatch_type = argument_promise_count_by_dispatch_type,
+         argument_promise_count_by_call_depth = argument_promise_count_by_call_depth,
+         argument_promise_count_by_promise_depth = argument_promise_count_by_promise_depth,
+         argument_promise_count_by_nested_promise_depth = argument_promise_count_by_nested_promise_depth,
          promise_count_by_force_count = promise_count_by_force_count,
          promise_count_by_metaprogram_count = promise_count_by_metaprogram_count,
          promise_count_by_value_lookup_count = promise_count_by_value_lookup_count,

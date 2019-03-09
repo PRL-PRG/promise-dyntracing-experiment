@@ -346,44 +346,118 @@ functions <- function(analyses) {
 
 arguments <- function(analyses) {
 
-    argument_distribution_by_type <-
-        analyses$argument_distribution_by_type %>%
-        group_by(argument_type) %>%
-        summarize(argument_count = sum(argument_count)) %>%
-        ungroup() %>%
-        mutate(relative_argument_count = argument_count / sum(argument_count)) %>%
+    summarize_event_counts <- function(df, group_column) {
+        group_column <- enquo(group_column)
+
+        df %>%
+            group_by(!!group_column) %>%
+            summarize(argument_count = sum(argument_count)) %>%
+            ungroup() %>%
+            mutate(relative_argument_count = argument_count / sum(argument_count))
+    }
+
+    argument_count_by_type <-
+        analyses$argument_count_by_type %>%
+        summarize_event_counts(argument_type) %>%
         arrange(desc(relative_argument_count))
 
+    non_missing_argument_count_by_dot_dot_dot <-
+        analyses$non_missing_argument_count_by_dot_dot_dot %>%
+        summarize_event_counts(argument_category)
 
-    argument_distribution_by_dot_dot_dot <-
-        analyses$argument_distribution_by_dot_dot_dot %>%
-        group_by(argument_category) %>%
-        summarize(argument_count = sum(argument_count)) %>%
-        ungroup() %>%
-        mutate(relative_argument_count = argument_count / sum(argument_count))
+    promise_argument_count_by_nature <-
+        analyses$promise_argument_count_by_nature %>%
+        summarize_event_counts(argument_nature)
 
-
-    argument_promise_distribution_by_nature <-
-        analyses$argument_promise_distribution_by_nature %>%
-        group_by(argument_nature) %>%
-        summarize(argument_count = sum(argument_count)) %>%
-        ungroup() %>%
-        mutate(relative_argument_count = argument_count / sum(argument_count))
-
-    argument_promise_distribution_by_sharing <-
-        analyses$argument_promise_distribution_by_sharing %>%
+    promise_argument_count_by_sharing <-
+        analyses$promise_argument_count_by_sharing %>%
         group_by(sharing_count) %>%
         summarize(promise_count = sum(promise_count)) %>%
         ungroup() %>%
         mutate(relative_promise_count = promise_count / sum(promise_count)) %>%
         summarize_outliers(sharing_count, promise_count, relative_promise_count, 3)
 
+    promise_argument_count_by_expression_type <-
+        analyses$promise_argument_count_by_expression_type %>%
+        summarize_event_counts(expression_type)
 
-    list(argument_distribution_by_type = argument_distribution_by_type,
-         argument_distribution_by_dot_dot_dot = argument_distribution_by_dot_dot_dot,
-         argument_promise_distribution_by_nature = argument_promise_distribution_by_nature,
-         argument_promise_distribution_by_sharing = argument_promise_distribution_by_sharing)
+    promise_argument_count_by_value_type <-
+        analyses$promise_argument_count_by_value_type %>%
+        summarize_event_counts(value_type)
 
+    promise_argument_count_by_force_type <-
+        analyses$promise_argument_count_by_force_type %>%
+        summarize_event_counts(force_type)
+
+    promise_argument_count_by_direct_lookup_count <-
+        analyses$promise_argument_count_by_direct_lookup_count %>%
+        summarize_event_counts(direct_lookup_count) %>%
+        summarize_outliers(direct_lookup_count,
+                           argument_count,
+                           relative_argument_count,
+                           5)
+
+    promise_argument_count_by_direct_and_indirect_lookup_count <-
+        analyses$promise_argument_count_by_direct_and_indirect_lookup_count %>%
+        summarize_event_counts(direct_and_indirect_lookup_count) %>%
+        summarize_outliers(direct_and_indirect_lookup_count,
+                           argument_count,
+                           relative_argument_count,
+                           5)
+
+    promise_argument_count_by_direct_metaprogram_count <-
+        analyses$promise_argument_count_by_direct_metaprogram_count %>%
+        summarize_event_counts(direct_metaprogram_count) %>%
+        summarize_outliers(direct_metaprogram_count,
+                           argument_count,
+                           relative_argument_count,
+                           5)
+
+    promise_argument_count_by_direct_and_indirect_metaprogram_count <-
+        analyses$promise_argument_count_by_direct_and_indirect_metaprogram_count %>%
+        summarize_event_counts(direct_and_indirect_metaprogram_count) %>%
+        summarize_outliers(direct_and_indirect_metaprogram_count,
+                           argument_count,
+                           relative_argument_count,
+                           5)
+
+    promise_argument_count_by_dispatch_type <-
+        analyses$promise_argument_count_by_dispatch_type %>%
+        summarize_event_counts(dispatch_type)
+
+    promise_argument_forced_by_promise_argument <-
+        analyses$promise_argument_forced_by_promise_argument %>%
+        group_by(function_id,
+                 formal_parameter_position,
+                 actual_argument_position,
+                 default,
+                 forcing_actual_argument_position) %>%
+        summarize(count = n())
+
+    promise_argument_returning_non_locally <-
+        analyses$promise_argument_returning_non_locally %>%
+        group_by(function_id,
+                 formal_parameter_position,
+                 actual_argument_position,
+                 default,
+                 expression_type,
+                 value_type) %>%
+        summarize(count = n())
+
+    list(argument_count_by_type = argument_count_by_type,
+         non_missing_argument_count_by_dot_dot_dot = non_missing_argument_count_by_dot_dot_dot,
+         promise_argument_count_by_nature = promise_argument_count_by_nature,
+         promise_argument_count_by_sharing = promise_argument_count_by_sharing,
+         promise_argument_count_by_expression_type = promise_argument_count_by_expression_type,
+         promise_argument_count_by_value_type = promise_argument_count_by_value_type,
+         promise_argument_count_by_force_type = promise_argument_count_by_force_type,
+         promise_argument_count_by_direct_lookup_count = promise_argument_count_by_direct_lookup_count,
+         promise_argument_count_by_direct_and_indirect_lookup_count = promise_argument_count_by_direct_and_indirect_lookup_count,
+         promise_argument_count_by_direct_metaprogram_count = promise_argument_count_by_direct_metaprogram_count,
+         promise_argument_count_by_direct_and_indirect_metaprogram_count = promise_argument_count_by_direct_and_indirect_metaprogram_count,
+         promise_argument_count_by_dispatch_type = promise_argument_count_by_dispatch_type,
+         promise_argument_forced_by_promise_argument = promise_argument_forced_by_promise_argument,
+         promise_argument_returning_non_locally = promise_argument_returning_non_locally)
 }
 
 
@@ -567,6 +641,30 @@ promises <- function(analyses) {
         analyses$argument_promise_count_by_dispatch_type %>%
         summarize_event_counts(dispatch_type)
 
+    argument_promise_count_by_call_depth <-
+        analyses$argument_promise_count_by_call_depth %>%
+        summarize_event_counts(call_depth) %>%
+        summarize_outliers(call_depth,
+                           promise_count,
+                           relative_promise_count,
+                           10)
+
+    argument_promise_count_by_promise_depth <-
+        analyses$argument_promise_count_by_promise_depth %>%
+        summarize_event_counts(promise_depth) %>%
+        summarize_outliers(promise_depth,
+                           promise_count,
+                           relative_promise_count,
+                           10)
+
+    argument_promise_count_by_nested_promise_depth <-
+        analyses$argument_promise_count_by_nested_promise_depth %>%
+        summarize_event_counts(nested_promise_depth) %>%
+        summarize_outliers(nested_promise_depth,
+                           promise_count,
+                           relative_promise_count,
+                           10)
+
     promise_count_by_force_count <-
         analyses$promise_count_by_force_count %>%
         summarize_event_counts(force_count) %>%
@@ -703,6 +801,9 @@ promises <- function(analyses) {
          argument_promise_count_by_forcing_scope = argument_promise_count_by_forcing_scope,
          non_argument_promise_count_by_forcing_scope = non_argument_promise_count_by_forcing_scope,
          argument_promise_count_by_dispatch_type = argument_promise_count_by_dispatch_type,
+         argument_promise_count_by_call_depth = argument_promise_count_by_call_depth,
+         argument_promise_count_by_promise_depth = argument_promise_count_by_promise_depth,
+         argument_promise_count_by_nested_promise_depth = argument_promise_count_by_nested_promise_depth,
          promise_count_by_force_count = promise_count_by_force_count,
          promise_count_by_metaprogram_count = promise_count_by_metaprogram_count,
          promise_count_by_value_lookup_count = promise_count_by_value_lookup_count,
