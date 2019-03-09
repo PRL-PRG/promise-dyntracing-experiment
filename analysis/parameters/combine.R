@@ -71,6 +71,7 @@ combine_reduced_data <- function(settings, reduced_data_table) {
                 discard(function(df) nrow(df) == 0) %>%
                 bind_rows() %>%
                 promisedyntracer::write_data_table(output_filepath,
+                                                   truncate = TRUE,
                                                    binary = settings$binary,
                                                    compression_level = settings$compression_level)
 

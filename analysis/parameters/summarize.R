@@ -1606,6 +1606,7 @@ summarize_combined_data <- function(settings, combined_data_table) {
                 output_filepath <- path(settings$output_dirpath, name)
 
                 promisedyntracer::write_data_table(df, output_filepath,
+                                                   truncate = TRUE,
                                                    binary = settings$binary,
                                                    compression_level = settings$compression_level)
                 path(output_filepath,
