@@ -277,46 +277,46 @@ combine-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_COMBINED_DIRPATH)
 
-	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                              \
-	                       --file=analysis/parameters/combine.R             \
-	                       --args $(TRACE_ANALYSIS_REDUCED_DIRPATH)         \
-	                              $(TRACE_ANALYSIS_COMBINED_DIRPATH)        \
-	                              $(ANALYSIS)                               \
-	                              $(TRACE_ANALYSIS_SCRIPT_TYPE)             \
-	                              $(BINARY)                                 \
-	                              --compression-level=$(COMPRESSION_LEVEL)  \
-	                              2>&1 | $(TEE) $(TEE_FLAGS)                \
-	                                     $(TRACE_LOGS_COMBINED_DIRPATH)/log
+	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                      \
+	                       --file=analysis/parameters/combine.R                     \
+	                       --args $(TRACE_ANALYSIS_REDUCED_DIRPATH)                 \
+	                              $(TRACE_ANALYSIS_COMBINED_DIRPATH)                \
+	                              $(ANALYSIS)                                       \
+	                              $(TRACE_ANALYSIS_SCRIPT_TYPE)                     \
+	                              $(BINARY)                                         \
+	                              --compression-level=$(COMPRESSION_LEVEL)          \
+	                              2>&1 | $(TEE) $(TEE_FLAGS)                        \
+	                                     $(TRACE_LOGS_COMBINED_DIRPATH)/$(ANALYSIS)
 
 
 summarize-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_SUMMARIZED_DIRPATH)
 
-	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                \
-	                       --file=analysis/parameters/summarize.R             \
-	                       --args $(TRACE_ANALYSIS_COMBINED_DIRPATH)          \
-	                              $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)        \
-	                              $(ANALYSIS)                                 \
-	                              $(BINARY)                                   \
-	                              --compression-level=$(COMPRESSION_LEVEL)    \
-	                       2>&1 | $(TEE) $(TEE_FLAGS)                         \
-	                                     $(TRACE_LOGS_SUMMARIZED_DIRPATH)/log
+	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                        \
+	                       --file=analysis/parameters/summarize.R                     \
+	                       --args $(TRACE_ANALYSIS_COMBINED_DIRPATH)                  \
+	                              $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)                \
+	                              $(ANALYSIS)                                         \
+	                              $(BINARY)                                           \
+	                              --compression-level=$(COMPRESSION_LEVEL)            \
+	                       2>&1 | $(TEE) $(TEE_FLAGS)                                 \
+	                                     $(TRACE_LOGS_SUMMARIZED_DIRPATH)/$(ANALYSIS)
 
 
 visualize-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_VISUALIZED_DIRPATH)
 
-	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                \
-	                       --file=analysis/parameters/visualize.R             \
-	                       --args $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)        \
-	                              $(TRACE_ANALYSIS_VISUALIZED_DIRPATH)        \
-	                              $(ANALYSIS)                                 \
-	                              $(BINARY)                                   \
-	                              --compression-level=$(COMPRESSION_LEVEL)    \
-	                       2>&1 | $(TEE) $(TEE_FLAGS)                         \
-	                                     $(TRACE_LOGS_VISUALIZED_DIRPATH)/log
+	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                        \
+	                       --file=analysis/parameters/visualize.R                     \
+	                       --args $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)                \
+	                              $(TRACE_ANALYSIS_VISUALIZED_DIRPATH)                \
+	                              $(ANALYSIS)                                         \
+	                              $(BINARY)                                           \
+	                              --compression-level=$(COMPRESSION_LEVEL)            \
+	                       2>&1 | $(TEE) $(TEE_FLAGS)                                 \
+	                                     $(TRACE_LOGS_VISUALIZED_DIRPATH)/$(ANALYSIS)
 
 
 report-analysis:
