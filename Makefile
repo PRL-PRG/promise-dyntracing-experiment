@@ -135,7 +135,6 @@ define parallel =
 parallel --jobs $(PARALLEL_JOB_COUNT_FILEPATH)      \
          --files                                    \
          --bar                                      \
-         --load 80%                                 \
          --results $(TRACE_LOGS_RAW_DIRPATH)/{1}/   \
          --joblog $(TRACE_LOGS_SUMMARY_RAW_DIRPATH) \
            $(tracer)                                \
@@ -195,8 +194,8 @@ install-corpus:
 
 
 corpus:
-	@$(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                \
-	               --file=scripts/create-corpus.R     \
+	@$(R_DYNTRACE) $(R_DYNTRACE_FLAGS)             \
+	               --file=scripts/create-corpus.R  \
 	               --args $(CORPUS_FILEPATH)
 
 
