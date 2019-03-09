@@ -30,7 +30,7 @@ source("analysis/utils.R")
 info <- function(...) cat((paste0(...)))
 
 
-object_type <- function(analyses) {
+objects <- function(analyses) {
 
     total_object_count <-
         analyses$object_count_by_type %>%

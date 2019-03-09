@@ -26,7 +26,7 @@ source("analysis/analysis.R")
 info <- function(...) cat((paste0(...)))
 
 
-object_type <- function(analyses) {
+objects <- function(analyses) {
     ## object type count is already summarized by the tracer.
     ## we only have to emit the same file again for summarization.
     list(object_counts = analyses$object_counts)
@@ -659,7 +659,11 @@ reduce_raw_analysis_data <- function(settings, script_table) {
                     filepath
                 })
 
+            write_file("", path(reduced_analysis_dirpath, "FINISH"))
+
             info("=> Reduced ", scriptname, " from ", package, "\n")
+
+            gc()
 
             output_filepaths
         }
@@ -771,8 +775,11 @@ parse_program_arguments <- function() {
 
 main <- function() {
     settings <- parse_program_arguments()
+
     print(settings)
+
     script_table <- scan_input_dirpath(settings)
+
     reduce_raw_analysis_data(settings, script_table)
 }
 

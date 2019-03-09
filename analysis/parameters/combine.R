@@ -21,23 +21,16 @@ suppressPackageStartupMessages(library(fs))
 suppressPackageStartupMessages(library(promisedyntracer))
 suppressPackageStartupMessages(library(purrr))
 suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(progress))
 
 info <- function(...) cat((paste0(...)))
-
-combine_analyses <- function(datasets, combiner = dplyr::bind_rows) {
-
-    for(name in names(datasets)) {
-        pb$tick(tokens = list(what = name))
-        datasets[[name]] = combiner(datasets[[name]])
-    }
-    datasets
-}
 
 
 combine_reduced_data <- function(settings, reduced_data_table) {
 
     read_data_file_and_mutate <- function(package, script_type,
-                                          script_name, data_filepath) {
+                                          script_name, data_filepath,
+                                          pb) {
         table <-
             data_filepath %>%
             path_ext_remove() %>%
@@ -45,28 +38,36 @@ combine_reduced_data <- function(settings, reduced_data_table) {
             read_data_table(binary = settings$binary,
                             compression_level = settings$compression_level)
 
-        if(nrow(table) == 0) {
-            table
-        } else {
-            table %>%
+        if(nrow(table) != 0) {
+            table <-
+                table %>%
                 mutate(package = package,
                        script_type = script_type,
                        script_name = script_name)
         }
+
+        pb$tick(tokens = list(package = package,
+                              script_type = script_type,
+                              script_name = script_name))
+        table
     }
 
     reduced_data_table %>%
         group_by(data_filename) %>%
         do({
-            info("=> Reading reduced data files ", .data$data_filename[1], "\n")
+            info("=> Reading reduced data files '", .data$data_filename[1], "'\n")
+
+            pb <- progress_bar$new(format = "Processing :package/:script_type/:script_name [:bar] :percent :eta",
+                                   total = nrow(.data),
+                                   clear = FALSE,
+                                   width = 80)
 
             output_filepath <- path(settings$output_dirpath,
                                     path_ext_remove(path_ext_remove(.data$data_filename[1])))
 
             .data %>%
-                mutate(data_filepath = path(dirpath, data_filename)) %>%
                 select(package, script_type, script_name, data_filepath) %>%
-                pmap(read_data_file_and_mutate) %>%
+                pmap(read_data_file_and_mutate, pb) %>%
                 discard(function(df) nrow(df) == 0) %>%
                 bind_rows() %>%
                 promisedyntracer::write_data_table(output_filepath,
@@ -74,6 +75,9 @@ combine_reduced_data <- function(settings, reduced_data_table) {
                                                    compression_level = settings$compression_level)
 
             info("=> Writing combined data file to ", output_filepath, "\n")
+
+            gc()
+
             tibble(output_filepath)
         }) %>%
         ungroup()
@@ -84,32 +88,72 @@ scan_input_dirpath <- function(settings) {
 
     info("=> Scanning for reduced data files in ", settings$input_dirpath, "\n")
 
+    reduced_analyses <-
+        settings$input_dirpath %>%
+        dir_ls(type = "directory")
+
+    ## we use this to ensure that for any program,
+    ## these many FINISH files exist in the reduced
+    ## data directory
+    analyses_count <- length(reduced_analyses)
+
+    nth <- function(n) {
+        function(components) components[n]
+    }
+
+    reduced_scripts <-
+        settings$input_dirpath %>%
+        dir_ls(recursive = TRUE, type = "file", glob = "*FINISH") %>%
+        {tibble(finish_filepaths = .)} %>%
+        mutate(relative_finish_filepaths = path_rel(finish_filepaths,
+                                                    settings$input_dirpath)) %>%
+        mutate(path_components = path_split(relative_finish_filepaths)) %>%
+        mutate(analysis = map_chr(path_components, nth(1)),
+               package = map_chr(path_components, nth(2)),
+               script_type = map_chr(path_components, nth(3)),
+               script_name = map_chr(path_components, nth(4))) %>%
+        group_by(package, script_type, script_name) %>%
+        mutate(finish_count = n()) %>%
+        ungroup() %>%
+        select(analysis, package, script_type, script_name, finish_count) %>%
+        mutate(reduced_data_dirpath = path(settings$input_dirpath,
+                                           analysis,
+                                           package,
+                                           script_type,
+                                           script_name)) %>%
+        filter(script_type %in% settings$script_type)
+
+    invalid_reduced_scripts <-
+        reduced_scripts %>%
+        filter(finish_count != analyses_count)
+
+    info("Found ", nrow(invalid_reduced_scripts), " invalid scripts.")
+
+    print(invalid_reduced_scripts, n = Inf)
+
+    valid_reduced_scripts <-
+        reduced_scripts %>%
+        filter(finish_count == analyses_count) %>%
+        filter(analysis == settings$analysis)
+
     ext <- promisedyntracer::data_table_extension(settings$binary,
                                                   settings$compression_level)
     glob <- paste0("*", ext)
 
-    reduced_script_data_dirpaths <-
-        settings$input_dirpath %>%
-        dir_ls() %>%
-        map(function(package_dirpath) path(package_dirpath, settings$script_type)) %>%
-        flatten_chr() %>%
-        purrr::keep(dir_exists) %>%
-        dir_ls()
-
     reduced_script_data_filenames <-
-        reduced_script_data_dirpaths %>%
+        valid_reduced_scripts %>%
+        pull(reduced_data_dirpath) %>%
         map(dir_ls, type = "file", glob = glob) %>%
         map(path_file)
 
     reduced_data_table <-
-        tibble(dirpath = reduced_script_data_dirpaths,
-               data_filename = reduced_script_data_filenames) %>%
+        valid_reduced_scripts %>%
+        mutate(data_filename = reduced_script_data_filenames) %>%
         unnest(data_filename) %>%
-        mutate(package = path_file(path_dir(path_dir(dirpath))),
-               script_type = path_file(path_dir(dirpath)),
-               script_name = path_file(dirpath))
+        mutate(data_filepath = path(reduced_data_dirpath, data_filename)) %>%
+        select(-finish_count, -reduced_data_dirpath)
 
-    info("=> Found ", nrow(reduced_data_table), " data files\n")
+    info("=> Found ", nrow(reduced_data_table), " valid data files\n")
 
     reduced_data_table
 }
@@ -121,6 +165,7 @@ parse_program_arguments <- function() {
     description <- paste(
         "reduced-output-dirpath    directory containing reduced data files (scanned recursively)",
         "combined-output-dirpath   directory to which combined data will be exported",
+        "analysis                  name of analysis to run",
         sep = "\n")
 
 
@@ -177,6 +222,7 @@ parse_program_arguments <- function() {
 
     list(input_dirpath = arguments$args[1],
          output_dirpath = arguments$args[2],
+         analysis = arguments$args[3],
          script_type = script_type,
          binary = arguments$options$binary,
          compression_level = arguments$options$compression_level)

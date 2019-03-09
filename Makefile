@@ -254,23 +254,23 @@ setup-package-repositories:
 
 reduce-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
-	@mkdir -p $(TRACE_LOGS_REDUCED_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_REDUCED_DIRPATH)/$(ANALYSIS)
+	@mkdir -p $(TRACE_ANALYSIS_REDUCED_DIRPATH)/$(ANALYSIS)
 
-	-@$(TIME) parallel --jobs $(PARALLEL_JOB_COUNT)                                  \
-	                   --files                                                       \
-	                   --bar                                                         \
-	                   --results $(TRACE_LOGS_REDUCED_DIRPATH)/$(ANALYSIS)/{1}       \
-	                   --joblog $(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH)/$(ANALYSIS)    \
-	                   $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                             \
-	                                 --file=analysis/parameters/reduce.R             \
-	                                 --args $(TRACE_ANALYSIS_RAW_DIRPATH)/{1}        \
-	                                        $(TRACE_ANALYSIS_REDUCED_DIRPATH)/{1}    \
-	                                        $(ANALYSIS)                              \
-	                                        $(TRACE_ANALYSIS_SCRIPT_TYPE)            \
-	                                        $(BINARY)                                \
-	                                        --compression-level=$(COMPRESSION_LEVEL) \
-	                   "2>&1"                                                        \
+	-@$(TIME) parallel --jobs $(PARALLEL_JOB_COUNT)                                            \
+	                   --files                                                                 \
+	                   --bar                                                                   \
+	                   --results $(TRACE_LOGS_REDUCED_DIRPATH)/$(ANALYSIS)/{1}                 \
+	                   --joblog $(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH)/$(ANALYSIS)              \
+	                   $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                       \
+	                                 --file=analysis/parameters/reduce.R                       \
+	                                 --args $(TRACE_ANALYSIS_RAW_DIRPATH)/{1}                  \
+	                                        $(TRACE_ANALYSIS_REDUCED_DIRPATH)/$(ANALYSIS)/{1}  \
+	                                        $(ANALYSIS)                                        \
+	                                        $(TRACE_ANALYSIS_SCRIPT_TYPE)                      \
+	                                        $(BINARY)                                          \
+	                                        --compression-level=$(COMPRESSION_LEVEL)           \
+	                   "2>&1"                                                                  \
 	                   ::: $(shell cd $(TRACE_ANALYSIS_RAW_DIRPATH) && ls -d */) > /dev/null
 
 
@@ -282,6 +282,7 @@ combine-analysis:
 	                       --file=analysis/parameters/combine.R             \
 	                       --args $(TRACE_ANALYSIS_REDUCED_DIRPATH)         \
 	                              $(TRACE_ANALYSIS_COMBINED_DIRPATH)        \
+	                              $(ANALYSIS)                               \
 	                              $(TRACE_ANALYSIS_SCRIPT_TYPE)             \
 	                              $(BINARY)                                 \
 	                              --compression-level=$(COMPRESSION_LEVEL)  \
@@ -349,6 +350,55 @@ analyze-corpus:
 	            	                        $(TRACE_LOGS_CORPUS_DIRPATH)/log
 
 
+reduce-analyses:
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=objects
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=escaped_arguments
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=function_definitions
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=functions
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=promises
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=arguments
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=parameters
+
+
+reduce-analyses-prl-server:
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=70 BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=objects
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=70 BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=escaped_arguments
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=15 BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=function_definitions
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=30 BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=functions
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=10 BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=promises
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=10 BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=arguments
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=10 BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=parameters
+
+
+combine-analyses:
+	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=objects
+	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=escaped_arguments
+	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=function_definitions
+	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=functions
+	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=promises
+	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=arguments
+	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=parameters
+
+
+summarize-analyses:
+	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=objects
+	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=escaped_arguments
+	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=function_definitions
+	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=functions
+	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=promises
+	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=arguments
+	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=parameters
+
+
+visualize-analyses:
+	$(MAKE) visualize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=objects
+	$(MAKE) visualize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=escaped_arguments
+	$(MAKE) visualize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=functions
+	$(MAKE) visualize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=promises
+	$(MAKE) visualize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=arguments
+	$(MAKE) visualize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=parameters
+
+
 .PHONY: trace                           \
 	      corpus                          \
 	      install-dependencies            \
@@ -363,4 +413,9 @@ analyze-corpus:
 	      summarize-analysis              \
 	      visualize-analysis              \
 	      report-analysis                 \
-	      analyze-corpus
+	      analyze-corpus                  \
+	      reduce-analyses                 \
+	      reduce-analyses-prl-server      \
+	      combine-analyses                \
+	      summarize-analyses              \
+	      visualize-analyses

@@ -47,7 +47,7 @@ summarize_outliers <- function(df, grouping_column,
     df
 }
 
-object_type <- function(analyses) {
+objects <- function(analyses) {
     ## object type count is already summarized by the tracer.
     ## we only have to emit the same file again for summarization.
     object_count_by_type <-
