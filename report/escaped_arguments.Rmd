@@ -1,0 +1,201 @@
+---
+title: "The Promise that R makes: Escaped Arguments"
+output:
+  html_document:
+    toc: true
+    theme: united
+editor_options:
+  chunk_output_type: console
+---
+
+<style type="text/css">
+.main-container {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.datatables {
+    height: 575px !important; 
+}
+</style>
+
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_function_call_count_by_return_value_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_function_call_count_by_return_value_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_function_count_by_return_value_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_function_count_by_return_value_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_function_count_by_category")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_function_count_by_category")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_nature")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_nature")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_dispatch_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_dispatch_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_expression_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_expression_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_value_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_value_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_force_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_force_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_metaprogram_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_metaprogram_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_lookup_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_lookup_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_direct_self_scope_mutation_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_direct_self_scope_mutation_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_indirect_self_scope_mutation_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_indirect_self_scope_mutation_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_direct_lexical_scope_mutation_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_direct_lexical_scope_mutation_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_indirect_lexical_scope_mutation_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_indirect_lexical_scope_mutation_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_direct_non_lexical_scope_mutation_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_direct_non_lexical_scope_mutation_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_indirect_non_lexical_scope_mutation_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_indirect_non_lexical_scope_mutation_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_direct_self_scope_observation_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_direct_self_scope_observation_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_indirect_self_scope_observation_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_indirect_self_scope_observation_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_direct_lexical_scope_observation_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_direct_lexical_scope_observation_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_indirect_lexical_scope_observation_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_indirect_lexical_scope_observation_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_direct_non_lexical_scope_observation_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_direct_non_lexical_scope_observation_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_indirect_non_lexical_scope_observation_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_indirect_non_lexical_scope_observation_type")
+```
+

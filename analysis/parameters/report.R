@@ -1,6 +1,60 @@
-library(rmarkdown)
-library(fs)
-library(optparse)
+suppressPackageStartupMessages(library(rmarkdown))
+suppressPackageStartupMessages(library(fs))
+suppressPackageStartupMessages(library(optparse))
+suppressPackageStartupMessages(library(DT))
+suppressPackageStartupMessages(library(fs))
+suppressPackageStartupMessages(library(png))
+suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(magrittr))
+suppressPackageStartupMessages(library(rlang))
+suppressPackageStartupMessages(library(knitr))
+suppressPackageStartupMessages(library(png))
+suppressPackageStartupMessages(library(grid))
+suppressPackageStartupMessages(library(gridExtra))
+suppressPackageStartupMessages(library(promisedyntracer))
+
+create_rendering_environment <- function(settings) {
+
+    rendering_environment <- new.env(hash = TRUE)
+
+    evalq({
+        summarized_data_dirpath <- path_abs(settings$summarized_data_dirpath)
+        visualized_data_dirpath <- path_abs(settings$visualized_data_dirpath)
+        binary <- settings$binary
+        compression_level <- settings$compression_level
+
+        show_table <- function(tablename) {
+            path(summarized_data_dirpath, tablename) %>%
+                read_data_table(binary = binary,
+                                compression_level = compression_level) %>%
+                datatable(fillContainer = TRUE, filter = "top")
+        }
+
+
+        show_graph <- function(graphname) {
+            path(visualized_data_dirpath, graphname, ext = "png") %>%
+                include_graphics()
+        }
+
+
+        show_two_graphs <- function(first_graphname, second_graphname) {
+            load_graph <- function(graphname) {
+                grid::rasterGrob(as.raster(readPNG(path(visualized_data_dirpath,
+                                                        graphname,
+                                                        ext = "png"))),
+                                 interpolate = TRUE)
+            }
+            grid.arrange(load_graph(first_graphname),
+                         load_graph(second_graphname),
+                         ncol = 2)
+        }
+    },
+    envir = rendering_environment)
+
+    rendering_environment
+}
+
 
 report_analysis_data <- function(settings) {
     dir_create(path_dir(settings$report_output_filepath))
@@ -13,16 +67,12 @@ report_analysis_data <- function(settings) {
     input <- path_abs(settings$report_template_filepath)
     output <- path_abs(settings$report_output_filepath)
 
-    summarized_data_dirpath <- path_abs(settings$summarized_data_dirpath)
-    visualized_data_dirpath <- path_abs(settings$visualized_data_dirpath)
+    rendering_environment <- create_rendering_environment(settings)
 
     rmarkdown::render(input = input,
                       output_file = output,
                       runtime = "auto",
-                      params = list(summarized_data_dirpath = summarized_data_dirpath,
-                                    visualized_data_dirpath = visualized_data_dirpath,
-                                    binary = settings$binary,
-                                    compression_level = settings$compression_level))
+                      envir = rendering_environment)
 }
 
 

@@ -1,0 +1,32 @@
+---
+title: "The Promise that R makes: Objects"
+output:
+  html_document:
+    toc: true
+    theme: united
+editor_options:
+  chunk_output_type: console
+---
+
+<style type="text/css">
+.main-container {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.datatables {
+    height: 575px !important; 
+}
+</style>
+
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("object_count_by_type")
+```
+
+```{r echo = FALSE}
+show_table("object_count_by_type")
+```

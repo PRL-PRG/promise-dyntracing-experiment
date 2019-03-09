@@ -57,10 +57,10 @@ combine_reduced_data <- function(settings, reduced_data_table) {
         do({
             info("=> Reading reduced data files '", .data$data_filename[1], "'\n")
 
-            pb <- progress_bar$new(format = "Processing :package/:script_type/:script_name [:bar] :percent :eta",
+            pb <- progress_bar$new(format = ":package/:script_type/:script_name [:bar] :percent :eta",
                                    total = nrow(.data),
                                    clear = FALSE,
-                                   width = 80)
+                                   width = 100)
 
             output_filepath <- path(settings$output_dirpath,
                                     path_ext_remove(path_ext_remove(.data$data_filename[1])))
