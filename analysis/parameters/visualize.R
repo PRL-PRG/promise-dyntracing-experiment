@@ -162,23 +162,45 @@ parameters <- function(analyses) {
              title =  "Parameter count by class") +
         scale_fill_gdocs()
 
+    total_closure_count <-
+        analyses$closure_count_distribution_by_usage_class %>%
+        pull(closure_count) %>%
+        sum()
+
     closure_count_distribution_by_usage_class <-
         analyses$closure_count_distribution_by_usage_class %>%
         ggplot(aes(x = closure_class,
-                   y = closure_count)) +
+                   y = relative_closure_count)) +
         geom_col() +
         facet_wrap(~ closure_use) +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_closure_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
         labs(x = "Function Class",
              y = "Function Count",
-             title =  "Parameter count by class") +
+             title =  "Closure count by usage class") +
         scale_fill_gdocs() +
         theme(axis.text.x = element_text(angle = 60, hjust = 1),
               legend.position = "bottom")
 
+    argument_execution_time_distribution_by_parameter_lookup_class <-
+        analyses$execution_times %>%
+        ggplot(aes(lookup_class, execution_time,
+                   color = lookup_class,
+                   weight = relative_argument_count)) +
+        geom_violin() +
+        scale_y_log10() +
+        labs(x = "Lookup Class",
+             y = "Execution Time (ms)",
+             title =  "Argument count distribution by execution time and Parameter lookup class") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1))
+
     list(argument_count_by_usage = argument_count_by_usage,
          formal_parameter_count_by_usage = formal_parameter_count_by_usage,
          formal_parameter_count_by_usage_class = formal_parameter_count_by_usage_class,
-         closure_count_distribution_by_usage_class = closure_count_distribution_by_usage_class)
+         closure_count_distribution_by_usage_class = closure_count_distribution_by_usage_class,
+         argument_execution_time_distribution_by_parameter_lookup_class = argument_execution_time_distribution_by_parameter_lookup_class)
 }
 
 

@@ -56,10 +56,10 @@ show_table("closure_count_distribution_by_usage_class")
 ```
 
 ```{r echo = FALSE, out.width="1000px"}
-show_graph("closure_count_distribution_by_usage_class")
+show_graph("argument_execution_time_distribution_by_parameter_lookup_class")
 ```
 
 ```{r echo = FALSE}
-show_table("closure_count_distribution_by_usage_class")
+show_table("execution_times")
 ```
 

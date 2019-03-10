@@ -244,11 +244,13 @@ parameters <- function(analyses) {
 
     execution_times <-
         analyses$arguments %>%
+        filter(argument_type == "Promise") %>%
         select(function_id, formal_parameter_position, direct_force, execution_time) %>%
-        mutate(execution_time = execution_time / 1000000) %>%
+        mutate(execution_time = round(execution_time / 1000000, digits = 1)) %>%
         filter(direct_force != 0 & execution_time >= 1) %>%
         group_by(function_id, formal_parameter_position, execution_time) %>%
-        summarize(argument_count = 1.0 * n())
+        summarize(argument_count = 1.0 * n()) %>%
+        ungroup()
 
     list(formal_parameter_usage_counts = formal_parameter_usage_counts,
          execution_times = execution_times)

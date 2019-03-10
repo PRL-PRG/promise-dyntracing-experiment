@@ -531,7 +531,6 @@ parameters <- function(analyses) {
         formal_parameter_usage_class %>%
         nrow()
 
-    ## TODO this is important
     formal_parameter_count_by_usage <-
         formal_parameter_usage_class %>%
         group_by(parameter_use) %>%
@@ -580,11 +579,25 @@ parameters <- function(analyses) {
         ungroup() %>%
         mutate(relative_closure_count = closure_count / total_closure_count)
 
+    execution_times <-
+        analyses$execution_times %>%
+        group_by(function_id, formal_parameter_position, execution_time) %>%
+        summarize(argument_count = sum(argument_count)) %>%
+        ungroup() %>%
+        left_join(formal_parameter_usage_class %>%
+                  select(function_id, formal_parameter_position, lookup_class),
+                  by = c("function_id", "formal_parameter_position")) %>%
+        group_by(lookup_class, execution_time) %>%
+        summarize(argument_count = sum(argument_count)) %>%
+        mutate(relative_argument_count = argument_count / sum(argument_count)) %>%
+        ungroup()
+
     list(argument_count_by_usage = argument_count_by_usage,
          formal_parameter_count_by_usage = formal_parameter_count_by_usage,
          formal_parameter_usage_class = formal_parameter_usage_class,
          formal_parameter_count_by_usage_class = formal_parameter_count_by_usage_class,
-         closure_count_distribution_by_usage_class = closure_count_distribution_by_usage_class)
+         closure_count_distribution_by_usage_class = closure_count_distribution_by_usage_class,
+         execution_times = execution_times)
 
 }
 
