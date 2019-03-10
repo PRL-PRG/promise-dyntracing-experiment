@@ -36,6 +36,7 @@ TRACE_ANALYSIS_RAW_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/raw
 TRACE_ANALYSIS_CORPUS_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/corpus
 TRACE_ANALYSIS_REDUCED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/reduced
 TRACE_ANALYSIS_COMBINED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/combined
+TRACE_ANALYSIS_MERGED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/merged
 TRACE_ANALYSIS_SUMMARIZED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/summarized
 TRACE_ANALYSIS_VISUALIZED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/visualized
 TRACE_ANALYSIS_REPORT_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/report
@@ -44,6 +45,7 @@ TRACE_LOGS_DIRPATH := $(TRACE_DIRPATH)/logs
 TRACE_LOGS_RAW_DIRPATH := $(TRACE_LOGS_DIRPATH)/raw
 TRACE_LOGS_REDUCED_DIRPATH := $(TRACE_LOGS_DIRPATH)/reduced
 TRACE_LOGS_COMBINED_DIRPATH := $(TRACE_LOGS_DIRPATH)/combined
+TRACE_LOGS_MERGED_DIRPATH := $(TRACE_LOGS_DIRPATH)/merged
 TRACE_LOGS_SUMMARIZED_DIRPATH := $(TRACE_LOGS_DIRPATH)/summarized
 TRACE_LOGS_VISUALIZED_DIRPATH := $(TRACE_LOGS_DIRPATH)/visualized
 TRACE_LOGS_REPORT_DIRPATH := $(TRACE_LOGS_DIRPATH)/report
@@ -55,6 +57,12 @@ TRACE_LOGS_SUMMARY_COMBINED_FILEPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/combined
 TRACE_LOGS_SUMMARY_SUMMARIZED_FILEPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/summarized
 TRACE_LOGS_SUMMARY_VISUALIZED_FILEPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/visualized
 TRACE_LOGS_SUMMARY_REPORT_FILEPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/report
+
+################################################################################
+## combine variables
+################################################################################
+COMBINE_COUNT := 10
+COMBINED_FILENAME_PREFIX = $(shell hostname)-part
 
 ################################################################################
 ## report directory paths
@@ -281,30 +289,47 @@ combine-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_COMBINED_DIRPATH)
 
-	@$(UNBUFFER) $(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                      \
-	                                   --file=analysis/parameters/combine.R                     \
-	                                   --args $(TRACE_ANALYSIS_REDUCED_DIRPATH)                 \
-	                                          $(TRACE_ANALYSIS_COMBINED_DIRPATH)                \
-	                                          $(ANALYSIS)                                       \
-	                                          $(TRACE_ANALYSIS_SCRIPT_TYPE)                     \
-	                                          $(BINARY)                                         \
-	                                          --compression-level=$(COMPRESSION_LEVEL)          \
-	                                          2>&1 | $(TEE) $(TEE_FLAGS)                        \
+	@$(UNBUFFER) $(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                           \
+	                                   --file=analysis/parameters/combine.R                          \
+	                                   --args $(TRACE_ANALYSIS_REDUCED_DIRPATH)                      \
+	                                          $(TRACE_ANALYSIS_COMBINED_DIRPATH)                     \
+	                                          $(ANALYSIS)                                            \
+	                                          $(COMBINE_COUNT)                                       \
+	                                          $(TRACE_ANALYSIS_SCRIPT_TYPE)                          \
+	                                          $(BINARY)                                              \
+	                                          --compression-level=$(COMPRESSION_LEVEL)               \
+	                                          --combined-filename-prefix=$(COMBINED_FILENAME_PREFIX) \
+	                                          2>&1 | $(TEE) $(TEE_FLAGS)                             \
 	                                                 $(TRACE_LOGS_COMBINED_DIRPATH)/$(ANALYSIS)
+
+
+merge-analysis:
+	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
+	@mkdir -p $(TRACE_LOGS_MERGED_DIRPATH)
+
+	@$(UNBUFFER) $(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                           \
+	                                   --file=analysis/parameters/merge.R                            \
+	                                   --args $(TRACE_ANALYSIS_COMBINED_DIRPATH)                     \
+	                                          $(TRACE_ANALYSIS_MERGED_DIRPATH)                       \
+	                                          $(ANALYSIS)                                            \
+	                                          $(BINARY)                                              \
+	                                          --compression-level=$(COMPRESSION_LEVEL)               \
+	                                          2>&1 | $(TEE) $(TEE_FLAGS)                             \
+	                                                 $(TRACE_LOGS_MERGED_DIRPATH)/$(ANALYSIS)
 
 
 summarize-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_SUMMARIZED_DIRPATH)
 
-	@$(UNBUFFER) $(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                        \
-	                                   --file=analysis/parameters/summarize.R                     \
-	                                   --args $(TRACE_ANALYSIS_COMBINED_DIRPATH)                  \
-	                                          $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)                \
-	                                          $(ANALYSIS)                                         \
-	                                          $(BINARY)                                           \
-	                                          --compression-level=$(COMPRESSION_LEVEL)            \
-	                                   2>&1 | $(TEE) $(TEE_FLAGS)                                 \
+	@$(UNBUFFER) $(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                           \
+	                                   --file=analysis/parameters/summarize.R                        \
+	                                   --args $(TRACE_ANALYSIS_MERGED_DIRPATH)                       \
+	                                          $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)                   \
+	                                          $(ANALYSIS)                                            \
+	                                          $(BINARY)                                              \
+	                                          --compression-level=$(COMPRESSION_LEVEL)               \
+	                                   2>&1 | $(TEE) $(TEE_FLAGS)                                    \
 	                                                 $(TRACE_LOGS_SUMMARIZED_DIRPATH)/$(ANALYSIS)
 
 
@@ -374,13 +399,23 @@ reduce-analyses-prl-server:
 
 
 combine-analyses:
-	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=objects
-	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=escaped_arguments
-	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=function_definitions
-	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=functions
-	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=promises
-	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=arguments
-	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=parameters
+	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) COMBINE_COUNT=$(COMBINE_COUNT) ANALYSIS=objects
+	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) COMBINE_COUNT=$(COMBINE_COUNT) ANALYSIS=escaped_arguments
+	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) COMBINE_COUNT=$(COMBINE_COUNT) ANALYSIS=function_definitions
+	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) COMBINE_COUNT=$(COMBINE_COUNT) ANALYSIS=functions
+	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) COMBINE_COUNT=$(COMBINE_COUNT) ANALYSIS=promises
+	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) COMBINE_COUNT=$(COMBINE_COUNT) ANALYSIS=arguments
+	$(MAKE) combine-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) COMBINE_COUNT=$(COMBINE_COUNT) ANALYSIS=parameters
+
+
+merge-analyses:
+	$(MAKE) merge-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=objects
+	$(MAKE) merge-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=escaped_arguments
+	$(MAKE) merge-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=function_definitions
+	$(MAKE) merge-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=functions
+	$(MAKE) merge-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=promises
+	$(MAKE) merge-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=arguments
+	$(MAKE) merge-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=parameters
 
 
 summarize-analyses:
@@ -422,6 +457,7 @@ report-analyses:
 	      add-dependents-and-dependencies \
 	      reduce-analysis                 \
 	      combine-analysis                \
+	      merge-analysis                  \
 	      summarize-analysis              \
 	      visualize-analysis              \
 	      report-analysis                 \
@@ -429,6 +465,7 @@ report-analyses:
 	      reduce-analyses                 \
 	      reduce-analyses-prl-server      \
 	      combine-analyses                \
+	      merge-analyses                  \
 	      summarize-analyses              \
 	      visualize-analyses              \
 	      report-analyses

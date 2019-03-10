@@ -22,6 +22,8 @@ suppressPackageStartupMessages(library(promisedyntracer))
 suppressPackageStartupMessages(library(purrr))
 suppressPackageStartupMessages(library(tidyr))
 suppressPackageStartupMessages(library(progress))
+suppressPackageStartupMessages(library(tibble))
+suppressPackageStartupMessages(library(readr))
 
 info <- function(...) cat((paste0(...)))
 
@@ -55,31 +57,86 @@ combine_reduced_data <- function(settings, reduced_data_table) {
     reduced_data_table %>%
         group_by(data_filename) %>%
         do({
-            info("=> Reading reduced data files '", .data$data_filename[1], "'\n")
 
-            pb <- progress_bar$new(format = ":package/:script_type/:script_name [:bar] :percent :eta",
-                                   total = nrow(.data),
-                                   clear = FALSE,
-                                   width = 100)
+            data_filename <- path_ext_remove(path_ext_remove(.data$data_filename[1]))
 
-            output_filepath <- path(settings$output_dirpath,
-                                    path_ext_remove(path_ext_remove(.data$data_filename[1])))
+            output_dirpath <- path(settings$output_dirpath,
+                                   settings$analysis,
+                                   data_filename)
+
+            dir_create(output_dirpath)
+
+            info("Deleting previously combined files\n")
+
+            previous_files <-
+                output_dirpath %>%
+                dir_ls(recursive = FALSE,
+                       type = "file",
+                       regexp = str_c(".*\\d{6}\\.",
+                                      data_table_extension(settings$binary,
+                                                           settings$compression_level),
+                                      sep = ""))
+
+            print(previous_files)
+
+            if (length(previous_files) > 0) {
+                file_delete(previous_files)
+            }
+
+            finish_filepath <-
+                output_dirpath %>%
+                path("FINISH")
+
+            if(file_exists(finish_filepath)) {
+                file_delete(finish_filepath)
+            }
+
+            info("=> Reading reduced data files '", data_filename, "'\n")
+
+            script_count <- nrow(.data)
+
+            group_sequence <-
+                c(1:ceiling(script_count / settings$combine_count)) %>%
+                rep(each = settings$combine_count) %>%
+                `[`(1:script_count)
 
             .data %>%
-                select(package, script_type, script_name, data_filepath) %>%
-                pmap(read_data_file_and_mutate, pb) %>%
-                discard(function(df) nrow(df) == 0) %>%
-                bind_rows() %>%
-                promisedyntracer::write_data_table(output_filepath,
-                                                   truncate = TRUE,
-                                                   binary = settings$binary,
-                                                   compression_level = settings$compression_level)
+                add_column(group_sequence = group_sequence) %>%
+                group_by(group_sequence) %>%
+                do({
 
-            info("=> Writing combined data file to ", output_filepath, "\n")
+                    group_sequence <- .data$group_sequence[1]
 
-            gc()
+                    output_filepath <- path(output_dirpath,
+                                            sprintf("%s-%06d",
+                                                    settings$combined_filename_prefix,
+                                                    group_sequence))
 
-            tibble(output_filepath)
+                    pb <- progress_bar$new(format = ":package/:script_type/:script_name [:bar] :percent :eta",
+                                           total = nrow(.data),
+                                           clear = FALSE,
+                                           width = 100)
+
+                    .data %>%
+                        select(package, script_type, script_name, data_filepath) %>%
+                        pmap(read_data_file_and_mutate, pb) %>%
+                        discard(function(df) is.null(df) || nrow(df) == 0) %>%
+                        bind_rows() %>%
+                        promisedyntracer::write_data_table(output_filepath,
+                                                           truncate = TRUE,
+                                                           binary = settings$binary,
+                                                           compression_level = settings$compression_level)
+
+                    info("=> Wrote combined data file ", group_sequence, " to ", output_filepath, "\n")
+
+                    gc()
+
+                    write_file("", finish_filepath, append = FALSE)
+
+                    tibble(output_filepath = output_filepath)
+                }) %>%
+                ungroup() %>%
+                add_column(output_dirpath = output_dirpath)
         }) %>%
         ungroup()
 }
@@ -162,11 +219,12 @@ scan_input_dirpath <- function(settings) {
 
 parse_program_arguments <- function() {
 
-    usage <- "%prog reduced-output-dirpath combined-output-dirpath"
+    usage <- "%prog reduced-output-dirpath combined-output-dirpath analysis combine-count"
     description <- paste(
         "reduced-output-dirpath    directory containing reduced data files (scanned recursively)",
         "combined-output-dirpath   directory to which combined data will be exported",
         "analysis                  name of analysis to run",
+        "combine-count             number of files to be combined in one step",
         sep = "\n")
 
 
@@ -200,7 +258,14 @@ parse_program_arguments <- function() {
                     type = "integer",
                     default = 0,
                     help = "compression level",
-                    metavar = "compression_level")
+                    metavar = "compression_level"),
+
+        make_option(c("--combined-filename-prefix"),
+                    action = "store",
+                    type = "character",
+                    default = "part",
+                    help = "combined filename prefix",
+                    metavar = "combined_filename_prefix")
     )
 
 
@@ -224,9 +289,11 @@ parse_program_arguments <- function() {
     list(input_dirpath = arguments$args[1],
          output_dirpath = arguments$args[2],
          analysis = arguments$args[3],
+         combine_count = as.integer(arguments$args[4]),
          script_type = script_type,
          binary = arguments$options$binary,
-         compression_level = arguments$options$compression_level)
+         compression_level = arguments$options$compression_level,
+         combined_filename_prefix = arguments$options$combined_filename_prefix)
 }
 
 
