@@ -44,6 +44,11 @@ summarize_event_counts <- function(df,
 
 
 objects <- function(analyses) {
+
+    if(nrow(analyses$object_counts) == 0) {
+        return(list())
+    }
+
     ## object type count is already summarized by the tracer.
     ## we only have to emit the same file again for summarization.
     list(object_counts = analyses$object_counts)
@@ -51,6 +56,10 @@ objects <- function(analyses) {
 
 
 functions <- function(analyses) {
+
+    if(nrow(analyses$call_summaries) == 0) {
+        return(list())
+    }
 
     function_call_summary <-
         analyses$call_summaries %>%
@@ -86,6 +95,10 @@ functions <- function(analyses) {
 
 
 arguments <- function(analyses) {
+
+    if(nrow(analyses$arguments) == 0) {
+        return(list())
+    }
 
     promise_arguments <-
         analyses$arguments %>%
@@ -217,6 +230,10 @@ arguments <- function(analyses) {
 
 parameters <- function(analyses) {
 
+    if(nrow(analyses$arguments) == 0) {
+        return(list())
+    }
+
     ## for each parameter position, we compute 4 points:
     ## - lookup
     ## - metaprogram
@@ -259,11 +276,19 @@ parameters <- function(analyses) {
 
 escaped_arguments <- function(analyses) {
 
+    if(nrow(analyses$escaped_arguments) == 0) {
+        return(list())
+    }
+
     list(escaped_arguments = analyses$escaped_arguments)
 }
 
 
 promises <- function(analyses) {
+
+    if(nrow(analyses$promises) == 0) {
+        return(list())
+    }
 
     argument_promises <-
         analyses$promises %>%
@@ -582,6 +607,11 @@ promises <- function(analyses) {
 
 
 function_definitions <- function(analyses) {
+
+    if(nrow(analyses$function_definitions) == 0) {
+        return(list())
+    }
+
     list(function_definitions = analyses$function_definitions)
 }
 
@@ -683,114 +713,114 @@ reduce_analysis <- function(analyses) {
 }
 
 
-reduce_raw_analysis_data <- function(settings, script_table) {
+reduce_raw_analysis_data <- function(settings, reducer, scan) {
 
-    reducer <- eval(as.symbol(settings$analysis))
+    raw_analysis_filename_glob <- str_c("*",
+                                        data_table_extension(settings$binary,
+                                                             settings$compression_level))
 
-    reader <- function(filepath)
-        promisedyntracer::read_data_table(filepath,
-                                          binary = settings$binary,
-                                          compression_level = settings$compression_level)
+    read_raw_analysis_data <- function(input_dirpath) {
 
-    reduce_raw_analysis_datum <-
-        function(package, script_type, scriptname, dirpath,
-                 raw_data_dirpath, valid) {
+        analyses <- new.env(parent = emptyenv(), hash = TRUE)
 
-            info("=> Reducing ", scriptname, " from ", package, "\n")
+        input_dirpath %>%
+            dir_ls(type = "file", recursive = FALSE, glob = raw_analysis_filename_glob) %>%
+            map(function(raw_data_filepath) {
+                filename <- path_ext_remove(path_ext_remove(path_file(raw_data_filepath)))
+                delayedAssign(filename,
+                              read_data_table(path(settings$input_dirpath, filename),
+                                              binary = settings$binary,
+                                              compression_level = settings$compression_level),
+                              assign.env = analyses)
+            })
 
-            reduced_analysis_dirpath <- path(settings$output_dirpath,
-                                             script_type,
-                                             scriptname)
+        analyses
+    }
 
-            dir_create(reduced_analysis_dirpath)
+    write_raw_analysis_data <- function(analyses, output_dirpath) {
+        analyses %>%
+            imap(function(table, table_name) {
+                filepath <- path(output_dirpath, table_name)
+                write_data_table(table,
+                                 filepath,
+                                 truncate = TRUE,
+                                 binary = settings$binary,
+                                 compression_level = settings$compression_level)
+                filepath
+            })
+    }
 
-            analyses <- new.env(parent = emptyenv(), hash = TRUE)
+    info("=> Reducing ", settings$input_dirpath, "\n")
 
-            path(settings$input_dirpath,
-                 script_type,
-                 scriptname) %>%
-                dir_ls() %>%
-                map(function(raw_data_filepath) {
-                    name <- path_ext_remove(path_ext_remove(path_file(raw_data_filepath)))
+    finish_input_filepath <- path(settings$input_dirpath, "FINISH")
+    noerror_input_filepath <- path(settings$input_dirpath, "NOERROR")
 
-                    if (name %in% c("BEGIN", "NOERROR", "FINISH", "ERROR")) {
-                        NULL
-                    }
-                    else {
-                        delayedAssign(name,
-                                      read_data_table(path_ext_remove(path_ext_remove(raw_data_filepath)),
-                                                      binary = settings$binary,
-                                                      compression_level = settings$compression_level),
-                                      assign.env = analyses)
-                    }
-                })
+    begin_output_filepath <- path(settings$output_dirpath, "BEGIN")
+    finish_output_filepath <- path(settings$output_dirpath, "FINISH")
+    error_output_filepath <- path(settings$output_dirpath, "ERROR")
+    noerror_output_filepath <- path(settings$output_dirpath, "NOERROR")
+
+    dir_create(settings$output_dirpath)
+
+    file_delete(dir_ls(settings$output_dirpath,
+                       recursive = FALSE,
+                       type = "file"))
+
+    write_file("", begin_output_filepath)
+
+    tryCatch({
+
+        script_type <- path_file(path_dir(settings$input_dirpath))
+
+        info("=> Script type is ", script_type, "\n")
+
+        valid <- (all(file_exists(c(finish_input_filepath, noerror_input_filepath))) &&
+                  script_type %in% settings$script_type)
+
+        if (valid) {
 
             output_filepaths <-
-                analyses %>%
+                read_raw_analysis_data(settings$input_dirpath) %>%
                 reducer() %>%
-                imap(function(table, table_name) {
-                    filepath <- path(reduced_analysis_dirpath,
-                                     table_name)
-                    promisedyntracer::write_data_table(table,
-                                                       filepath,
-                                                       truncate = TRUE,
-                                                       binary = settings$binary,
-                                                       compression_level = settings$compression_level)
+                write_raw_analysis_data(settings$output_dirpath)
 
-                    filepath
-                })
+            write_file("", noerror_output_filepath)
 
-            write_file("", path(reduced_analysis_dirpath, "FINISH"))
-
-            info("=> Reduced ", scriptname, " from ", package, "\n")
-
-            gc()
+            info("=> Reduced ", settings$input_dirpath, "\n")
 
             output_filepaths
         }
+        else {
 
-    script_table %>%
-        filter(valid) %>%
-        pmap(reduce_raw_analysis_datum)
+            write_file("", error_output_filepath)
+
+            info("=> Invalid ", settings$input_dirpath, "\n")
+
+            ## empty filepaths returned for consistency
+            list("")
+        }
+
+    },
+
+    error = function(e) {
+        write_file("", error_output_filepath)
+        info("=> Error reducing ", settings$input_dirpath, "\n")
+        stop(e)
+    },
+
+    finally = {
+        write_file("", finish_output_filepath)
+    })
 }
-
-
-scan_input_dirpath <- function(settings) {
-
-    script_is_valid <- function(script_dirpath) {
-        all(file_exists(path(script_dirpath, c("NOERROR", "FINISH"))))
-    }
-
-    info("=> Scanning for raw data files in ", settings$input_dirpath, "\n")
-
-    script_dirpaths <-
-        settings$input_dirpath %>%
-        path(settings$script_type) %>%
-        purrr::keep(dir_exists) %>%
-        dir_ls(type = "directory")
-
-    script_table <-
-        tibble(package = path_file(settings$input_dirpath),
-               script_type = path_file(path_dir(script_dirpaths)),
-               scriptname = path_file(script_dirpaths),
-               dirpath = script_dirpaths,
-               valid = map_lgl(script_dirpaths, script_is_valid))
-
-    info("=> Found ", nrow(script_table), " scripts, ",
-         sum(pull(script_table, valid)), " valid.\n")
-
-    script_table
-}
-
-
 
 parse_program_arguments <- function() {
 
-    usage <- "%prog raw-package-analysis-dir reduce-package-analysis-dir"
+    usage <- "%prog raw-analysis-dirpath reduced-analysis-dirpath analysis %options"
+
     description <- paste(
-        "raw-package-analysis-dir       directory containing raw data files (scanned recursively)",
-        "reduce-package-analysis-dir    directory to which reduced data will be exported",
-        "analysis                       name of analysis to run",
+        "raw-analysis-dirpath       directory containing raw data files",
+        "reduced-analysis-dirpath   directory to which reduced data will be exported",
+        "analysis                   name of analysis to run",
         sep = "\n")
 
 
@@ -855,13 +885,15 @@ parse_program_arguments <- function() {
 
 
 main <- function() {
+
     settings <- parse_program_arguments()
 
     print(settings)
 
-    script_table <- scan_input_dirpath(settings)
+    output_dirpaths <- reduce_raw_analysis_data(settings,
+                                                eval(as.symbol(settings$analysis)))
 
-    reduce_raw_analysis_data(settings, script_table)
+    output_dirpaths
 }
 
 

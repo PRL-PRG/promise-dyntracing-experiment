@@ -119,3 +119,7 @@ show_graph("function_call_count_by_type_and_jump")
 show_table("function_call_count_by_type_and_jump")
 ```
 
+```{r echo = FALSE}
+show_table("primitive_function_table")
+```
+

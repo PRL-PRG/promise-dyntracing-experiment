@@ -35,6 +35,7 @@ summarize_outliers <- function(df, grouping_column,
     outlier_row <-
         df %>%
         filter(!! grouping_column > outlier_value) %>%
+        mutate(!!count_column := as.numeric(!!count_column)) %>%
         summarize(!!grouping_column := str_c(">", toString(outlier_value), sep = " "),
                   !!count_column := sum(!!count_column),
                   !!relative_count_column := sum(!!relative_count_column))
@@ -83,6 +84,15 @@ functions <- function(analyses) {
         summarize(function_count = length(unique(function_id))) %>%
         ungroup() %>%
         mutate(relative_function_count = function_count / sum(function_count))
+
+    primitive_function_table <-
+        analyses$function_call_summary %>%
+        filter(function_type != "Closure") %>%
+        group_by(function_type, function_id,
+                 S3_method, S4_method,
+                 jumped, return_value_type) %>%
+        summarize(call_count = sum(call_count)) %>%
+        ungroup()
 
     total_function_count <-
         function_count_by_type %>%
@@ -333,6 +343,7 @@ functions <- function(analyses) {
 
     list(closure_count_by_call_count = closure_count_by_call_count,
          function_count_by_type = function_count_by_type,
+         primitive_function_table = primitive_function_table,
          function_call_count_by_type = function_call_count_by_type,
          function_call_count_by_return_value_type = function_call_count_by_return_value_type,
          function_count_by_return_value_type = function_count_by_return_value_type,
@@ -350,6 +361,7 @@ arguments <- function(analyses) {
         group_column <- enquo(group_column)
 
         df %>%
+            mutate(argument_count = as.numeric(argument_count)) %>%
             group_by(!!group_column) %>%
             summarize(argument_count = sum(argument_count)) %>%
             ungroup() %>%
@@ -371,6 +383,7 @@ arguments <- function(analyses) {
 
     promise_argument_count_by_sharing <-
         analyses$promise_argument_count_by_sharing %>%
+        mutate(promise_count = as.numeric(promise_count)) %>%
         group_by(sharing_count) %>%
         summarize(promise_count = sum(promise_count)) %>%
         ungroup() %>%
@@ -608,6 +621,7 @@ promises <- function(analyses) {
         group_column <- enquo(group_column)
 
         df %>%
+            mutate(promise_count = as.numeric(promise_count)) %>%
             group_by(!!group_column) %>%
             summarize(promise_count = sum(promise_count)) %>%
             ungroup() %>%
@@ -792,6 +806,7 @@ promises <- function(analyses) {
 
     promise_use_distribution_by_category <-
         analyses$promise_use_distribution_by_category %>%
+        mutate(promise_count = as.numeric(promise_count)) %>%
         group_by(promise_category, use) %>%
         summarize(promise_count = sum(promise_count)) %>%
         ungroup() %>%
@@ -799,6 +814,7 @@ promises <- function(analyses) {
 
     promise_action_distribution_by_category <-
         analyses$promise_action_distribution_by_category %>%
+        mutate(promise_count = as.numeric(promise_count)) %>%
         group_by(promise_category, action) %>%
         summarize(promise_count = sum(promise_count)) %>%
         ungroup() %>%

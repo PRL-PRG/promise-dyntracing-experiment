@@ -35,6 +35,7 @@ TRACE_ANALYSIS_DIRPATH := $(TRACE_DIRPATH)/analysis
 TRACE_ANALYSIS_RAW_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/raw
 TRACE_ANALYSIS_CORPUS_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/corpus
 TRACE_ANALYSIS_REDUCED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/reduced
+TRACE_ANALYSIS_SCANNED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/scanned
 TRACE_ANALYSIS_COMBINED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/combined
 TRACE_ANALYSIS_MERGED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/merged
 TRACE_ANALYSIS_SUMMARIZED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/summarized
@@ -44,6 +45,7 @@ TRACE_CORPUS_DIRPATH := $(TRACE_DIRPATH)/corpus
 TRACE_LOGS_DIRPATH := $(TRACE_DIRPATH)/logs
 TRACE_LOGS_RAW_DIRPATH := $(TRACE_LOGS_DIRPATH)/raw
 TRACE_LOGS_REDUCED_DIRPATH := $(TRACE_LOGS_DIRPATH)/reduced
+TRACE_LOGS_SCANNED_DIRPATH := $(TRACE_LOGS_DIRPATH)/scanned
 TRACE_LOGS_COMBINED_DIRPATH := $(TRACE_LOGS_DIRPATH)/combined
 TRACE_LOGS_MERGED_DIRPATH := $(TRACE_LOGS_DIRPATH)/merged
 TRACE_LOGS_SUMMARIZED_DIRPATH := $(TRACE_LOGS_DIRPATH)/summarized
@@ -63,6 +65,13 @@ TRACE_LOGS_SUMMARY_REPORT_FILEPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/report
 ################################################################################
 COMBINE_COUNT := 10
 COMBINED_FILENAME_PREFIX = $(shell hostname)-part
+
+################################################################################
+## scan variables
+################################################################################
+ALL_SCRIPTS_FILEPATH := "all_scripts.csv"
+VALID_SCRIPTS_FILEPATH := "valid_scripts.csv"
+INVALID_SCRIPTS_FILEPATH := "invalid_scripts.csv"
 
 ################################################################################
 ## report directory paths
@@ -264,7 +273,7 @@ setup-package-repositories:
 
 
 reduce-analysis:
-	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
+	@mkdir -p $(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_REDUCED_DIRPATH)/$(ANALYSIS)
 	@mkdir -p $(TRACE_ANALYSIS_REDUCED_DIRPATH)/$(ANALYSIS)
 
@@ -282,24 +291,40 @@ reduce-analysis:
 	                                        $(BINARY)                                          \
 	                                        --compression-level=$(COMPRESSION_LEVEL)           \
 	                   "2>&1"                                                                  \
-	                   ::: $(shell cd $(TRACE_ANALYSIS_RAW_DIRPATH) && ls -d */) > /dev/null
+	                   ::: $(shell find $(TRACE_ANALYSIS_RAW_DIRPATH) -mindepth 3 -maxdepth 3 -type d -printf "%P\n") > /dev/null
+
+
+scan-analyses:
+	@mkdir -p $(TRACE_LOGS_SCANNED_DIRPATH)
+	@mkdir -p $(TRACE_ANALYSIS_SCANNED_DIRPATH)
+
+	@$(UNBUFFER) $(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                                  \
+	                                   --file=analysis/parameters/scan.R                                    \
+	                                   --args $(TRACE_ANALYSIS_REDUCED_DIRPATH)                             \
+	                                          $(TRACE_ANALYSIS_SCANNED_DIRPATH)/$(ALL_SCRIPTS_FILEPATH)     \
+	                                          $(TRACE_ANALYSIS_SCANNED_DIRPATH)/$(VALID_SCRIPTS_FILEPATH)   \
+	                                          $(TRACE_ANALYSIS_SCANNED_DIRPATH)/$(INVALID_SCRIPTS_FILEPATH) \
+	                                          $(TRACE_ANALYSIS_SCRIPT_TYPE)                                 \
+	                                          2>&1 | $(TEE) $(TEE_FLAGS)                                    \
+	                                                 $(TRACE_LOGS_SCANNED_DIRPATH)/log
 
 
 combine-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_COMBINED_DIRPATH)
 
-	@$(UNBUFFER) $(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                           \
-	                                   --file=analysis/parameters/combine.R                          \
-	                                   --args $(TRACE_ANALYSIS_REDUCED_DIRPATH)                      \
-	                                          $(TRACE_ANALYSIS_COMBINED_DIRPATH)                     \
-	                                          $(ANALYSIS)                                            \
-	                                          $(COMBINE_COUNT)                                       \
-	                                          $(TRACE_ANALYSIS_SCRIPT_TYPE)                          \
-	                                          $(BINARY)                                              \
-	                                          --compression-level=$(COMPRESSION_LEVEL)               \
-	                                          --combined-filename-prefix=$(COMBINED_FILENAME_PREFIX) \
-	                                          2>&1 | $(TEE) $(TEE_FLAGS)                             \
+	@$(UNBUFFER) $(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                                  \
+	                                   --file=analysis/parameters/combine.R                                 \
+	                                   --args $(TRACE_ANALYSIS_REDUCED_DIRPATH)                             \
+	                                          $(TRACE_ANALYSIS_COMBINED_DIRPATH)                            \
+	                                          $(TRACE_ANALYSIS_SCANNED_DIRPATH)/$(VALID_SCRIPTS_FILEPATH)   \
+	                                          $(ANALYSIS)                                                   \
+	                                          $(COMBINE_COUNT)                                              \
+	                                          $(TRACE_ANALYSIS_SCRIPT_TYPE)                                 \
+	                                          $(BINARY)                                                     \
+	                                          --compression-level=$(COMPRESSION_LEVEL)                      \
+	                                          --combined-filename-prefix=$(COMBINED_FILENAME_PREFIX)        \
+	                                          2>&1 | $(TEE) $(TEE_FLAGS)                                    \
 	                                                 $(TRACE_LOGS_COMBINED_DIRPATH)/$(ANALYSIS)
 
 
