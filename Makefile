@@ -262,7 +262,7 @@ setup-package-repositories:
 	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                           \
 	                       --file=scripts/setup-package-repositories.R   \
 	                       --args $(PACKAGE_SETUP_REPOSITORIES)          \
-	                              $(PACKAGE_SETUP_NCPUS)                 \
+	                              --ncpus=$(PACKAGE_SETUP_NCPUS)         \
 	                              --cran-mirror-url=$(CRAN_MIRROR_URL)   \
 	                              --cran-lib-dirpath=$(CRAN_LIB_DIRPATH) \
 	                              --cran-src-dirpath=$(CRAN_SRC_DIRPATH) \
