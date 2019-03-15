@@ -160,13 +160,13 @@ endef
 
 
 define parallel =
-parallel --jobs $(PARALLEL_JOB_COUNT_FILEPATH)      \
-         --files                                    \
-         --bar                                      \
-         --results $(TRACE_LOGS_RAW_DIRPATH)/{1}/   \
-         --joblog $(TRACE_LOGS_SUMMARY_RAW_DIRPATH) \
-           $(tracer)                                \
-           {1}
+	parallel --jobs $(PARALLEL_JOB_COUNT_FILEPATH)             \
+	                --files                                    \
+	                --bar                                      \
+	                --results $(TRACE_LOGS_RAW_DIRPATH)/{1}/   \
+	                --joblog $(TRACE_LOGS_SUMMARY_RAW_DIRPATH) \
+	                $(tracer)                                  \
+	                {1}
 endef
 
 
@@ -183,7 +183,7 @@ define trace =
 		unlink latest; \
 	fi
 	@ln -fs $(TRACE_DIRPATH) latest
-	$(parallel) :::: $(CORPUS_FILEPATH) > /dev/null
+	$(XVFB_RUN) `$(parallel) :::: $(CORPUS_FILEPATH) > /dev/null`
 endef
 
 
@@ -266,17 +266,17 @@ add-dependents-and-dependencies:
 setup-package-repositories:
 	@mkdir -p $(CRAN_LOG_DIRPATH)
 	@mkdir -p $(BIOC_LOG_DIRPATH)
-	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                              \
-	                       --file=scripts/setup-package-repositories.R      \
-	                       --args $(PACKAGE_SETUP_REPOSITORIES)             \
-	                              --ncpus=$(PACKAGE_SETUP_NCPUS)            \
-	                              --cran-mirror-url=$(CRAN_MIRROR_URL)      \
-	                              --cran-lib-dirpath=$(PACKAGE_LIB_DIRPATH) \
-	                              --cran-src-dirpath=$(PACKAGE_SRC_DIRPATH) \
-	                              --cran-log-dirpath=$(PACKAGE_LOG_DIRPATH) \
-	                              --bioc-lib-dirpath=$(PACKAGE_LIB_DIRPATH) \
-	                              --bioc-src-dirpath=$(PACKAGE_SRC_DIRPATH) \
-	                              --bioc-log-dirpath=$(PACKAGE_LOG_DIRPATH)
+	@$(TIME) $(XVFB_RUN) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                              \
+	                                   --file=scripts/setup-package-repositories.R      \
+	                                   --args $(PACKAGE_SETUP_REPOSITORIES)             \
+	                                          --ncpus=$(PACKAGE_SETUP_NCPUS)            \
+	                                          --cran-mirror-url=$(CRAN_MIRROR_URL)      \
+	                                          --cran-lib-dirpath=$(PACKAGE_LIB_DIRPATH) \
+	                                          --cran-src-dirpath=$(PACKAGE_SRC_DIRPATH) \
+	                                          --cran-log-dirpath=$(PACKAGE_LOG_DIRPATH) \
+	                                          --bioc-lib-dirpath=$(PACKAGE_LIB_DIRPATH) \
+	                                          --bioc-src-dirpath=$(PACKAGE_SRC_DIRPATH) \
+	                                          --bioc-log-dirpath=$(PACKAGE_LOG_DIRPATH)
 
 
 prescan-analysis:
