@@ -264,8 +264,10 @@ add-dependents-and-dependencies:
 
 
 setup-package-repositories:
-	@mkdir -p $(CRAN_LOG_DIRPATH)
-	@mkdir -p $(BIOC_LOG_DIRPATH)
+	@mkdir -p $(PACKAGE_SRC_DIRPATH)
+	@mkdir -p $(PACKAGE_LIB_DIRPATH)
+	@mkdir -p $(PACKAGE_LOG_DIRPATH)
+
 	@$(TIME) $(XVFB_RUN) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                              \
 	                                   --file=scripts/setup-package-repositories.R      \
 	                                   --args $(PACKAGE_SETUP_REPOSITORIES)             \
