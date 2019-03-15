@@ -3,12 +3,15 @@ library(fs)
 
 
 setup_cran <- function(settings) {
-    options(repos = settings$cran_mirror_url)
-
     dir_create(settings$cran_src_dirpath)
     dir_create(settings$cran_lib_dirpath)
 
-    install.packages(available.packages()[,1],
+    packages <- setdiff(available.packages()[,1],
+                        installed.packages()[,1])
+
+    cat("Installing", length(packages), "packages.\n")
+
+    install.packages(packages,
                      lib = settings$cran_lib_dirpath,
                      dependencies = TRUE,
                      destdir = settings$cran_src_dirpath,
@@ -27,7 +30,12 @@ setup_bioc <- function(settings) {
     dir_create(settings$bioc_src_dirpath)
     dir_create(settings$bioc_lib_dirpath)
 
-    BiocManager::install(BiocManager::available(),
+    packages <- setdiff(BiocManager::available(),
+                        installed.packages()[,1])
+
+    cat("Installing", length(packages), "packages.\n")
+
+    BiocManager::install(packages,
                          lib = settings$bioc_lib_dirpath,
                          dependencies = TRUE,
                          destdir = settings$bioc_src_dirpath,
@@ -135,6 +143,8 @@ main <- function() {
     settings <- parse_program_arguments()
 
     print(settings)
+
+    options(repos = settings$cran_mirror_url)
 
     if(settings$setup_cran) {
         setup_cran(settings)

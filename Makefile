@@ -85,13 +85,10 @@ REPORT_UTILITIES_SCRIPTPATH := report/utilities.R
 CRAN_MIRROR_URL := "https://cran.r-project.org"
 PACKAGE_SETUP_REPOSITORIES := --setup-cran --setup-bioc
 PACKAGE_SETUP_NCPUS := 8
-PACKAGE_SETUP_DIRPATH := ~
-CRAN_LIB_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/CRAN/lib
-CRAN_SRC_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/CRAN/src
-CRAN_LOG_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/CRAN/log
-BIOC_LIB_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/BIOC/lib
-BIOC_SRC_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/BIOC/src
-BIOC_LOG_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/BIOC/log
+PACKAGE_SETUP_DIRPATH := ~/r-dyntrace-packages
+PACKAGE_LIB_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/lib
+PACKAGE_SRC_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/src
+PACKAGE_LOG_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/log
 
 ################################################################################
 ## GNU Parallel arguments
@@ -138,7 +135,7 @@ export R_KEEP_PKG_SOURCE=1
 export R_ENABLE_JIT=0
 export R_COMPILE_PKGS=0
 export R_DISABLE_BYTECODE=1
-export R_LIBS=~/r-libs
+export R_LIBS=$(PACKAGE_LIB_DIRPATH)
 
 define tracer =
 $(TIME) $(R_DYNTRACE) --slave                                                     \
@@ -262,17 +259,17 @@ add-dependents-and-dependencies:
 setup-package-repositories:
 	@mkdir -p $(CRAN_LOG_DIRPATH)
 	@mkdir -p $(BIOC_LOG_DIRPATH)
-	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                           \
-	                       --file=scripts/setup-package-repositories.R   \
-	                       --args $(PACKAGE_SETUP_REPOSITORIES)          \
-	                              --ncpus=$(PACKAGE_SETUP_NCPUS)         \
-	                              --cran-mirror-url=$(CRAN_MIRROR_URL)   \
-	                              --cran-lib-dirpath=$(CRAN_LIB_DIRPATH) \
-	                              --cran-src-dirpath=$(CRAN_SRC_DIRPATH) \
-	                              --cran-log-dirpath=$(CRAN_LOG_DIRPATH) \
-	                              --bioc-lib-dirpath=$(BIOC_LIB_DIRPATH) \
-	                              --bioc-src-dirpath=$(BIOC_SRC_DIRPATH) \
-	                              --bioc-log-dirpath=$(BIOC_LOG_DIRPATH) \
+	@$(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                              \
+	                       --file=scripts/setup-package-repositories.R      \
+	                       --args $(PACKAGE_SETUP_REPOSITORIES)             \
+	                              --ncpus=$(PACKAGE_SETUP_NCPUS)            \
+	                              --cran-mirror-url=$(CRAN_MIRROR_URL)      \
+	                              --cran-lib-dirpath=$(PACKAGE_LIB_DIRPATH) \
+	                              --cran-src-dirpath=$(PACKAGE_SRC_DIRPATH) \
+	                              --cran-log-dirpath=$(PACKAGE_LOG_DIRPATH) \
+	                              --bioc-lib-dirpath=$(PACKAGE_LIB_DIRPATH) \
+	                              --bioc-src-dirpath=$(PACKAGE_SRC_DIRPATH) \
+	                              --bioc-log-dirpath=$(PACKAGE_LOG_DIRPATH)
 
 
 reduce-analysis:
