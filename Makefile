@@ -33,6 +33,7 @@ TRACE_DIRPATH := $(shell date +'%Y-%m-%d-%H-%M-%S')
 LATEST_TRACE_DIRPATH := $(shell readlink -f latest)
 TRACE_ANALYSIS_DIRPATH := $(TRACE_DIRPATH)/analysis
 TRACE_ANALYSIS_RAW_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/raw
+TRACE_ANALYSIS_PRESCANNED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/prescanned
 TRACE_ANALYSIS_CORPUS_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/corpus
 TRACE_ANALYSIS_REDUCED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/reduced
 TRACE_ANALYSIS_SCANNED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/scanned
@@ -44,6 +45,7 @@ TRACE_ANALYSIS_REPORT_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/report
 TRACE_CORPUS_DIRPATH := $(TRACE_DIRPATH)/corpus
 TRACE_LOGS_DIRPATH := $(TRACE_DIRPATH)/logs
 TRACE_LOGS_RAW_DIRPATH := $(TRACE_LOGS_DIRPATH)/raw
+TRACE_LOGS_PRESCANNED_DIRPATH := $(TRACE_LOGS_DIRPATH)/prescanned
 TRACE_LOGS_REDUCED_DIRPATH := $(TRACE_LOGS_DIRPATH)/reduced
 TRACE_LOGS_SCANNED_DIRPATH := $(TRACE_LOGS_DIRPATH)/scanned
 TRACE_LOGS_COMBINED_DIRPATH := $(TRACE_LOGS_DIRPATH)/combined
@@ -61,6 +63,11 @@ TRACE_LOGS_SUMMARY_VISUALIZED_FILEPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/visualiz
 TRACE_LOGS_SUMMARY_REPORT_FILEPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/report
 
 ################################################################################
+## prescan variables
+################################################################################
+TRACED_SCRIPTS_FILEPATH := traced_scripts.csv
+
+################################################################################
 ## combine variables
 ################################################################################
 COMBINE_COUNT := 10
@@ -69,9 +76,9 @@ COMBINED_FILENAME_PREFIX = $(shell hostname)-part
 ################################################################################
 ## scan variables
 ################################################################################
-ALL_SCRIPTS_FILEPATH := "all_scripts.csv"
-VALID_SCRIPTS_FILEPATH := "valid_scripts.csv"
-INVALID_SCRIPTS_FILEPATH := "invalid_scripts.csv"
+ALL_SCRIPTS_FILEPATH := all_scripts.csv
+VALID_SCRIPTS_FILEPATH := valid_scripts.csv
+INVALID_SCRIPTS_FILEPATH := invalid_scripts.csv
 
 ################################################################################
 ## report directory paths
@@ -272,26 +279,39 @@ setup-package-repositories:
 	                              --bioc-log-dirpath=$(PACKAGE_LOG_DIRPATH)
 
 
+prescan-analysis:
+	@mkdir -p $(TRACE_LOGS_PRESCANNED_DIRPATH)
+	@mkdir -p $(TRACE_ANALYSIS_PRESCANNED_DIRPATH)
+
+	@find $(TRACE_ANALYSIS_RAW_DIRPATH)                                     \
+	      -mindepth 3                                                       \
+	      -maxdepth 3                                                       \
+	      -printf "%P\n"                                                    \
+	      -type d                                                           \
+	      > $(TRACE_ANALYSIS_PRESCANNED_DIRPATH)/$(TRACED_SCRIPTS_FILEPATH) \
+	      2> $(TRACE_LOGS_PRESCANNED_DIRPATH)/log
+
+
 reduce-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_REDUCED_DIRPATH)/$(ANALYSIS)
 	@mkdir -p $(TRACE_ANALYSIS_REDUCED_DIRPATH)/$(ANALYSIS)
 
-	-@$(TIME) parallel --jobs $(PARALLEL_JOB_COUNT)                                            \
-	                   --files                                                                 \
-	                   --bar                                                                   \
-	                   --results $(TRACE_LOGS_REDUCED_DIRPATH)/$(ANALYSIS)/{1}                 \
-	                   --joblog $(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH)/$(ANALYSIS)              \
-	                   $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                       \
-	                                 --file=analysis/parameters/reduce.R                       \
-	                                 --args $(TRACE_ANALYSIS_RAW_DIRPATH)/{1}                  \
-	                                        $(TRACE_ANALYSIS_REDUCED_DIRPATH)/$(ANALYSIS)/{1}  \
-	                                        $(ANALYSIS)                                        \
-	                                        $(TRACE_ANALYSIS_SCRIPT_TYPE)                      \
-	                                        $(BINARY)                                          \
-	                                        --compression-level=$(COMPRESSION_LEVEL)           \
-	                   "2>&1"                                                                  \
-	                   ::: $(shell find $(TRACE_ANALYSIS_RAW_DIRPATH) -mindepth 3 -maxdepth 3 -type d -printf "%P\n") > /dev/null
+	-@$(TIME) parallel --jobs $(PARALLEL_JOB_COUNT)                                                     \
+	                   --files                                                                          \
+	                   --bar                                                                            \
+	                   --results $(TRACE_LOGS_REDUCED_DIRPATH)/$(ANALYSIS)/{1}                          \
+	                   --joblog $(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH)/$(ANALYSIS)                       \
+	                   $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                                \
+	                                 --file=analysis/parameters/reduce.R                                \
+	                                 --args $(TRACE_ANALYSIS_RAW_DIRPATH)/{1}                           \
+	                                        $(TRACE_ANALYSIS_REDUCED_DIRPATH)/$(ANALYSIS)/{1}           \
+	                                        $(ANALYSIS)                                                 \
+	                                        $(TRACE_ANALYSIS_SCRIPT_TYPE)                               \
+	                                        $(BINARY)                                                   \
+	                                        --compression-level=$(COMPRESSION_LEVEL)                    \
+	                   "2>&1"                                                                           \
+	                   :::: $(TRACE_ANALYSIS_PRESCANNED_DIRPATH)/$(TRACED_SCRIPTS_FILEPATH) > /dev/null
 
 
 scan-analyses:
@@ -472,11 +492,11 @@ report-analyses:
 
 
 view-function-definition:
-	@$(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                                      \
-	               --file=scripts/view-function-definition.R                                \
+	@$(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                                          \
+	               --file=scripts/view-function-definition.R                                    \
 	               --args $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)/$(FUNCTION_DEFINITIONS_FILENAME) \
-	                      $(FUNCTION_ID)                                                    \
-	                      $(BINARY)                                                         \
+	                      $(FUNCTION_ID)                                                        \
+	                      $(BINARY)                                                             \
 	                      --compression-level=$(COMPRESSION_LEVEL)
 
 
@@ -489,6 +509,7 @@ view-function-definition:
 	      report                          \
 	      lint                            \
 	      add-dependents-and-dependencies \
+	      prescan-analysis                \
 	      reduce-analysis                 \
 	      combine-analysis                \
 	      merge-analysis                  \
@@ -498,6 +519,7 @@ view-function-definition:
 	      analyze-corpus                  \
 	      reduce-analyses                 \
 	      reduce-analyses-prl-server      \
+	      scan-analyses                   \
 	      combine-analyses                \
 	      merge-analyses                  \
 	      summarize-analyses              \
