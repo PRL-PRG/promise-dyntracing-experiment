@@ -861,9 +861,16 @@ promises <- function(analyses) {
 
 escaped_arguments <- function(analyses) {
 
+    escaped_arguments <-
+        analyses$escaped_arguments %>%
+        group_by(function_id, formal_parameter_position, actual_argument_position,
+                 argument_type, expression_type, value_type, return_value_type) %>%
+        summarize(call_count = as.numeric(n())) %>%
+        ungroup()
+
     escaped_argument_return_value_type <-
         analyses$escaped_arguments %>%
-        group_by(call_id, function_id) %>%
+        group_by(package, script_type, script_name, call_id, function_id) %>%
         summarize(return_value_type = first(return_value_type)) %>%
         ungroup()
 
@@ -895,7 +902,7 @@ escaped_arguments <- function(analyses) {
 
     escaped_argument_function_category <-
         analyses$escaped_arguments %>%
-        group_by(call_id) %>%
+        group_by(package, script_type, script_name, call_id) %>%
         mutate(category = if_else(n() >= formal_parameter_count, "All", "Some")) %>%
         ungroup() %>%
         group_by(function_id) %>%
@@ -1055,35 +1062,8 @@ escaped_arguments <- function(analyses) {
                                    after_escape_indirect_non_lexical_scope_observation_count,
                                    indirect_non_lexical_scope_observation_type)
 
-
-    ## "before_escape_indirect_self_scope_mutation_count",
-    ## "before_escape_direct_lexical_scope_mutation_count",
-    ## "before_escape_indirect_lexical_scope_mutation_count",
-    ## "before_escape_direct_non_lexical_scope_mutation_count",
-    ## "before_escape_indirect_non_lexical_scope_mutation_count",
-    ## "before_escape_direct_self_scope_observation_count",
-    ## "before_escape_indirect_self_scope_observation_count",
-    ## "before_escape_direct_lexical_scope_observation_count",
-    ## "before_escape_indirect_lexical_scope_observation_count",
-    ## "before_escape_direct_non_lexical_scope_observation_count",
-    ## "before_escape_indirect_non_lexical_scope_observation_count"
-
-    ## escaped_parameter_numbers <-
-    ##     group_by(function_id, formal_parameter_position) %>%
-    ##     summarize(argument_count = n())
-    ## escaped_argument_function_return_type_and_category <-
-    ##     analyses$escaped_argument_functions %>%
-    ##     distinct(function_id, return_value_type) %>%
-    ##     left_join(escaped_argument_function_category, by = "function_id")
-
-    ## escaped_argument_function_count_distribution_by_return_type_and_category <-
-    ##     escaped_argument_function_return_type_and_category %>%
-    ##     group_by(category, return_value_type) %>%
-    ##     summarize(function_count = length(unique(function_id))) %>%
-    ##     ungroup()
-
-
-    list(escaped_argument_function_call_count_by_return_value_type = escaped_argument_function_call_count_by_return_value_type,
+    list(escaped_arguments = escaped_arguments,
+         escaped_argument_function_call_count_by_return_value_type = escaped_argument_function_call_count_by_return_value_type,
          escaped_argument_function_count_by_return_value_type = escaped_argument_function_count_by_return_value_type,
          escaped_argument_function_category = escaped_argument_function_category,
          escaped_argument_function_count_by_category = escaped_argument_function_count_by_category,
@@ -1116,10 +1096,22 @@ escaped_arguments <- function(analyses) {
 
 function_definitions <- function(analyses) {
 
+    encode_sequence <- function(seq) {
+        str_c("(", str_c(seq, collapse = " "), ")", sep = "")
+    }
+
+    decode_sequence <- function(seq) {
+        unlist(str_split(str_sub(seq, 2, -2), " "))
+    }
+
     function_definitions  <-
         analyses$function_definitions %>%
         group_by(function_id) %>%
-        summarize(definition = first(definition))
+        summarize(function_name = encode_sequence(unique(decode_sequence(function_name))),
+                  definition = first(definition),
+                  script = encode_sequence(str_c(package, script_type, script_name,
+                                                 sep = "/"))) %>%
+        ungroup()
 
     list(function_definitions = function_definitions)
 }

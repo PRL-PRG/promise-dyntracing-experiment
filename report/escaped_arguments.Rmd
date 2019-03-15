@@ -199,3 +199,10 @@ show_graph("escaped_argument_count_by_indirect_non_lexical_scope_observation_typ
 show_table("escaped_argument_count_by_indirect_non_lexical_scope_observation_type")
 ```
 
+```{r echo = FALSE}
+show_table("escaped_arguments")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_function_category")
+```

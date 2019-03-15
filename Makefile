@@ -131,6 +131,9 @@ DATA_TABLE_VIEWER_ARGS :=
 ################################################################################
 LINT_FILEPATH := scripts/create-corpus-with-matching-patterns.R
 
+
+FUNCTION_DEFINITIONS_FILENAME := function_definitions
+
 export R_KEEP_PKG_SOURCE=1
 export R_ENABLE_JIT=0
 export R_COMPILE_PKGS=0
@@ -469,6 +472,15 @@ report-analyses:
 	$(MAKE) report-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=promises
 	$(MAKE) report-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=arguments
 	$(MAKE) report-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=parameters
+
+
+view-function-definition:
+	@$(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                                      \
+	               --file=scripts/view-function-definition.R                                \
+	               --args $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)/$(FUNCTION_DEFINITIONS_FILENAME) \
+	                      $(FUNCTION_ID)                                                    \
+	                      $(BINARY)                                                         \
+	                      --compression-level=$(COMPRESSION_LEVEL)
 
 
 .PHONY: trace                           \
