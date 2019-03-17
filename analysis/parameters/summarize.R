@@ -129,6 +129,11 @@ functions <- function(analyses) {
         ungroup() %>%
         mutate(relative_call_count = call_count / sum(call_count))
 
+    closure_call_count_by_return_value_type <-
+        function_call_count_by_return_value_type %>%
+        filter(function_type == "Closure") %>%
+        mutate(relative_call_count = call_count / sum(call_count))
+
     function_count_by_return_value_type <-
         analyses$function_call_summary %>%
         filter(!jumped) %>%
@@ -346,6 +351,7 @@ functions <- function(analyses) {
          primitive_function_table = primitive_function_table,
          function_call_count_by_type = function_call_count_by_type,
          function_call_count_by_return_value_type = function_call_count_by_return_value_type,
+         closure_call_count_by_return_value_type = closure_call_count_by_return_value_type,
          function_count_by_return_value_type = function_count_by_return_value_type,
          closure_count_by_formal_parameter_count = closure_count_by_formal_parameter_count,
          function_call_count_by_type_and_jump = function_call_count_by_type_and_jump,
@@ -579,13 +585,16 @@ parameters <- function(analyses) {
         unique() %>%
         length()
 
-    closure_count_distribution_by_usage_class <-
+    closure_usage_class <-
         formal_parameter_usage_class %>%
         group_by(function_id) %>%
-        summarize(lookup_class = classify_function(lookup_class),
-                  metaprogram_class = classify_function(metaprogram_class),
-                  either_class = classify_function(either_class)) %>%
-        ungroup() %>%
+        summarize(Lookup = classify_function(lookup_class),
+                  Metaprogram = classify_function(metaprogram_class),
+                  Either = classify_function(either_class)) %>%
+        ungroup()
+
+    closure_count_distribution_by_usage_class <-
+        closure_usage_class %>%
         gather(closure_use, closure_class, -function_id) %>%
         group_by(closure_use, closure_class) %>%
         summarize(closure_count = n()) %>%
@@ -609,9 +618,9 @@ parameters <- function(analyses) {
          formal_parameter_count_by_usage = formal_parameter_count_by_usage,
          formal_parameter_usage_class = formal_parameter_usage_class,
          formal_parameter_count_by_usage_class = formal_parameter_count_by_usage_class,
+         closure_usage_class = closure_usage_class,
          closure_count_distribution_by_usage_class = closure_count_distribution_by_usage_class,
          execution_times = execution_times)
-
 }
 
 
@@ -1604,10 +1613,6 @@ summarize_combined_data <- function(settings, combined_data_table) {
         combined_data_filepaths %>%
         path_ext_remove() %>%
         path_ext_remove()
-        ## map(promisedyntracer::read_data_table,
-        ##     binary = settings$binary,
-        ##     compression_level = settings$compression_level) %>%
-        ## set_names(path_ext_remove(path_file(combined_data_filepaths))) %>%
 
     analyses <- new.env(parent = emptyenv(), hash = TRUE)
 
@@ -1626,6 +1631,8 @@ summarize_combined_data <- function(settings, combined_data_table) {
             function(df, name) {
                 output_filepath <- path(settings$output_dirpath, name)
 
+                info("=> Writing ", output_filepath, "\n")
+
                 promisedyntracer::write_data_table(df, output_filepath,
                                                    truncate = TRUE,
                                                    binary = settings$binary,
@@ -1636,7 +1643,7 @@ summarize_combined_data <- function(settings, combined_data_table) {
             }
         )
 
-    info("=> Finished summarization\n")
+    info("=> Finished summarization\n\n")
 
     tibble(filepath = unlist(summarized_data_filepaths))
 }
@@ -1709,11 +1716,16 @@ parse_program_arguments <- function() {
 
 main <- function() {
     settings <- parse_program_arguments()
+
     dir_create(settings$output_dirpath)
+
     print(settings)
+
     combined_data_table <- scan_input_dirpath(settings)
-    print(combined_data_table)
-    print(summarize_combined_data(settings, combined_data_table), n = Inf)
+
+    summarize_combined_data(settings, combined_data_table)
+
+    invisible(NULL)
 }
 
 

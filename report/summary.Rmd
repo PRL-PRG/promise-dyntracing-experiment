@@ -1,0 +1,303 @@
+---
+title: "The Promise that R makes: Summary"
+output:
+  html_document:
+    toc: true
+    theme: united
+editor_options:
+  chunk_output_type: console
+---
+
+<style type="text/css">
+.main-container {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 15px;
+  padding-right: 15px;
+}
+
+.datatables {
+    height: 575px !important; 
+}
+</style>
+
+## Objects
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("object_count_by_type")
+```
+
+```{r echo = FALSE}
+show_table("object_count_by_type")
+```
+
+## Functions
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("function_call_count_by_type")
+```
+
+```{r echo = FALSE}
+show_table("function_call_count_by_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("function_count_by_type")
+```
+
+```{r echo = FALSE}
+show_table("function_count_by_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("function_call_count_by_method_type")
+```
+
+```{r echo = FALSE}
+show_table("function_call_count_by_method_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("function_count_by_method_type")
+```
+
+```{r echo = FALSE}
+show_table("function_count_by_method_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("closure_call_count_by_return_value_type")
+```
+
+```{r echo = FALSE}
+show_table("closure_call_count_by_return_value_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("closure_count_by_call_count")
+```
+
+```{r echo = FALSE}
+show_table("closure_count_by_call_count")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("closure_count_by_formal_parameter_count")
+```
+
+```{r echo = FALSE}
+show_table("closure_count_by_formal_parameter_count")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("closure_count_by_return_value_type")
+```
+
+```{r echo = FALSE}
+show_table("function_count_by_return_value_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("closure_count_by_wrapper_and_force_order")
+```
+
+```{r echo = FALSE}
+show_table("closure_count_by_wrapper_and_force_order")
+```
+
+## Promises
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_category")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_category")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_promise_count_by_expression_type")
+```
+
+```{r echo = FALSE}
+show_table("argument_promise_count_by_expression_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_promise_count_by_value_type")
+```
+
+```{r echo = FALSE}
+show_table("argument_promise_count_by_value_type")
+```
+
+```{r echo = FALSE}
+show_table("argument_promise_count_by_call_depth")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_promise_count_by_promise_depth")
+```
+
+```{r echo = FALSE}
+show_table("argument_promise_count_by_promise_depth")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_force_count")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_force_count")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_count_by_metaprogram_count")
+```
+
+```{r echo = FALSE}
+show_table("promise_count_by_metaprogram_count")
+```
+## Arguments
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_count_by_type")
+```
+
+```{r echo = FALSE}
+show_table("argument_count_by_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("non_missing_argument_count_by_dot_dot_dot")
+```
+
+```{r echo = FALSE}
+show_table("non_missing_argument_count_by_dot_dot_dot")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_argument_count_by_nature")
+```
+
+```{r echo = FALSE}
+show_table("promise_argument_count_by_nature")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_argument_count_by_sharing")
+```
+
+```{r echo = FALSE}
+show_table("promise_argument_count_by_sharing")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_argument_count_by_force_type")
+```
+
+```{r echo = FALSE}
+show_table("promise_argument_count_by_force_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("promise_argument_count_by_dispatch_type")
+```
+
+```{r echo = FALSE}
+show_table("promise_argument_count_by_dispatch_type")
+```
+
+## Parameters
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_count_by_usage")
+```
+
+```{r echo = FALSE}
+show_table("argument_count_by_usage")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("formal_parameter_count_by_usage")
+```
+
+```{r echo = FALSE}
+show_table("formal_parameter_count_by_usage")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("formal_parameter_count_by_usage_class")
+```
+
+```{r echo = FALSE}
+show_table("formal_parameter_count_by_usage_class")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("closure_count_distribution_by_usage_class")
+```
+
+```{r echo = FALSE}
+show_table("closure_count_distribution_by_usage_class")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("argument_execution_time_distribution_by_parameter_lookup_class")
+```
+
+```{r echo = FALSE}
+show_table("execution_times")
+```
+
+## Escaped Arguments
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_function_call_count_by_return_value_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_function_call_count_by_return_value_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_function_count_by_return_value_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_function_count_by_return_value_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_nature")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_nature")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_force_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_force_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_metaprogram_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_metaprogram_type")
+```
+
+```{r echo = FALSE, out.width="1000px"}
+show_graph("escaped_argument_count_by_lookup_type")
+```
+
+```{r echo = FALSE}
+show_table("escaped_argument_count_by_lookup_type")
+```
+

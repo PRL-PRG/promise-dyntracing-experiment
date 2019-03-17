@@ -70,7 +70,7 @@ TRACED_SCRIPTS_FILEPATH := traced_scripts.csv
 ################################################################################
 ## combine variables
 ################################################################################
-COMBINE_COUNT := 10
+COMBINE_COUNT := 1000
 COMBINED_FILENAME_PREFIX = $(shell hostname)-part
 
 ################################################################################
@@ -491,6 +491,7 @@ report-analyses:
 	$(MAKE) report-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=promises
 	$(MAKE) report-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=arguments
 	$(MAKE) report-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=parameters
+	$(MAKE) report-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=summary
 
 
 view-function-definition:

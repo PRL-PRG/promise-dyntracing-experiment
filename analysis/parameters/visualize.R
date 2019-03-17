@@ -131,9 +131,8 @@ parameters <- function(analyses) {
         scale_fill_gdocs()
 
     total_parameter_count <-
-        analyses$formal_parameter_count_by_usage %>%
-        pull(parameter_count) %>%
-        sum()
+        analyses$formal_parameter_usage_class %>%
+        nrow()
 
     formal_parameter_count_by_usage <-
         analyses$formal_parameter_count_by_usage %>%
@@ -163,9 +162,8 @@ parameters <- function(analyses) {
         scale_fill_gdocs()
 
     total_closure_count <-
-        analyses$closure_count_distribution_by_usage_class %>%
-        pull(closure_count) %>%
-        sum()
+        analyses$closure_usage_class %>%
+        nrow()
 
     closure_count_distribution_by_usage_class <-
         analyses$closure_count_distribution_by_usage_class %>%
@@ -288,6 +286,22 @@ functions <- function(analyses) {
         labs(x = "Return Value Type",
              y = "Call Count",
              title =  "Function Call Count by Return Value Type") +
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 60, hjust = 1),
+              legend.position = "bottom")
+
+    closure_call_count_by_return_value_type <-
+        analyses$closure_call_count_by_return_value_type %>%
+        ggplot(aes(x = return_value_type,
+                   y = relative_call_count,
+                   fill = function_type)) +
+        geom_col() +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_closure_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Return Value Type",
+             y = "Call Count",
+             title =  "Closure Call Count by Return Value Type") +
         scale_fill_gdocs() +
         theme(axis.text.x = element_text(angle = 60, hjust = 1),
               legend.position = "bottom")
@@ -424,6 +438,7 @@ functions <- function(analyses) {
          function_count_by_type = function_count_by_type,
          function_call_count_by_type = function_call_count_by_type,
          function_call_count_by_return_value_type = function_call_count_by_return_value_type,
+         closure_call_count_by_return_value_type = closure_call_count_by_return_value_type,
          builtin_count_by_return_value_type = builtin_count_by_return_value_type,
          special_count_by_return_value_type = special_count_by_return_value_type,
          closure_count_by_return_value_type = closure_count_by_return_value_type,
@@ -1798,20 +1813,3 @@ main <- function() {
 
 
 main()
-
-
-## ```{r echo = FALSE}
-## show_table("formal_parameter_count_by_usage_class")
-## ```
-
-## ```{r echo = FALSE, out.width="1000px"}
-## show_graph("formal_parameter_count_by_usage_class")
-## ```
-
-## ```{r echo = FALSE}
-## show_table("function_count_distribution_by_usage_class")
-## ```
-
-## ```{r echo = FALSE, out.width="1000px"}
-## show_graph("function_count_distribution_by_usage_class")
-## ```
