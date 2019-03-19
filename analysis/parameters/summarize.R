@@ -170,6 +170,14 @@ functions <- function(analyses) {
         ungroup() %>%
         mutate(relative_call_count = call_count / sum(call_count))
 
+    function_call_count_by_type_and_id <-
+        analyses$function_call_summary %>%
+        group_by(function_id) %>%
+        summarize(function_type = first(function_type),
+                  call_count = sum(as.double(call_count))) %>%
+        ungroup() %>%
+        mutate(relative_call_count = call_count / sum(call_count))
+
     compute_method_type <- function(S3_method, S4_method) {
         if_else(!S3_method & !S4_method,
                 "Ordinary",
@@ -356,6 +364,7 @@ functions <- function(analyses) {
          function_count_by_return_value_type = function_count_by_return_value_type,
          closure_count_by_formal_parameter_count = closure_count_by_formal_parameter_count,
          function_call_count_by_type_and_jump = function_call_count_by_type_and_jump,
+         function_call_count_by_type_and_id = function_call_count_by_type_and_id,
          function_call_count_by_method_type = function_call_count_by_method_type,
          function_count_by_method_type = function_count_by_method_type,
          closure_force_order_count = closure_force_order_count,
