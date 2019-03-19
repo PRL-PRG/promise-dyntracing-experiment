@@ -969,9 +969,9 @@ escaped_arguments <- function(analyses) {
         df <-
             df %>%
             mutate(!!type_column :=
-                       if_else(!!before_column != 0 & !!after_column == 0, "Before Escape",
-                               if_else(!!before_column == 0 & !!after_column != 0, "After Escape",
-                                       if_else(!!before_column != 0 & !!after_column != 0, "Both Times",
+                       if_else(!!before_column != 0 & !!after_column == 0, "Before",
+                               if_else(!!before_column == 0 & !!after_column != 0, "After",
+                                       if_else(!!before_column != 0 & !!after_column != 0, "Both",
                                                "Never")))) %>%
             group_by(!!type_column) %>%
             summarize(argument_count = n()) %>%
@@ -996,6 +996,8 @@ escaped_arguments <- function(analyses) {
 
     escaped_argument_count_by_lookup_type <-
         analyses$escaped_arguments %>%
+        mutate(before_escape_value_lookup_count = before_escape_value_lookup_count + before_escape_force_count,
+               after_escape_value_lookup_count = after_escape_value_lookup_count + after_escape_force_count) %>%
         summarize_before_and_after(before_escape_value_lookup_count,
                                    after_escape_value_lookup_count,
                                    lookup_type)

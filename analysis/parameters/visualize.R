@@ -464,34 +464,29 @@ escaped_arguments <- function(analyses) {
 
     escaped_argument_function_call_count_by_return_value_type <-
         analyses$escaped_argument_function_call_count_by_return_value_type %>%
-        ggplot(aes(x = return_value_type,
+        ggplot(aes(x = reorder(return_value_type, -call_count),
                    y = relative_call_count)) +
         geom_col() +
         scale_y_continuous(sec.axis = sec_axis(~ . * total_call_count,
                                                labels = count_labels),
                            labels = relative_labels) +
         labs(x = "Return Value Type",
-             y = "Call Count",
-             title =  "Escaped Argument Function Call Count by Return Value Type") +
-        scale_fill_gdocs() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1),
-              legend.position = "bottom")
+             y = "Call Count") +
+        scale_fill_gdocs()
 
 
     escaped_argument_function_count_by_return_value_type <-
         analyses$escaped_argument_function_count_by_return_value_type %>%
-        ggplot(aes(x = return_value_type,
+        ggplot(aes(x = reorder(return_value_type, -function_count),
                    y = relative_function_count)) +
         geom_col() +
         scale_y_continuous(sec.axis = sec_axis(~ . * total_function_count,
                                                labels = count_labels),
                            labels = relative_labels) +
         labs(x = "Return Value Type",
-             y = "Function Count",
-             title =  "Escaped Argument Function Count by Return Value Type") +
-        scale_fill_gdocs() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1),
-              legend.position = "bottom")
+             y = "Function Count") +
+        scale_fill_gdocs()
+
 
     escaped_argument_function_count_by_category <-
         analyses$escaped_argument_function_count_by_category %>%
@@ -503,7 +498,7 @@ escaped_arguments <- function(analyses) {
                            labels = relative_labels) +
         labs(x = "Function Category",
              y = "Function Count",
-             title =  "Escaped Argument Function Category by Return Value Type") +
+             title =  "Escaped Argument Function count by Category") +
         scale_fill_gdocs() +
         theme(axis.text.x = element_text(angle = 60, hjust = 1),
               legend.position = "bottom")
@@ -522,11 +517,8 @@ escaped_arguments <- function(analyses) {
                                                labels = count_labels),
                            labels = relative_labels) +
         labs(x = "Argument Nature",
-             y = "Argument Count",
-             title =  "Escaped Argument count by nature") +
-        scale_fill_gdocs() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1),
-              legend.position = "bottom")
+             y = "Argument Count") +
+        scale_fill_gdocs()
 
     escaped_argument_count_by_dispatch_type <-
         analyses$escaped_argument_count_by_dispatch_type %>%
@@ -543,100 +535,78 @@ escaped_arguments <- function(analyses) {
         theme(axis.text.x = element_text(angle = 60, hjust = 1),
               legend.position = "bottom")
 
-
     escaped_argument_count_by_expression_type <-
         analyses$escaped_argument_count_by_expression_type %>%
-        ggplot(aes(x = expression_type,
+        ggplot(aes(x = reorder(expression_type, -argument_count),
                    y = relative_argument_count)) +
         geom_col() +
         scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
                                                labels = count_labels),
                            labels = relative_labels) +
         labs(x = "Expression Type",
-             y = "Escaped Argument Count",
-             title =  "Escaped Argument count by expression type") +
-        scale_fill_gdocs() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1),
-              legend.position = "bottom")
+             y = "Argument Count") +
+        scale_fill_gdocs()
 
     escaped_argument_count_by_value_type <-
         analyses$escaped_argument_count_by_value_type %>%
-        ggplot(aes(x = value_type,
+        ggplot(aes(x = reorder(value_type, -argument_count),
                    y = relative_argument_count)) +
         geom_col() +
         scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
                                                labels = count_labels),
                            labels = relative_labels) +
         labs(x = "Value Type",
-             y = "Escaped Argument Count",
-             title =  "Escaped Argument count by value type") +
-        scale_fill_gdocs() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1),
-              legend.position = "bottom")
-
-    escaped_argument_count_by_force_type <-
-        analyses$escaped_argument_count_by_force_type %>%
-        ggplot(aes(x = force_type,
-                   y = relative_argument_count)) +
-        geom_col() +
-        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
-                                               labels = count_labels),
-                           labels = relative_labels) +
-        labs(x = "Force Type",
-             y = "Escaped Argument Count",
-             title =  "Escaped Argument count by force type") +
-        scale_fill_gdocs() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1),
-              legend.position = "bottom")
-
-
-    escaped_argument_count_by_metaprogram_type <-
-        analyses$escaped_argument_count_by_metaprogram_type %>%
-        ggplot(aes(x = metaprogram_type,
-                   y = relative_argument_count)) +
-        geom_col() +
-        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
-                                               labels = count_labels),
-                           labels = relative_labels) +
-        labs(x = "Metaprogram Type",
-             y = "Escaped Argument Count",
-             title =  "Escaped Argument count by metaprogram type") +
-        scale_fill_gdocs() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1),
-              legend.position = "bottom")
-
-
-    escaped_argument_count_by_lookup_type <-
-        analyses$escaped_argument_count_by_lookup_type %>%
-        ggplot(aes(x = lookup_type,
-                   y = relative_argument_count)) +
-        geom_col() +
-        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
-                                               labels = count_labels),
-                           labels = relative_labels) +
-        labs(x = "Lookup Type",
-             y = "Escaped Argument Count",
-             title =  "Escaped Argument count by lookup type") +
-        scale_fill_gdocs() +
-        theme(axis.text.x = element_text(angle = 60, hjust = 1),
-              legend.position = "bottom")
-
+             y = "Argument Count") +
+        scale_fill_gdocs()
 
     visualize_before_after <- function(df, x, y, total_argument_count,
                                        x_label, y_label, title) {
         x = enquo(x)
         y = enquo(y)
 
+        valid_orders <- df %>% pull(!!x)
+
+        order <-
+            c("Before", "After", "Both", "Never") %>%
+            keep(function(x) { x %in%  valid_orders })
+
         df %>%
             ggplot(aes(x = !!x, y = !!y)) +
             geom_col() +
+            scale_x_discrete(limits = order) +
             scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
                                                    labels = count_labels),
                                labels = relative_labels) +
-            labs(x = x_label, y = y_label, title =  title) +
-            scale_fill_gdocs() +
-            theme(axis.text.x = element_text(angle = 60, hjust = 1), legend.position = "bottom")
+            labs(x = x_label, y = y_label) +
+            scale_fill_gdocs()
     }
+
+    escaped_argument_count_by_force_type <-
+        analyses$escaped_argument_count_by_force_type %>%
+        visualize_before_after(force_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Force Point",
+                               "Argument Count",
+                               "")
+
+    escaped_argument_count_by_metaprogram_type <-
+        analyses$escaped_argument_count_by_metaprogram_type %>%
+        visualize_before_after(metaprogram_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Metaprogram Point",
+                               "Argument Count",
+                               "")
+
+    escaped_argument_count_by_lookup_type <-
+        analyses$escaped_argument_count_by_lookup_type %>%
+        visualize_before_after(lookup_type,
+                               relative_argument_count,
+                               total_argument_count,
+                               "Lookup Point",
+                               "Argument Count",
+                               "")
 
     escaped_argument_count_by_direct_self_scope_mutation_type <-
         analyses$escaped_argument_count_by_direct_self_scope_mutation_type %>%
