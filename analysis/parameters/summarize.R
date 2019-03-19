@@ -56,6 +56,7 @@ objects <- function(analyses) {
         group_by(type) %>%
         summarize(count = sum(count)) %>%
         ungroup() %>%
+        filter(!(type %in% c("Null", "..."))) %>%
         mutate(relative_count = count / sum(count))
 
     list(object_count_by_type = object_count_by_type)

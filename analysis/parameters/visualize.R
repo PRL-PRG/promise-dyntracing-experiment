@@ -93,14 +93,14 @@ objects <- function(analyses) {
 
     object_count_by_type <-
         analyses$object_count_by_type %>%
-        ggplot(aes(x = type, y = relative_count)) +
+        ggplot(aes(x = reorder(type, -count), y = relative_count)) +
         geom_col() +
         scale_y_continuous(sec.axis = sec_axis(~ . * total_object_count,
                                                labels = count_labels),
                            labels = relative_labels) +
         labs(x = "Object Type",
-             y = "Object Count",
-             title =  "Object count by Object type") +
+             y = "Object Count") +
+        #     title =  "Object count by Object type") +
         scale_fill_gdocs() +
         theme(axis.text.x = element_text(angle = 60, hjust = 1))
 
