@@ -21,6 +21,7 @@ suppressPackageStartupMessages(library(fs))
 suppressPackageStartupMessages(library(promisedyntracer))
 suppressPackageStartupMessages(library(purrr))
 suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(tibble))
 
 info <- function(...) cat((paste0(...)))
 
@@ -898,7 +899,30 @@ escaped_arguments <- function(analyses) {
         group_by(return_value_type) %>%
         summarize(call_count = n()) %>%
         ungroup() %>%
-        mutate(relative_call_count = call_count / sum(call_count))
+        mutate(relative_call_count = call_count / sum(call_count)) %>%
+        add_column(category = "Escaped", .before = 1)
+
+    escaped_argument_function_id <-
+        escaped_arguments %>%
+        pull(function_id) %>%
+        unique()
+
+    not_escaped_argument_function_call_count_by_return_value_type <-
+        analyses$function_call_summary %>%
+        filter(!jumped & function_type == "Closure") %>%
+        filter(function_id %in% escaped_argument_function_id) %>%
+        group_by(return_value_type) %>%
+        summarize(call_count = sum(call_count)) %>%
+        ungroup() %>%
+        mutate(relative_call_count = call_count / sum(call_count)) %>%
+        add_column(category = "Not-escaped", .before = 1)
+
+    function_call_count_by_escape_category_and_return_value_type <-
+        bind_rows(escaped_argument_function_call_count_by_return_value_type,
+                  not_escaped_argument_function_call_count_by_return_value_type) %>%
+        select(return_value_type, category, relative_call_count) %>%
+        spread(category, relative_call_count, fill = 0) %>%
+        gather(category, relative_call_count, -return_value_type)
 
     escaped_argument_function_count_by_return_value_type <-
         escaped_argument_return_value_type %>%
@@ -987,29 +1011,49 @@ escaped_arguments <- function(analyses) {
             ungroup() %>%
             mutate(relative_argument_count = argument_count / sum(argument_count))
 
-        df
+        add_row_if_absent <- function(df, column_value) {
+            if(!(column_value %in% colnames(df))) {
+                df <-
+                    df %>%
+                    add_row(!!type_column := column_value,
+                            argument_count = 0,
+                            relative_argument_count = 0)
+            }
+            df
+        }
+
+        df %>%
+            add_row_if_absent("Before") %>%
+            add_row_if_absent("After") %>%
+            add_row_if_absent("Both") %>%
+            add_row_if_absent("Never")
     }
 
-    escaped_argument_count_by_force_type <-
+    escaped_argument_count_by_force_point <-
         analyses$escaped_arguments %>%
         summarize_before_and_after(before_escape_force_count,
                                    after_escape_force_count,
-                                   force_type)
+                                   point) %>%
+        add_column(use = "Force", .before = 1)
 
-    escaped_argument_count_by_metaprogram_type <-
+    escaped_argument_count_by_lookup_point <-
+        analyses$escaped_arguments %>%
+        summarize_before_and_after(before_escape_value_lookup_count,
+                                   after_escape_value_lookup_count,
+                                   point) %>%
+        add_column(use = "Lookup", .before = 1)
+
+    escaped_argument_count_by_metaprogram_point <-
         analyses$escaped_arguments %>%
         summarize_before_and_after(before_escape_metaprogram_count,
                                    after_escape_metaprogram_count,
-                                   metaprogram_type)
+                                   point) %>%
+        add_column(use = "Metaprogram", .before = 1)
 
-
-    escaped_argument_count_by_lookup_type <-
-        analyses$escaped_arguments %>%
-        mutate(before_escape_value_lookup_count = before_escape_value_lookup_count + before_escape_force_count,
-               after_escape_value_lookup_count = after_escape_value_lookup_count + after_escape_force_count) %>%
-        summarize_before_and_after(before_escape_value_lookup_count,
-                                   after_escape_value_lookup_count,
-                                   lookup_type)
+    escaped_argument_count_by_use_point <-
+        bind_rows(escaped_argument_count_by_force_point,
+                  escaped_argument_count_by_lookup_point,
+                  escaped_argument_count_by_metaprogram_point)
 
     escaped_argument_count_by_direct_self_scope_mutation_type <-
         analyses$escaped_arguments %>%
@@ -1085,6 +1129,8 @@ escaped_arguments <- function(analyses) {
 
     list(escaped_arguments = escaped_arguments,
          escaped_argument_function_call_count_by_return_value_type = escaped_argument_function_call_count_by_return_value_type,
+         not_escaped_argument_function_call_count_by_return_value_type = not_escaped_argument_function_call_count_by_return_value_type,
+         function_call_count_by_escape_category_and_return_value_type = function_call_count_by_escape_category_and_return_value_type,
          escaped_argument_function_count_by_return_value_type = escaped_argument_function_count_by_return_value_type,
          escaped_argument_function_category = escaped_argument_function_category,
          escaped_argument_function_count_by_category = escaped_argument_function_count_by_category,
@@ -1092,9 +1138,10 @@ escaped_arguments <- function(analyses) {
          escaped_argument_count_by_dispatch_type = escaped_argument_count_by_dispatch_type,
          escaped_argument_count_by_expression_type = escaped_argument_count_by_expression_type,
          escaped_argument_count_by_value_type = escaped_argument_count_by_value_type,
-         escaped_argument_count_by_force_type = escaped_argument_count_by_force_type,
-         escaped_argument_count_by_metaprogram_type = escaped_argument_count_by_metaprogram_type,
-         escaped_argument_count_by_lookup_type = escaped_argument_count_by_lookup_type,
+         escaped_argument_count_by_use_point = escaped_argument_count_by_use_point,
+         escaped_argument_count_by_force_point = escaped_argument_count_by_force_point,
+         escaped_argument_count_by_metaprogram_point = escaped_argument_count_by_metaprogram_point,
+         escaped_argument_count_by_lookup_point = escaped_argument_count_by_lookup_point,
          escaped_argument_count_by_direct_self_scope_mutation_type = escaped_argument_count_by_direct_self_scope_mutation_type,
          escaped_argument_count_by_indirect_self_scope_mutation_type = escaped_argument_count_by_indirect_self_scope_mutation_type,
          escaped_argument_count_by_direct_lexical_scope_mutation_type = escaped_argument_count_by_direct_lexical_scope_mutation_type,

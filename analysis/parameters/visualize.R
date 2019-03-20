@@ -100,7 +100,6 @@ objects <- function(analyses) {
                            labels = relative_labels) +
         labs(x = "Object Type",
              y = "Object Count") +
-        #     title =  "Object count by Object type") +
         scale_fill_gdocs() +
         theme(axis.text.x = element_text(angle = 60, hjust = 1))
 
@@ -472,8 +471,9 @@ escaped_arguments <- function(analyses) {
                            labels = relative_labels) +
         labs(x = "Return Value Type",
              y = "Call Count") +
-        scale_fill_gdocs()
-
+        scale_fill_gdocs() +
+        theme(axis.text.x = element_text(angle = 30, hjust = 1),
+              legend.position = "bottom")
 
     escaped_argument_function_count_by_return_value_type <-
         analyses$escaped_argument_function_count_by_return_value_type %>%
@@ -487,6 +487,26 @@ escaped_arguments <- function(analyses) {
              y = "Function Count") +
         scale_fill_gdocs()
 
+    type_order <-
+        analyses$function_call_count_by_escape_category_and_return_value_type %>%
+        filter(category == "Escaped") %>%
+        arrange(desc(relative_call_count)) %>%
+        pull(return_value_type)
+
+    function_call_count_by_escape_category_and_return_value_type <-
+        analyses$function_call_count_by_escape_category_and_return_value_type %>%
+        ggplot(aes(x = return_value_type,
+                   y = relative_call_count,
+                   fill = category)) +
+        geom_col(position = "dodge") +
+        scale_x_discrete(limits = type_order) +
+        scale_y_continuous(labels = relative_labels) +
+        labs(x = "Return Value Type",
+             y = "Function Count") +
+        scale_fill_gdocs() +
+        theme(legend.title = element_blank(),
+              axis.text.x = element_text(angle = 30, hjust = 1),
+              legend.position = "top")
 
     escaped_argument_function_count_by_category <-
         analyses$escaped_argument_function_count_by_category %>%
@@ -518,7 +538,8 @@ escaped_arguments <- function(analyses) {
                            labels = relative_labels) +
         labs(x = "Argument Nature",
              y = "Argument Count") +
-        scale_fill_gdocs()
+        scale_fill_gdocs() +
+        theme(text = element_text(size=20))
 
     escaped_argument_count_by_dispatch_type <-
         analyses$escaped_argument_count_by_dispatch_type %>%
@@ -581,32 +602,47 @@ escaped_arguments <- function(analyses) {
             scale_fill_gdocs()
     }
 
-    escaped_argument_count_by_force_type <-
-        analyses$escaped_argument_count_by_force_type %>%
-        visualize_before_after(force_type,
+    escaped_argument_count_by_force_point <-
+        analyses$escaped_argument_count_by_force_point %>%
+        visualize_before_after(point,
                                relative_argument_count,
                                total_argument_count,
                                "Force Point",
                                "Argument Count",
                                "")
 
-    escaped_argument_count_by_metaprogram_type <-
-        analyses$escaped_argument_count_by_metaprogram_type %>%
-        visualize_before_after(metaprogram_type,
+    escaped_argument_count_by_metaprogram_point <-
+        analyses$escaped_argument_count_by_metaprogram_point %>%
+        visualize_before_after(point,
                                relative_argument_count,
                                total_argument_count,
                                "Metaprogram Point",
                                "Argument Count",
                                "")
 
-    escaped_argument_count_by_lookup_type <-
-        analyses$escaped_argument_count_by_lookup_type %>%
-        visualize_before_after(lookup_type,
+    escaped_argument_count_by_lookup_point <-
+        analyses$escaped_argument_count_by_lookup_point %>%
+        visualize_before_after(point,
                                relative_argument_count,
                                total_argument_count,
                                "Lookup Point",
                                "Argument Count",
                                "")
+
+    escaped_argument_count_by_use_point <-
+        analyses$escaped_argument_count_by_use_point %>%
+        ggplot(aes(x = point, y = relative_argument_count,
+                   fill = use)) +
+        geom_col(position = "dodge") + # position_dodge2(width = 0.9, preserve = "single")) +
+        scale_x_discrete(limits = c("Before", "After", "Both", "Never")) +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_argument_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Use Point", y = "Argument Count") +
+        theme(legend.title = element_blank(),
+              legend.position = "top")
+        scale_fill_gdocs()
+
 
     escaped_argument_count_by_direct_self_scope_mutation_type <-
         analyses$escaped_argument_count_by_direct_self_scope_mutation_type %>%
@@ -718,15 +754,17 @@ escaped_arguments <- function(analyses) {
                                "Escaped argument count by indirect non lexical scope observation type")
 
     list(escaped_argument_function_call_count_by_return_value_type = escaped_argument_function_call_count_by_return_value_type,
+         function_call_count_by_escape_category_and_return_value_type = function_call_count_by_escape_category_and_return_value_type,
          escaped_argument_function_count_by_return_value_type = escaped_argument_function_count_by_return_value_type,
          escaped_argument_function_count_by_category = escaped_argument_function_count_by_category,
          escaped_argument_count_by_nature = escaped_argument_count_by_nature,
          escaped_argument_count_by_dispatch_type = escaped_argument_count_by_dispatch_type,
          escaped_argument_count_by_expression_type = escaped_argument_count_by_expression_type,
          escaped_argument_count_by_value_type = escaped_argument_count_by_value_type,
-         escaped_argument_count_by_force_type = escaped_argument_count_by_force_type,
-         escaped_argument_count_by_metaprogram_type = escaped_argument_count_by_metaprogram_type,
-         escaped_argument_count_by_lookup_type = escaped_argument_count_by_lookup_type,
+         escaped_argument_count_by_force_point = escaped_argument_count_by_force_point,
+         escaped_argument_count_by_metaprogram_point = escaped_argument_count_by_metaprogram_point,
+         escaped_argument_count_by_lookup_point = escaped_argument_count_by_lookup_point,
+         escaped_argument_count_by_use_point = escaped_argument_count_by_use_point,
          escaped_argument_count_by_direct_self_scope_mutation_type = escaped_argument_count_by_direct_self_scope_mutation_type,
          escaped_argument_count_by_indirect_self_scope_mutation_type = escaped_argument_count_by_indirect_self_scope_mutation_type,
          escaped_argument_count_by_direct_lexical_scope_mutation_type = escaped_argument_count_by_direct_lexical_scope_mutation_type,
@@ -1691,6 +1729,12 @@ visualize_summarized_data <- function(settings, summarized_data_table) {
 
     summarized_data_filepaths <- summarized_data_table$filepath
 
+    old_theme <- theme_set(theme_bw() +
+                           theme(text = element_text(size = 15,
+                                                     family="LinLibertineT-tlf-t1"),
+                                 panel.border = element_blank()))
+
+
     visualized_data_filepaths <-
         summarized_data_filepaths %>%
         map(promisedyntracer::read_data_table,
@@ -1707,6 +1751,8 @@ visualize_summarized_data <- function(settings, summarized_data_table) {
                 output_filepath
             }
         )
+
+    theme_set(old_theme)
 
     info("=> Finished visualization\n")
 
