@@ -42,6 +42,7 @@ TRACE_ANALYSIS_MERGED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/merged
 TRACE_ANALYSIS_SUMMARIZED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/summarized
 TRACE_ANALYSIS_VISUALIZED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/visualized
 TRACE_ANALYSIS_REPORT_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/report
+TRACE_ANALYSIS_LATEX_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/latex
 TRACE_CORPUS_DIRPATH := $(TRACE_DIRPATH)/corpus
 TRACE_LOGS_DIRPATH := $(TRACE_DIRPATH)/logs
 TRACE_LOGS_RAW_DIRPATH := $(TRACE_LOGS_DIRPATH)/raw
@@ -53,6 +54,7 @@ TRACE_LOGS_MERGED_DIRPATH := $(TRACE_LOGS_DIRPATH)/merged
 TRACE_LOGS_SUMMARIZED_DIRPATH := $(TRACE_LOGS_DIRPATH)/summarized
 TRACE_LOGS_VISUALIZED_DIRPATH := $(TRACE_LOGS_DIRPATH)/visualized
 TRACE_LOGS_REPORT_DIRPATH := $(TRACE_LOGS_DIRPATH)/report
+TRACE_LOGS_LATEX_DIRPATH := $(TRACE_LOGS_DIRPATH)/latex
 TRACE_LOGS_CORPUS_DIRPATH := $(TRACE_LOGS_DIRPATH)/corpus
 TRACE_LOGS_SUMMARY_DIRPATH := $(TRACE_LOGS_DIRPATH)/summary
 TRACE_LOGS_SUMMARY_RAW_DIRPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/raw
@@ -85,6 +87,12 @@ INVALID_SCRIPTS_FILEPATH := invalid_scripts.csv
 ################################################################################
 REPORT_TEMPLATE_DIRPATH := report
 REPORT_UTILITIES_SCRIPTPATH := report/utilities.R
+
+################################################################################
+## latex variables
+################################################################################
+LATEX_FILENAME := variables.tex
+APPEND := --append
 
 ################################################################################
 ## package setup options
@@ -121,7 +129,7 @@ TRACE_ANALYSIS_SCRIPT_TYPE := --vignettes --examples --tests
 ################################################################################
 ## analysis arguments
 ################################################################################
-ANALYSIS := object_types
+ANALYSIS := objects
 
 ################################################################################
 ## data table viewer arguments
@@ -411,6 +419,23 @@ report-analysis:
 	                                                             $(TRACE_LOGS_REPORT_DIRPATH)/$(ANALYSIS)
 
 
+latex-analysis:
+	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
+	@mkdir -p $(TRACE_LOGS_LATEX_DIRPATH)
+	@mkdir -p $(TRACE_ANALYSIS_LATEX_DIRPATH)
+
+	@$(UNBUFFER) $(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                       \
+	  	                               --file=analysis/parameters/latex.R                        \
+	    	                             --args $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)               \
+	      	                                  $(TRACE_ANALYSIS_LATEX_DIRPATH)/$(LATEX_FILENAME)  \
+	                                          $(ANALYSIS)                                        \
+	        	                                $(APPEND)                                          \
+	                                          $(BINARY)                                          \
+	                                          --compression-level=$(COMPRESSION_LEVEL)           \
+	          	                       2>&1 | $(TEE) $(TEE_FLAGS)                                \
+	            	                                $(TRACE_LOGS_LATEX_DIRPATH)/$(ANALYSIS)
+
+
 analyze-corpus:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_CORPUS_DIRPATH)
@@ -494,6 +519,15 @@ report-analyses:
 	$(MAKE) report-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=summary
 
 
+latex-analyses:
+	$(MAKE) latex-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) APPEND=         ANALYSIS=objects
+	$(MAKE) latex-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) APPEND=--append ANALYSIS=escaped_arguments
+	$(MAKE) latex-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) APPEND=--append ANALYSIS=functions
+	$(MAKE) latex-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) APPEND=--append ANALYSIS=promises
+	$(MAKE) latex-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) APPEND=--append ANALYSIS=arguments
+	$(MAKE) latex-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) APPEND=--append ANALYSIS=parameters
+
+
 view-function-definition:
 	@$(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                                          \
 	               --file=scripts/view-function-definition.R                                    \
@@ -519,6 +553,7 @@ view-function-definition:
 	      summarize-analysis              \
 	      visualize-analysis              \
 	      report-analysis                 \
+	      latex-analysis                  \
 	      analyze-corpus                  \
 	      reduce-analyses                 \
 	      reduce-analyses-prl-server      \
@@ -527,4 +562,5 @@ view-function-definition:
 	      merge-analyses                  \
 	      summarize-analyses              \
 	      visualize-analyses              \
-	      report-analyses
+	      report-analyses                 \
+	      latex-analyses
