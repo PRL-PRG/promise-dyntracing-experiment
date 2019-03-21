@@ -43,6 +43,7 @@ TRACE_ANALYSIS_SUMMARIZED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/summarized
 TRACE_ANALYSIS_VISUALIZED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/visualized
 TRACE_ANALYSIS_REPORT_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/report
 TRACE_ANALYSIS_LATEX_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/latex
+TRACE_ANALYSIS_VALIDATED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/validated
 TRACE_CORPUS_DIRPATH := $(TRACE_DIRPATH)/corpus
 TRACE_LOGS_DIRPATH := $(TRACE_DIRPATH)/logs
 TRACE_LOGS_RAW_DIRPATH := $(TRACE_LOGS_DIRPATH)/raw
@@ -55,6 +56,7 @@ TRACE_LOGS_SUMMARIZED_DIRPATH := $(TRACE_LOGS_DIRPATH)/summarized
 TRACE_LOGS_VISUALIZED_DIRPATH := $(TRACE_LOGS_DIRPATH)/visualized
 TRACE_LOGS_REPORT_DIRPATH := $(TRACE_LOGS_DIRPATH)/report
 TRACE_LOGS_LATEX_DIRPATH := $(TRACE_LOGS_DIRPATH)/latex
+TRACE_LOGS_VALIDATED_DIRPATH := $(TRACE_LOGS_DIRPATH)/validated
 TRACE_LOGS_CORPUS_DIRPATH := $(TRACE_LOGS_DIRPATH)/corpus
 TRACE_LOGS_SUMMARY_DIRPATH := $(TRACE_LOGS_DIRPATH)/summary
 TRACE_LOGS_SUMMARY_RAW_DIRPATH := $(TRACE_LOGS_SUMMARY_DIRPATH)/raw
@@ -81,6 +83,11 @@ COMBINED_FILENAME_PREFIX = $(shell hostname)-part
 ALL_SCRIPTS_FILEPATH := all_scripts.csv
 VALID_SCRIPTS_FILEPATH := valid_scripts.csv
 INVALID_SCRIPTS_FILEPATH := invalid_scripts.csv
+
+################################################################################
+## extract variables
+################################################################################
+FUNCTION_COUNT := 1000
 
 ################################################################################
 ## report directory paths
@@ -436,6 +443,22 @@ latex-analysis:
 	            	                                $(TRACE_LOGS_LATEX_DIRPATH)/$(ANALYSIS)
 
 
+validate-analysis:
+	@mkdir -p $(TRACE_LOGS_VALIDATED_DIRPATH)
+	@mkdir -p $(TRACE_ANALYSIS_VALIDATED_DIRPATH)
+
+	@$(UNBUFFER) $(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                    \
+	                                   --file=analysis/parameters/validate.R                  \
+	                                   --args $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)            \
+	                                          $(TRACE_ANALYSIS_VALIDATED_DIRPATH)             \
+	                                          $(ANALYSIS)                                     \
+	                                          $(FUNCTION_COUNT)                               \
+	                                          $(BINARY)                                       \
+	                                          --compression-level=$(COMPRESSION_LEVEL)        \
+                                     2>&1 | $(TEE) $(TEE_FLAGS)                             \
+	            	                                $(TRACE_LOGS_VALIDATED_DIRPATH)/$(ANALYSIS)
+
+
 analyze-corpus:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_CORPUS_DIRPATH)
@@ -554,6 +577,7 @@ view-function-definition:
 	      visualize-analysis              \
 	      report-analysis                 \
 	      latex-analysis                  \
+	      validate-analysis               \
 	      analyze-corpus                  \
 	      reduce-analyses                 \
 	      reduce-analyses-prl-server      \
