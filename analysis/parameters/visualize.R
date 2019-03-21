@@ -24,6 +24,7 @@ suppressPackageStartupMessages(library(tidyr))
 suppressPackageStartupMessages(library(ggplot2))
 suppressPackageStartupMessages(library(ggthemes))
 suppressPackageStartupMessages(library(scales))
+suppressPackageStartupMessages(library(extrafont))
 
 source("analysis/utils.R")
 
@@ -1731,7 +1732,8 @@ visualize_summarized_data <- function(settings, summarized_data_table) {
 
     old_theme <- theme_set(theme_bw() +
                            theme(text = element_text(size = 15,
-                                                     family="LinLibertineT-tlf-t1"),
+                                                     family = "Linux Libertine Mono"),
+                                                     #family="LinLibertineT-tlf-t1"),
                                  panel.border = element_blank()))
 
 
@@ -1746,8 +1748,8 @@ visualize_summarized_data <- function(settings, summarized_data_table) {
             function(visualization, name) {
                 output_filepath <- path(settings$output_dirpath,
                                         name,
-                                        ext = "png")
-                ggsave(output_filepath, visualization)
+                                        ext = "pdf")
+                ggsave(output_filepath, visualization, device = "pdf")
                 output_filepath
             }
         )
