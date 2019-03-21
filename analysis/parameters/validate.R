@@ -127,34 +127,50 @@ escaped_arguments <- function(analyses, settings) {
               sep = "")
     }
 
-    filepath <- path(settings$output_dirpath,
-                     "escaped_argument_function_definitions",
-                     ext = "R")
-
     escaped_argument_functions <-
         analyses$escaped_arguments %>%
-        group_by(function_id) %>%
+        group_by(return_value_type, function_id) %>%
         summarize(formal_parameter_position =
                       to_sequence(sort(unique(formal_parameter_position)))) %>%
         ungroup() %>%
         left_join(analyses$function_definitions, by = "function_id")
 
-    pb <- progress_bar$new(format = "[:bar] :percent :eta",
-                           total = nrow(escaped_argument_functions),
-                           clear = FALSE,
-                           width = 100)
+    escaped_argument_function_definition_dirpath <-
+        path(settings$output_dirpath,
+             "escaped_argument_function_definitions")
 
-    info("=> Writing to '", filepath, "'\n")
-
-    serializer <- function_definition_serializer(filepath, pb)
+    dir_create(escaped_argument_function_definition_dirpath)
 
     escaped_argument_functions %>%
-        select(function_id, function_name, definition, script, formal_parameter_position) %>%
-        pmap(serializer$serialize_row)
+        group_by(return_value_type) %>%
+        do({
+            return_value_type <- .data$return_value_type[1]
 
-    serializer$finish()
+            filepath <- path(escaped_argument_function_definition_dirpath,
+                             str_c(str_to_lower(return_value_type)),
+                             ext = "R")
 
-    info("=> Written to '", filepath, "'\n")
+            pb <- progress_bar$new(format = "[:bar] :percent :eta",
+                                   total = nrow(.data),
+                                   clear = FALSE,
+                                   width = 100)
+
+            info("\n=> Writing to '", filepath, "'\n")
+
+            serializer <- function_definition_serializer(filepath, pb)
+
+            .data %>%
+                select(function_id, function_name, definition, script,
+                       formal_parameter_position, return_value_type) %>%
+                pmap(serializer$serialize_row)
+
+            serializer$finish()
+
+            info("=> Written to '", filepath, "'\n")
+
+            tibble(output_filepath = filepath)
+        })
+
 }
 
 extract <- function(analyses, settings) {
