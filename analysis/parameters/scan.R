@@ -52,11 +52,13 @@ scan_input_dirpath <- function(settings) {
         ## script names
         dir_ls(type = "directory") %>%
         {tibble(script_dirpath = .)} %>%
-        mutate(script_name = path_file(script_dirpath),
-               script_type = path_file(path_dir(script_dirpath)),
-               package = path_file(path_dir(path_dir(script_dirpath))),
-               analysis = path_file(path_dir(path_dir(path_dir(script_dirpath)))),
-               finish_filepath = path(script_dirpath, "FINISH"),
+        mutate(path_components = path_split(script_dirpath)) %>%
+        mutate(path_length = lengths(path_components)) %>%
+        mutate(script_name = map2_chr(path_components, path_length, `[`),
+               script_type = map2_chr(path_components, path_length - 1, `[`),
+               package = map2_chr(path_components, path_length - 2, `[`),
+               analysis = map2_chr(path_components, path_length - 3, `[`),
+                finish_filepath = path(script_dirpath, "FINISH"),
                noerror_filepath = path(script_dirpath, "NOERROR")) %>%
         mutate(finish_and_noerror = file_exists(finish_filepath) & file_exists(noerror_filepath)) %>%
         group_by(package, script_type, script_name) %>%
