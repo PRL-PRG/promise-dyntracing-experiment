@@ -118,7 +118,7 @@ PACKAGE_LOG_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/log
 PARALLEL_JOB_COUNT := 1
 PARALLEL_JOB_COUNT_FILEPATH := scripts/procfile
 TRACE_TRACING_SCRIPT_FILEPATH := scripts/trace.R
-CORPUS_FILEPATH := scripts/corpus.txt
+CORPUS_FILEPATH := corpus/test.txt
 DEPENDENCIES_FILEPATH := scripts/dependencies.txt
 
 ################################################################################
