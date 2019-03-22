@@ -464,12 +464,14 @@ analyze-corpus:
 	@mkdir -p $(TRACE_LOGS_CORPUS_DIRPATH)
 	@mkdir -p $(TRACE_ANALYSIS_CORPUS_DIRPATH)
 
-	@$(UNBUFFER) $(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                             \
-	  	                               --file=analysis/corpus.R                        \
-	    	                             --args $(TRACE_CORPUS_DIRPATH)                  \
-	      	                                  $(TRACE_ANALYSIS_RAW_DIRPATH)            \
-	        	                                $(TRACE_ANALYSIS_CORPUS_DIRPATH)         \
-	          	                       2>&1 | $(TEE) $(TEE_FLAGS)                      \
+	@$(UNBUFFER) $(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                                \
+	  	                               --file=analysis/corpus.R                                           \
+	    	                             --args $(TRACE_ANALYSIS_SCANNED_DIRPATH)/$(VALID_SCRIPTS_FILEPATH) \
+	                                          $(TRACE_CORPUS_DIRPATH)                                     \
+	      	                                  $(TRACE_ANALYSIS_RAW_DIRPATH)                               \
+	      	                                  $(PACKAGE_SRC_DIRPATH)                                      \
+	        	                                $(TRACE_ANALYSIS_CORPUS_DIRPATH)                            \
+	          	                       2>&1 | $(TEE) $(TEE_FLAGS)                                         \
 	            	                                $(TRACE_LOGS_CORPUS_DIRPATH)/log
 
 
