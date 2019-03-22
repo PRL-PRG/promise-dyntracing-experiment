@@ -109,6 +109,7 @@ PACKAGE_SETUP_REPOSITORIES := --setup-cran --setup-bioc
 PACKAGE_SETUP_NCPUS := 8
 PACKAGE_SETUP_DIRPATH := ~/r-dyntrace-packages
 PACKAGE_LIB_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/lib
+PACKAGE_CONTRIB_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/contrib
 PACKAGE_SRC_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/src
 PACKAGE_LOG_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/log
 
@@ -276,6 +277,19 @@ add-dependents-and-dependencies:
 	                      scripts/corpus-paper.csv                                        \
 	                      --dependents                                                    \
 	                      --dependencies
+
+
+mirror-package-repositories:
+	@mkdir -p $(PACKAGE_CONTRIB_DIRPATH)
+	@mkdir -p $(PACKAGE_SRC_DIRPATH)
+	rsync -rtlzv --include="*.tar.gz" --include="PACKAGES*" --exclude="*/*" mirrors.nic.cz::CRAN/src/contrib/ $(PACKAGE_CONTRIB_DIRPATH)
+	rsync -rtlzv --include='*.tar.gz' --include='PACKAGES*' --exclude='*/*' master.bioconductor.org::release/bioc/src/contrib/ $(PACKAGE_CONTRIB_DIRPATH)
+	rsync -rtlzv --include='*.tar.gz' --include='PACKAGES*' --exclude="*/*" master.bioconductor.org::release/data/annotation/src/contrib/ $(PACKAGE_CONTRIB_DIRPATH)
+	rsync -rtlzv --include='*.tar.gz' --include='PACKAGES*' --exclude="*/*" master.bioconductor.org::release/data/experiment/src/contrib/ $(PACKAGE_CONTRIB_DIRPATH)
+	rsync -rtlzv --include='*.tar.gz' --include='PACKAGES*' --exclude="*/*" master.bioconductor.org::release/workflows/src/contrib/ $(PACKAGE_CONTRIB_DIRPATH)
+	for package in $(PACKAGE_CONTRIB_DIRPATH)/*.tar.gz; do \
+	    tar -xvf $(package) -C $(PACKAGE_SRC_DIRPATH)      \
+	done
 
 
 setup-package-repositories:
