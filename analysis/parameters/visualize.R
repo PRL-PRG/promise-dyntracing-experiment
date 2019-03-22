@@ -104,7 +104,25 @@ objects <- function(analyses) {
         scale_fill_gdocs() +
         theme(axis.text.x = element_text(angle = 60, hjust = 1))
 
-    list(object_count_by_type = object_count_by_type)
+
+    grouped_object_count_by_type <-
+        analyses$grouped_object_count_by_type %>%
+        ggplot(aes(x = reorder(group_type, -count),
+                   y = relative_count, fill = type)) +
+        geom_col() +
+        scale_y_continuous(sec.axis = sec_axis(~ . * total_object_count,
+                                               labels = count_labels),
+                           labels = relative_labels) +
+        labs(x = "Object Type",
+             y = "Object Count") +
+        theme(axis.text.x = element_text(angle = 30, hjust = 0.6)) +
+        scale_fill_discrete(breaks=c("S4", "Expression", "Externalptr", "Symbol")) +
+        theme(legend.title = element_blank(),
+              legend.position = "top")
+
+
+    list(object_count_by_type = object_count_by_type,
+         grouped_object_count_by_type = grouped_object_count_by_type)
 }
 
 
@@ -1732,7 +1750,8 @@ visualize_summarized_data <- function(settings, summarized_data_table) {
 
     old_theme <- theme_set(theme_bw() +
                            theme(text = element_text(size = 15,
-                                                     family = "Linux Libertine Mono"),
+                                                     family = "LinLibertineT-tlf-t1"),
+#                                                     family = "Linux Biolinum Regular"),
                                                      #family="LinLibertineT-tlf-t1"),
                                  panel.border = element_blank()))
 
@@ -1749,7 +1768,7 @@ visualize_summarized_data <- function(settings, summarized_data_table) {
                 output_filepath <- path(settings$output_dirpath,
                                         name,
                                         ext = "pdf")
-                ggsave(output_filepath, visualization, device = "pdf")
+                ggsave(output_filepath, visualization, device = cairo_pdf)
                 output_filepath
             }
         )

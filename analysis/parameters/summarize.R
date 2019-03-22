@@ -60,7 +60,31 @@ objects <- function(analyses) {
         filter(!(type %in% c("Null", "..."))) %>%
         mutate(relative_count = count / sum(count))
 
-    list(object_count_by_type = object_count_by_type)
+    main_types <- c("Promise", "Environment", "Character", "Logical",
+                    "Integer", "Double", "Raw", "Complex", "List", "Closure")
+
+    internal_type <- c("Pairlist", "Function Call", "Char", "...", "Bytecode")
+
+    main_object_count_by_type <-
+        analyses$object_counts %>%
+        filter(!(type %in% internal_type)) %>%
+        filter(type %in% main_types) %>%
+        mutate(group_type = type) %>%
+        mutate(type = NA)
+
+    other_object_count_by_type <-
+        analyses$object_counts %>%
+        filter(!(type %in% internal_type)) %>%
+        filter(!(type %in% main_types)) %>%
+        mutate(group_type = "Other")
+
+    grouped_object_count_by_type <-
+        bind_rows(main_object_count_by_type,
+                  other_object_count_by_type) %>%
+        mutate(relative_count = count / sum(count))
+
+    list(object_count_by_type = object_count_by_type,
+         grouped_object_count_by_type = grouped_object_count_by_type)
 }
 
 ## TODO - one of the summarizations has computed relative counts
