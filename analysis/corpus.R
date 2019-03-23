@@ -12,7 +12,13 @@ library(tibble)
 options(tibble.width = Inf)
 
 
-count_lines_of_code <- function(dirpath, languages) {
+count_lines_of_code <- function(path, languages, list_file = FALSE, working_dirpath = NA) {
+
+    previous_working_dirpath <- getwd()
+
+    if(!is.na(working_dirpath)) {
+        previous_working_dirpath <- setwd(working_dirpath)
+    }
 
     cloc_output <- run(command = "sh",
                        args = c("-c",
@@ -24,7 +30,10 @@ count_lines_of_code <- function(dirpath, languages) {
                                       str_c("--include-lang='",
                                             str_c(languages, collapse = ","),
                                             "'"),
-                                      dirpath,
+                                      if(list_file)
+                                          str_c("--list-file=", path)
+                                      else
+                                          path,
                                       sep = " ")),
                        echo_cmd = TRUE)
 
@@ -33,7 +42,14 @@ count_lines_of_code <- function(dirpath, languages) {
         stop("The cloc process exited with a non zero exit status")
     }
 
-    read.csv(text = cloc_output$stdout, stringsAsFactors = FALSE)
+    setwd(previous_working_dirpath)
+
+    if(cloc_output$stdout == "") {
+        tibble(filename = NA, code = NA, blank = NA, comment = NA)
+    }
+    else {
+        read.csv(text = cloc_output$stdout, stringsAsFactors = FALSE)
+    }
 }
 
 
@@ -89,25 +105,24 @@ analyze_corpus <- function(settings) {
         valid_scripts %>%
         left_join(program_code_count, by = c("package_name", "script_name", "script_type"))
 
-    package_code_count <-
+    program_package_names <-
         program_code_count %>%
         pull(package_name) %>%
-        unique() %>%
-        map_dfr(
-            function(package_name) {
-                count_lines_of_code(path(settings$input_package_code_dirpath, package_name),
-                                    c("C++", "C", "R")) %>%
-                    add_column(package_name = package_name, .before = 1)
-            }) %>%
-        mutate(script_name = path_ext_remove(path_file(filename))) %>%
-        mutate(script_type = map2_chr(
-                   package_name,
-                   filename,
-                   function(package_name, filename) {
-                       l <- str_length(package_name) + str_length(path_norm(settings$input_package_code_dirpath)) + 2
-                       ps <- path_split(str_sub(filename, l, -1))
-                       if(ps[[1]][1] == "/") ps[[1]][2] else ps[[1]][1]
-                   })) %>%
+        unique()
+
+    package_filepath <-
+        path(settings$output_corpus_data_dirpath, "packages", ext = "csv")
+
+    write_csv(tibble(package_name = program_package_names),
+              package_filepath, col_names = NULL)
+
+    package_code_count <-
+        count_lines_of_code(package_filepath, c("C++", "C", "R"), TRUE,
+                            settings$input_package_code_dirpath) %>%
+        mutate(path_components = path_split(filename)) %>%
+        mutate(package_name = map_chr(path_components, function(path_component) path_component[1]),
+               script_type = map_chr(path_components, function(path_component) path_component[2]),
+               script_name = path_ext_remove(path_file(filename))) %>%
         select(package_name, script_type, script_name, language, code, blank, comment) %>%
         filter(!(script_type %in% c("doc", "tests", "examples", "data"))) %>%
         mutate(language = if_else(language == "R", "R", "C/C++"))
