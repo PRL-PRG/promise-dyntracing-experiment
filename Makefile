@@ -279,17 +279,29 @@ add-dependents-and-dependencies:
 	                      --dependencies
 
 
+define rsync-repository
+	rsync -rtlzv                                    \
+	      --include="*.tar.gz"                      \
+	      --include="PACKAGES*"                     \
+	      --exclude="*/*"                           \
+	      $(1)                                      \
+	      $(PACKAGE_CONTRIB_DIRPATH)                \
+	      2>&1 | $(TEE) $(TEE_FLAGS)                \
+	                    $(PACKAGE_LOG_DIRPATH)/$(2)
+endef
+
+
 mirror-package-repositories:
 	@mkdir -p $(PACKAGE_CONTRIB_DIRPATH)
 	@mkdir -p $(PACKAGE_SRC_DIRPATH)
-	rsync -rtlzv --include="*.tar.gz" --include="PACKAGES*" --exclude="*/*" mirrors.nic.cz::CRAN/src/contrib/ $(PACKAGE_CONTRIB_DIRPATH)
-	rsync -rtlzv --include='*.tar.gz' --include='PACKAGES*' --exclude='*/*' master.bioconductor.org::release/bioc/src/contrib/ $(PACKAGE_CONTRIB_DIRPATH)
-	rsync -rtlzv --include='*.tar.gz' --include='PACKAGES*' --exclude="*/*" master.bioconductor.org::release/data/annotation/src/contrib/ $(PACKAGE_CONTRIB_DIRPATH)
-	rsync -rtlzv --include='*.tar.gz' --include='PACKAGES*' --exclude="*/*" master.bioconductor.org::release/data/experiment/src/contrib/ $(PACKAGE_CONTRIB_DIRPATH)
-	rsync -rtlzv --include='*.tar.gz' --include='PACKAGES*' --exclude="*/*" master.bioconductor.org::release/workflows/src/contrib/ $(PACKAGE_CONTRIB_DIRPATH)
-	for package in $(PACKAGE_CONTRIB_DIRPATH)/*.tar.gz; do \
-	    tar -xvf $(package) -C $(PACKAGE_SRC_DIRPATH)      \
-	done
+	@mkdir -p $(PACKAGE_LOG_DIRPATH)
+
+	$(call rsync-repository,mirrors.nic.cz::CRAN/src/contrib/,cran.log)
+	$(call rsync-repository,master.bioconductor.org::release/bioc/src/contrib/,bioc.log)
+	$(call rsync-repository,master.bioconductor.org::release/data/annotation/src/contrib/,bioc-data-annotation.log)
+	$(call rsync-repository,master.bioconductor.org::release/data/experiment/src/contrib/,bioc-data-experiment.log)
+	$(call rsync-repository,master.bioconductor.org::release/workflows/src/contrib/,bioc-workflows.log)
+	find $(PACKAGE_CONTRIB_DIRPATH)/ -maxdepth 1 -type f -name "*.tar.gz" -execdir tar -xvf '{}' -C $(PACKAGE_SRC_DIRPATH) \;
 
 
 setup-package-repositories:
