@@ -11,14 +11,22 @@ library(tibble)
 
 options(tibble.width = Inf)
 
+info <- function(...) cat((paste0(...)))
 
-count_lines_of_code <- function(path, languages, list_file = FALSE, working_dirpath = NA) {
 
-    previous_working_dirpath <- getwd()
-
-    if(!is.na(working_dirpath)) {
-        previous_working_dirpath <- setwd(working_dirpath)
+nth_element <- function(n) {
+    function(vs) {
+        map_chr(vs, function(v) v[n])
     }
+}
+
+last_element <- function(vs) {
+    map_chr(vs, function(v) v[length(v)])
+}
+
+count_lines_of_code <- function(path, languages, list_file = FALSE, working_dirpath = NULL) {
+
+    path <- path_abs(path)
 
     cloc_output <- run(command = "sh",
                        args = c("-c",
@@ -27,6 +35,7 @@ count_lines_of_code <- function(path, languages, list_file = FALSE, working_dirp
                                       "--quiet",
                                       "--hide-rate",
                                       "--csv",
+                                      "--csv-delimiter='|'",
                                       str_c("--include-lang='",
                                             str_c(languages, collapse = ","),
                                             "'"),
@@ -35,20 +44,24 @@ count_lines_of_code <- function(path, languages, list_file = FALSE, working_dirp
                                       else
                                           path,
                                       sep = " ")),
-                       echo_cmd = TRUE)
+                       echo_cmd = TRUE,
+                       wd = working_dirpath)
 
     if(is.na(cloc_output$status) | cloc_output$status != 0) {
         print(cloc_output$stderr)
         stop("The cloc process exited with a non zero exit status")
     }
-
-    setwd(previous_working_dirpath)
-
+    #\x1f
     if(cloc_output$stdout == "") {
-        tibble(filename = NA, code = NA, blank = NA, comment = NA)
+        tibble(filename = NA, language = NA, code = NA, blank = NA, comment = NA)
     }
     else {
-        read.csv(text = cloc_output$stdout, stringsAsFactors = FALSE)
+        read_delim(file = cloc_output$stdout, delim="|", col_names = TRUE) %>%
+            filter(language != "SUM") %>%
+            select(filename, language, blank, comment, code) %>%
+            mutate(code = as.double(code),
+                   blank = as.double(blank),
+                   comment = as.double(comment))
     }
 }
 
@@ -61,15 +74,12 @@ count_file_lines_of_code <- function(filepath, languages = "R") {
 
 analyze_corpus <- function(settings) {
 
-    generate_script_filepath <- function(input_corpus_dirpath, package_name, script_type, script_name) {
+    generate_script_filepath <- function(input_corpus_dirpath, filepaths) {
         filepaths <-
-            path(input_corpus_dirpath,
-                 package_name,
-                 script_type,
-                 str_c("__wrapped__", script_name),
+            path(filepaths,
                  ext = "R")
 
-        if_else(file_exists(filepaths),
+        if_else(file_exists(path(input_corpus_dirpath, filepaths)),
                 filepaths,
                 path_ext_set(path_ext_remove(filepaths), "r"))
     }
@@ -82,50 +92,102 @@ analyze_corpus <- function(settings) {
                "INVALID"))))
     }
 
+    info("=> Generating valid scripts\n")
+
     valid_scripts <-
         read_csv(settings$input_scanned_valid_script_dirpath, col_names = "filepath") %>%
-        mutate(package_name = path_dir(path_dir(filepath)),
-               script_type = path_file(path_dir(filepath)),
-               script_name = str_c("__wrapped__", path_file(filepath))) %>%
         mutate(filepath = generate_script_filepath(settings$input_corpus_dirpath,
-                                                   package_name,
-                                                   script_type,
-                                                   script_name)) %>%
-        select(package_name, script_type, script_name)
+                                                   filepath))
+
+    testthat_dirpaths <-
+        valid_scripts %>%
+        mutate(filepath = path_ext_remove(filepath)) %>%
+        filter(path_file(filepath) == "testthat") %>%
+        filter(dir_exists(path(settings$input_corpus_dirpath, filepath)))
+
+    valid_scripts <-
+        bind_rows(valid_scripts, testthat_dirpaths)
+
+    valid_scripts_filepath <-
+        path(settings$output_corpus_data_dirpath, "valid_scripts", ext = "csv")
+
+    write_csv(valid_scripts, valid_scripts_filepath, col_names = FALSE)
+
+    info("=> Generated valid scripts in '", valid_scripts_filepath, "'\n")
+
+    info("=> Counting program lines of code\n")
 
     program_code_count <-
-        count_lines_of_code(settings$input_corpus_dirpath, "R") %>%
-        mutate(script_name = path_ext_remove(path_file(filename)),
-               script_type = path_file(path_dir(filename)),
-               package_name = path_file(path_dir(path_dir(filename))),
+        count_lines_of_code(valid_scripts_filepath, "R",
+                            TRUE, settings$input_corpus_dirpath) %>%
+        mutate(path_components = path_split(filename)) %>%
+        mutate(script_name = last_element(path_components),
+               script_type = nth_element(2)(path_components),
+               package_name = nth_element(1)(path_components),
                language = "R") %>%
         select(package_name, script_type, script_name, language, code, blank, comment)
 
-    program_code_count <-
-        valid_scripts %>%
-        left_join(program_code_count, by = c("package_name", "script_name", "script_type"))
+    info("=> Counted program lines of code\n")
+
+    info("=> Generating package list\n")
 
     program_package_names <-
         program_code_count %>%
         pull(package_name) %>%
-        unique()
+        unique() %>%
+        sort()
 
     package_filepath <-
         path(settings$output_corpus_data_dirpath, "packages", ext = "csv")
 
     write_csv(tibble(package_name = program_package_names),
-              package_filepath, col_names = NULL)
+              package_filepath, col_names = FALSE)
+
+    info("=> Generated package list in '", package_filepath, "'\n")
+
+    sanitize_script_type <-
+        function(script_type) {
+            if_else(script_type %in% c("doc", "tests", "examples", "src", "R"),
+                    script_type,
+                    "other")
+        }
+
+    info("=> Counting total package code and line'\n")
+
+    total_package_code_count <-
+        count_lines_of_code("", c("C++", "C", "R"), FALSE,
+                            settings$input_package_code_dirpath) %>%
+        mutate(language = if_else(language == "R", "R", "C/C++")) %>%
+        mutate(path_components = path_split(filename)) %>%
+        mutate(package_name = nth_element(1)(path_components),
+               script_type = nth_element(2)(path_components),
+               script_name = path_ext_remove(last_element(path_components))) %>%
+        select(package_name, script_type, script_name, language, code, blank, comment) %>%
+        mutate(script_type = sanitize_script_type(script_type)) %>%
+        group_by(package_name, script_type, language) %>%
+        summarize(script_count = n(),
+                  code = sum(code),
+                  blank = sum(blank),
+                  comment = sum(comment))
+
+    info("=> Counted total package code and line'\n")
+
+
+    info("=> Counting package lines of code\n")
 
     package_code_count <-
         count_lines_of_code(package_filepath, c("C++", "C", "R"), TRUE,
                             settings$input_package_code_dirpath) %>%
+        mutate(language = if_else(language == "R", "R", "C/C++")) %>%
         mutate(path_components = path_split(filename)) %>%
         mutate(package_name = map_chr(path_components, function(path_component) path_component[1]),
                script_type = map_chr(path_components, function(path_component) path_component[2]),
                script_name = path_ext_remove(path_file(filename))) %>%
         select(package_name, script_type, script_name, language, code, blank, comment) %>%
         filter(!(script_type %in% c("doc", "tests", "examples", "data"))) %>%
-        mutate(language = if_else(language == "R", "R", "C/C++"))
+        print()
+
+    info("=> Counted package lines of code.\n")
 
     total_code_count <-
         package_code_count %>%
@@ -136,16 +198,25 @@ analyze_corpus <- function(settings) {
                   comment = sum(comment, na.rm = TRUE)) %>%
         ungroup()
 
-    r_code_count <-
+    simplified_total_code_count <-
         total_code_count %>%
+        mutate(script_type = if_else(script_type %in% c("doc", "tests", "examples", "src", "R"), script_type, "other")) %>%
+        group_by(script_type, language) %>%
+        summarize(code = sum(code, na.rm = TRUE),
+                  blank = sum(blank, na.rm = TRUE),
+                  comment = sum(comment, na.rm = TRUE)) %>%
+        ungroup()
+
+    r_code_count <-
+        simplified_total_code_count %>%
         filter(language == "R")
 
     c_code_count <-
-        total_code_count %>%
+        simplified_total_code_count %>%
         filter(language == "C/C++")
 
-    total_code_count <-
-        total_code_count %>%
+    simplified_total_code_count <-
+        simplified_total_code_count %>%
         add_row(script_type = "total", language = "R",
                 code = sum(r_code_count$code),
                 blank = sum(r_code_count$blank),
@@ -155,9 +226,11 @@ analyze_corpus <- function(settings) {
                 blank = sum(c_code_count$blank),
                 comment = sum(c_code_count$comment))
 
-    return(list(program_code_count = program_code_count,
+    return(list(total_package_code_count = total_package_code_count,
+                program_code_count = program_code_count,
                 package_code_count = package_code_count,
-                total_code_count = total_code_count))
+                total_code_count = total_code_count,
+                simplified_total_code_count = simplified_total_code_count))
 
     ##     ## valid_scripts %>%
     ##     ## pmap_dfr(function(filepath, package_name, script_type, script_name) {
