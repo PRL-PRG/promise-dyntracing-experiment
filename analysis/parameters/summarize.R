@@ -1691,6 +1691,11 @@ paper <- function(analyses) {
             function(chr_lst) if(length(chr_lst) == 1 && chr_lst == "") c() else chr_lst)
     }
 
+    to_pos_seq <- function(pos_seqs) {
+        map_chr(pos_seqs,
+            function(pos_seq) str_c("(", str_c(pos_seq, collapse = " "), ")"))
+    }
+
     pos_seq_eq <- function(pos_seq_1, pos_seq_2) {
         l1 <- length(pos_seq_1)
         l2 <- length(pos_seq_2)
@@ -1706,28 +1711,60 @@ paper <- function(analyses) {
         }
     }
 
+    compute_strictness <- function(force_order, missing_arguments, formal_parameter_count) {
+        force_order <- split_pos_seq(force_order)
+        missing_arguments <- split_pos_seq(missing_arguments)
+        all(lengths(force_order) + lengths(missing_arguments) >= formal_parameter_count)
+    }
+
     ## TODO - investigate 'jhmb9cUOgugzW1R+979kzg==' - it has argument 1 in both missing and forced position
 
-    closure_strictness <-
+    ## closure_strictness <-
+    ##     analyses$closure_force_order_count %>%
+    ##     mutate(force_order = split_pos_seq(force_order),
+    ##            missing_arguments = split_pos_seq(missing_arguments),
+    ##            script = str_c(package, script_type, script_name, sep = "/")) %>%
+    ##     group_by(script, wrapper, function_id) %>%
+    ##     summarize(strict = all(lengths(force_order) + lengths(missing_arguments) >= formal_parameter_count),
+    ##               formal_parameter_count = first(formal_parameter_count),
+    ##               call_count = sum(call_count)) %>%
+    ##     ungroup()
+
+    ## closure_count_by_strictness_and_run <-
+    ##     closure_strictness %>%
+    ##     group_by(script, strict) %>%
+    ##     summarize(function_count = length(unique(function_id))) %>%
+    ##     mutate(relative_function_count = function_count / sum(function_count)) %>%
+    ##     ungroup()
+
+    closure_strictness_per_run <-
         analyses$closure_force_order_count %>%
-        mutate(force_order = split_pos_seq(force_order),
-               missing_arguments = split_pos_seq(missing_arguments),
-               script = str_c(package, script_type, script_name, sep = "/")) %>%
-        group_by(script, wrapper, function_id) %>%
-        summarize(strict = all(lengths(force_order) + lengths(missing_arguments) >= formal_parameter_count),
-                  formal_parameter_count = first(formal_parameter_count),
+        mutate(script = enc2utf8(str_c(package, script_type, script_name, sep = "/"))) %>%
+        group_by(script, function_id, force_order, missing_arguments) %>%
+        summarize(formal_parameter_count = first(formal_parameter_count),
+                  call_count = sum(call_count)) %>%
+        ungroup() %>%
+        group_by(script, function_id) %>%
+        summarize(formal_parameter_count = first(formal_parameter_count),
+                  strict = compute_strictness(force_order, missing_arguments, formal_parameter_count),
+                  force_order = str_c("(", str_c(force_order, collapse = " "), ")"),
+                  missing_arguments = str_c("(", str_c(missing_arguments, collapse = " "), ")"),
                   call_count = sum(call_count)) %>%
         ungroup()
 
-    closure_count_by_wrapper_strictness_and_run <-
-        closure_strictness %>%
-        group_by(script, strict) %>%
-        summarize(function_count = length(unique(function_id))) %>%
-        mutate(relative_function_count = function_count / sum(function_count)) %>%
-        ungroup()
+    summarized_closure_strictness_per_run <-
+        closure_strictness_per_run %>%
+        group_by(script) %>%
+        summarize(strict_function_count = sum(strict),
+                  lazy_function_count = sum(!strict),
+                  total_function_count = n()) %>%
+        ungroup() %>%
+        mutate(relative_strict_function_count = strict_function_count / total_function_count,
+               relative_lazy_function_count = lazy_function_count / total_function_count)
 
-    list(closure_strictness = print(closure_strictness),
-         closure_count_by_wrapper_strictness_and_run = print(closure_count_by_wrapper_strictness_and_run))
+    list(closure_strictness_per_run = closure_strictness_per_run,
+         summarized_closure_strictness_per_run = summarized_closure_strictness_per_run)
+
 }
 
 
