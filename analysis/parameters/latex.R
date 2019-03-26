@@ -46,11 +46,12 @@ generate_corpus_latex_variables <- function(corpus_data, prefix) {
 
     corpus_data %>%
         print() %>%
+        print() %>%
         pmap(function(script_type, language, script_count,
                       package_count, code, blank, comment) {
-            n1 <- str_c("Count", prefix, script_type, "Packages")
-            n2 <- str_c("Count", prefix, script_type, "Scripts")
-            n3 <- str_c("Count", prefix, script_type, "Code")
+            n1 <- str_c("Count", prefix, script_type, language, "Packages")
+            n2 <- str_c("Count", prefix, script_type, language, "Scripts")
+            n3 <- str_c("Count", prefix, script_type, language, "Code")
             setNames(list(package_count, script_count, code), c(n1, n2, n3))
          }) %>%
         unlist() %>%

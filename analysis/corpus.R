@@ -110,8 +110,8 @@ sanitize_script_type <- function(script_type) {
     if_else(script_type == "doc", "Vignettes",
     if_else(script_type == "tests", "Tests",
     if_else(script_type == "examples", "Examples",
-    if_else(script_type == "src",  "Source/C-C++",
-    if_else(script_type == "R", "Source/R",
+    if_else(script_type == "src",  "Source",
+    if_else(script_type == "R", "Source",
             "Other")))))
 }
 
@@ -134,7 +134,7 @@ analyze_installed_corpus <- function(settings) {
 
         package_code_count <-
             count_lines_of_code(relative_path, languages, FALSE, dirpath) %>%
-            mutate(language = if_else(language == "R", "R", "C/C++")) %>%
+            mutate(language = if_else(language == "R", "R", "C")) %>%
             mutate(path_components = path_split(filename)) %>%
             mutate(package_name = nth_element(1 + relative_path_offset)(path_components),
                    script_type = nth_element(2 + relative_path_offset)(path_components),
@@ -459,7 +459,7 @@ analyze_corpus <- function(settings) {
     package_code_count <-
         count_lines_of_code(package_filepath, c("C++", "C", "R"), TRUE,
                             settings$input_package_code_dirpath) %>%
-        mutate(language = if_else(language == "R", "R", "C/C++")) %>%
+        mutate(language = if_else(language == "R", "R", "C")) %>%
         mutate(path_components = path_split(filename)) %>%
         mutate(package_name = map_chr(path_components, function(path_component) path_component[1]),
                script_type = map_chr(path_components, function(path_component) path_component[2]),
@@ -494,7 +494,7 @@ analyze_corpus <- function(settings) {
 
     c_code_count <-
         simplified_total_code_count %>%
-        filter(language == "C/C++")
+        filter(language == "C")
 
     simplified_total_code_count <-
         simplified_total_code_count %>%
@@ -502,7 +502,7 @@ analyze_corpus <- function(settings) {
                 code = sum(r_code_count$code),
                 blank = sum(r_code_count$blank),
                 comment = sum(r_code_count$comment)) %>%
-        add_row(script_type = "total", language = "C/C++",
+        add_row(script_type = "total", language = "C",
                 code = sum(c_code_count$code),
                 blank = sum(c_code_count$blank),
                 comment = sum(c_code_count$comment))
@@ -607,10 +607,11 @@ serialize_analyses <- function(analyses, settings) {
 
     imap(analyses,
          function(df, name) {
-             write_data_table(df,
+             write_data_table(print(df),
                               path(settings$corpus_data_dirpath, name),
                               binary = settings$binary,
-                              compression_level = settings$compression_level)
+                              compression_level = settings$compression_level,
+                              truncate = TRUE)
          })
 }
 
