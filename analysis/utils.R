@@ -106,14 +106,14 @@ update_argument_name <- function(name) {
 }
 
 memory_size_labels <-
-  function(x) {
+  function(x, digits = 1) {
     ifelse(x == 0,
            "0 B",
            { y <- log2(x)
              units <- c("B", "KB", "MB", "GB", "TB", "PB")
              unit <- units[y %/% 10 + 1]
              value <- 2 ^ (y %% 10)
-             paste(round(value, 0), unit, sep = " ") })
+             paste(round(value, digits), unit, sep = " ") })
   }
 
 count_labels <-

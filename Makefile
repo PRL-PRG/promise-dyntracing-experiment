@@ -34,7 +34,6 @@ LATEST_TRACE_DIRPATH := $(shell readlink -f latest)
 TRACE_ANALYSIS_DIRPATH := $(TRACE_DIRPATH)/analysis
 TRACE_ANALYSIS_RAW_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/raw
 TRACE_ANALYSIS_PRESCANNED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/prescanned
-TRACE_ANALYSIS_CORPUS_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/corpus
 TRACE_ANALYSIS_REDUCED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/reduced
 TRACE_ANALYSIS_SCANNED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/scanned
 TRACE_ANALYSIS_COMBINED_DIRPATH := $(TRACE_ANALYSIS_DIRPATH)/combined
@@ -111,6 +110,9 @@ PACKAGE_SETUP_DIRPATH := ~/r-dyntrace-packages
 PACKAGE_LIB_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/lib
 PACKAGE_CONTRIB_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/contrib
 PACKAGE_SRC_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/src
+PACKAGE_TEST_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/tests
+PACKAGE_EXAMPLE_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/examples
+PACKAGE_VIGNETTE_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/doc
 PACKAGE_LOG_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/log
 
 ################################################################################
@@ -158,6 +160,7 @@ export R_KEEP_PKG_SOURCE=1
 export R_ENABLE_JIT=0
 export R_COMPILE_PKGS=0
 export R_DISABLE_BYTECODE=1
+export OMP_NUM_THREADS=2
 export R_LIBS=$(PACKAGE_LIB_DIRPATH)
 
 define tracer =
@@ -320,6 +323,14 @@ setup-package-repositories:
 	                                          --bioc-lib-dirpath=$(PACKAGE_LIB_DIRPATH) \
 	                                          --bioc-src-dirpath=$(PACKAGE_SRC_DIRPATH) \
 	                                          --bioc-log-dirpath=$(PACKAGE_LOG_DIRPATH)
+
+
+extract-tests-examples-vignettes:
+	@$(TIME) $(XVFB_RUN) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                               \
+	                                   --file=scripts/extract-tests-examples-vignettes.R \
+	                                   --args $(PACKAGE_TEST_DIRPATH)                    \
+	                                          $(PACKAGE_EXAMPLE_DIRPATH)                 \
+	                                          $(PACKAGE_VIGNETTE_DIRPATH)
 
 
 prescan-analysis:
@@ -488,7 +499,7 @@ validate-analysis:
 analyze-corpus:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_CORPUS_DIRPATH)
-	@mkdir -p $(TRACE_ANALYSIS_CORPUS_DIRPATH)
+	@mkdir -p $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)
 
 	@$(UNBUFFER) $(TIME) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                                \
 	  	                               --file=analysis/corpus.R                                           \
@@ -496,15 +507,18 @@ analyze-corpus:
 	                                          $(TRACE_CORPUS_DIRPATH)                                     \
 	      	                                  $(TRACE_ANALYSIS_RAW_DIRPATH)                               \
 	      	                                  $(PACKAGE_SRC_DIRPATH)                                      \
-	        	                                $(TRACE_ANALYSIS_CORPUS_DIRPATH)                            \
+	      	                                  $(PACKAGE_TEST_DIRPATH)                                     \
+	      	                                  $(PACKAGE_EXAMPLE_DIRPATH)                                  \
+	      	                                  $(PACKAGE_VIGNETTE_DIRPATH)                                 \
+	        	                                $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)                        \
+	                                          $(BINARY)                                                   \
+	                                          --compression-level=$(COMPRESSION_LEVEL)                    \
 	          	                       2>&1 | $(TEE) $(TEE_FLAGS)                                         \
 	            	                                $(TRACE_LOGS_CORPUS_DIRPATH)/log
 
 
 reduce-analyses:
-	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=objects
-	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=escaped_arguments
-	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=function_definitions
+	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=verbatim
 	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=functions
 	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=promises
 	$(MAKE) reduce-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=arguments
@@ -571,7 +585,8 @@ report-analyses:
 
 
 latex-analyses:
-	$(MAKE) latex-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) APPEND=         ANALYSIS=objects
+	$(MAKE) latex-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) APPEND=         ANALYSIS=corpus
+	$(MAKE) latex-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) APPEND=--append ANALYSIS=objects
 	$(MAKE) latex-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) APPEND=--append ANALYSIS=escaped_arguments
 	$(MAKE) latex-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) APPEND=--append ANALYSIS=functions
 	$(MAKE) latex-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) APPEND=--append ANALYSIS=promises

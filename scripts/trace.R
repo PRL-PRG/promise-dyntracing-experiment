@@ -81,7 +81,7 @@ parse_command_line <- function() {
 
 build_vignettes <- function(settings) {
 
-    vignettes <- tools::pkgVignettes(settings$package, source=T)
+    vignettes <- tools::pkgVignettes(settings$package, source=TRUE)
 
     ## if there are vignettes and there are no vignette sources,
     ## then compile the vignettes to sources. This compilation

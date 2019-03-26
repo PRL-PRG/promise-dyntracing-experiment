@@ -1,4 +1,5 @@
 suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyr))
 suppressPackageStartupMessages(library(promisedyntracer))
 suppressPackageStartupMessages(library(styler))
 suppressPackageStartupMessages(library(optparse))
@@ -34,6 +35,68 @@ format_as_percentage <- function(x, digits = 1) {
 
 format_as_absolute <- function(x, digits = 1) {
     count_labels(x, digits)
+}
+
+format_as_size <- function(x, digits = 1) {
+    memory_size_labels(x, digits)
+}
+
+
+generate_corpus_latex_variables <- function(corpus_data, prefix) {
+
+    corpus_data %>%
+        print() %>%
+        pmap(function(script_type, language, script_count,
+                      package_count, code, blank, comment) {
+            n1 <- str_c("Count", prefix, script_type, "Packages")
+            n2 <- str_c("Count", prefix, script_type, "Scripts")
+            n3 <- str_c("Count", prefix, script_type, "Code")
+            setNames(list(package_count, script_count, code), c(n1, n2, n3))
+         }) %>%
+        unlist() %>%
+        as.list()
+}
+
+
+generate_data_latex_variables <- function(traced_data) {
+    traced_data %>%
+        print() %>%
+        pmap(function(script_type, filename, size) {
+            name <- str_c("Size", script_type, str_replace(filename, " ", ""))
+            setNames(list(size), c(name))
+        }) %>%
+        unlist() %>%
+        as.list()
+}
+
+
+summarize_traced_data <- function(traced_data) {
+    summarized_traced_data <-
+        traced_data %>%
+        group_by(script_type) %>%
+        summarize_if(is.numeric, sum) %>%
+        ungroup()
+
+
+    total_summarized_traced_data <-
+        summarized_traced_data %>%
+        summarize_if(is.numeric, sum) %>%
+        add_column(script_type = "Total", .before = 1)
+
+
+    bind_rows(summarized_traced_data,
+              total_summarized_traced_data) %>%
+        gather(filename, size, -script_type) %>%
+        mutate(size = as.double(size)) %>%
+        mutate(filename = path_ext_remove(filename)) %>%
+        mutate(filename = str_to_title(str_replace(filename, "_", " ")))
+ }
+
+
+corpus <- function(analyses) {
+    c(generate_corpus_latex_variables(analyses$summarized_installed_corpus, "Installed"),
+      generate_corpus_latex_variables(analyses$summarized_traced_corpus, "Traced"),
+      generate_data_latex_variables(summarize_traced_data(analyses$traced_data)))
 }
 
 
@@ -145,6 +208,9 @@ latex <- function(analyses, settings) {
         }
         else if(str_sub(name, 1, 5) == "Count") {
             formatted_value <- format_as_absolute(value)
+        }
+        else if(str_sub(name, 1, 4) == "Size") {
+            formatted_value <- format_as_size(value)
         }
         else {
             stop(str_c("Unidentified name", name, sep = " "))
