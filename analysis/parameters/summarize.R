@@ -1684,6 +1684,56 @@ summarize_analyses  <- function(analyses) {
 }
 
 
+paper <- function(analyses) {
+
+    split_pos_seq <- function(pos_seq) {
+        map(str_split(str_sub(pos_seq, 2, -2), " "),
+            function(chr_lst) if(length(chr_lst) == 1 && chr_lst == "") c() else chr_lst)
+    }
+
+    pos_seq_eq <- function(pos_seq_1, pos_seq_2) {
+        l1 <- length(pos_seq_1)
+        l2 <- length(pos_seq_2)
+
+        if(l1 != l2) {
+            FALSE
+        }
+        else if(l1 == 0) {
+            TRUE
+        }
+        else {
+            all(pos_seq_1 == pos_seq_2)
+        }
+    }
+
+    closure_strictness <-
+        analyses$closure_force_order_count %>%
+        #group_by(package, script_type, script_name, wrapper, function_id, force_order, missing_arguments) %>%
+        #summarize(formal_parameter_count = first(formal_parameter_count),
+        #          call_count = sum(call_count)) %>%
+        #ungroup() %>%
+        mutate(force_order = split_pos_seq(force_order),
+               missing_arguments = split_pos_seq(missing_arguments),
+               script = str_c(package, script_type, script_name, sep = "/")) %>%
+        group_by(script, wrapper, function_id) %>%
+        summarize(strict = lengths(force_order) + lengths(missing_arguments) == first(formal_parameter_count),
+                  formal_parameter_count = first(formal_parameter_count),
+                  call_count = sum(call_count)) %>%
+        ungroup()
+
+
+    function_count_by_wrapper_strictness_and_run <-
+        closure_strictness %>%
+        group_by(script, strict) %>%
+        summarize(function_count = length(unique(function_id))) %>%
+        mutate(relative_function_count = function_count / sum(function_count)) %>%
+        ungroup()
+
+    lists(closure_strictness = closure_strictness,
+          closure_count_by_wrapper_strictness_and_run = closure_count_by_wrapper_strictness_and_run)
+}
+
+
 summarize_combined_data <- function(settings, combined_data_table) {
 
     info("=> Starting summarization\n")
