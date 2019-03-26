@@ -1706,31 +1706,28 @@ paper <- function(analyses) {
         }
     }
 
+    ## TODO - investigate 'jhmb9cUOgugzW1R+979kzg==' - it has argument 1 in both missing and forced position
+
     closure_strictness <-
         analyses$closure_force_order_count %>%
-        #group_by(package, script_type, script_name, wrapper, function_id, force_order, missing_arguments) %>%
-        #summarize(formal_parameter_count = first(formal_parameter_count),
-        #          call_count = sum(call_count)) %>%
-        #ungroup() %>%
         mutate(force_order = split_pos_seq(force_order),
                missing_arguments = split_pos_seq(missing_arguments),
                script = str_c(package, script_type, script_name, sep = "/")) %>%
         group_by(script, wrapper, function_id) %>%
-        summarize(strict = lengths(force_order) + lengths(missing_arguments) == first(formal_parameter_count),
+        summarize(strict = all(lengths(force_order) + lengths(missing_arguments) >= formal_parameter_count),
                   formal_parameter_count = first(formal_parameter_count),
                   call_count = sum(call_count)) %>%
         ungroup()
 
-
-    function_count_by_wrapper_strictness_and_run <-
+    closure_count_by_wrapper_strictness_and_run <-
         closure_strictness %>%
         group_by(script, strict) %>%
         summarize(function_count = length(unique(function_id))) %>%
         mutate(relative_function_count = function_count / sum(function_count)) %>%
         ungroup()
 
-    lists(closure_strictness = closure_strictness,
-          closure_count_by_wrapper_strictness_and_run = closure_count_by_wrapper_strictness_and_run)
+    list(closure_strictness = print(closure_strictness),
+         closure_count_by_wrapper_strictness_and_run = print(closure_count_by_wrapper_strictness_and_run))
 }
 
 
