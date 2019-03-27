@@ -1737,33 +1737,84 @@ paper <- function(analyses) {
     ##     mutate(relative_function_count = function_count / sum(function_count)) %>%
     ##     ungroup()
 
-    closure_strictness_per_run <-
+
+    extract_name_part <- function(function_names, pos) {
+        function_names %>%
+            map_chr(function(names) {
+                names %>%
+                    str_sub(2, -2) %>%
+                    str_split(" ") %>%
+                    unlist() %>%
+                    str_split("::") %>%
+                    map(function(pair) pair[pos]) %>%
+                    unlist() %>%
+                    unique()
+                    #str_c(collapse = " ") %>%
+                    #{str_c("(", ., ")")}
+            })
+    }
+
+    join_names <- function(names) {
+        splits <- unique(unlist(str_split(str_sub(names, 2, -2), " ")))
+        str_c("(", str_c(splits, collapse = " "), ")")
+    }
+
+    extract_package_names <- function(function_name) {
+        extract_name_part(function_name, 1)
+    }
+
+    extract_function_names <- function(function_name) {
+        extract_name_part(function_name, 2)
+    }
+
+    closure_strictness <-
         analyses$closure_force_order_count %>%
-        mutate(script = enc2utf8(str_c(package, script_type, script_name, sep = "/"))) %>%
-        group_by(script, function_id, force_order, missing_arguments) %>%
-        summarize(formal_parameter_count = first(formal_parameter_count),
-                  call_count = sum(call_count)) %>%
-        ungroup() %>%
-        group_by(script, function_id) %>%
-        summarize(formal_parameter_count = first(formal_parameter_count),
-                  strict = compute_strictness(force_order, missing_arguments, formal_parameter_count),
-                  force_order = str_c("(", str_c(force_order, collapse = " "), ")"),
-                  missing_arguments = str_c("(", str_c(missing_arguments, collapse = " "), ")"),
-                  call_count = sum(call_count)) %>%
+        group_by(package_name, function_id) %>%
+        do({
+            ## get unique force_order and missing_argument combinations.
+            formal_parameter_count <- .data$formal_parameter_count[1]
+            call_count <- sum(as.double(.data$call_count))
+
+            orders <-
+                .data %>%
+                group_by(force_order, missing_arguments) %>%
+                summarize(count = n())
+
+            force_order <-
+                orders %>%
+                pull(force_order) %>%
+                str_c(collapse = " ") %>%
+                {str_c("(", . , ")")}
+
+            missing_arguments <-
+                orders %>%
+                pull(missing_arguments) %>%
+                str_c(collapse = " ") %>%
+                {str_c("(", . , ")")}
+
+            tibble(force_order = force_order,
+                   missing_arguments = missing_arguments,
+                   formal_parameter_count = formal_parameter_count,
+                   call_count = call_count,
+                   strict = compute_strictness(orders$force_order,
+                                               orders$missing_arguments,
+                                               formal_parameter_count))
+        }) %>%
         ungroup()
 
-    summarized_closure_strictness_per_run <-
-        closure_strictness_per_run %>%
-        group_by(script) %>%
-        summarize(strict_function_count = sum(strict),
-                  lazy_function_count = sum(!strict),
+    package_strictness <-
+        closure_strictness %>%
+        group_by(package_name) %>%
+        summarize(strict_function_count = sum(as.double(strict)),
+                  non_strict_function_count = sum(as.double(!strict)),
                   total_function_count = n()) %>%
         ungroup() %>%
         mutate(relative_strict_function_count = strict_function_count / total_function_count,
-               relative_lazy_function_count = lazy_function_count / total_function_count)
+               relative_lazy_function_count = non_strict_function_count / total_function_count) %>%
+        arrange(desc(relative_strict_function_count))
 
-    list(closure_strictness_per_run = closure_strictness_per_run,
-         summarized_closure_strictness_per_run = summarized_closure_strictness_per_run)
+    list(closure_strictness = closure_strictness,
+         package_strictness = package_strictness)
 
 }
 
