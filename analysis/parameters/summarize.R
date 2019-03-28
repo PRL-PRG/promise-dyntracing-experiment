@@ -78,14 +78,14 @@ objects <- function(analyses) {
     internal_type <- c("Pairlist", "Function Call", "Char", "...", "Bytecode")
 
     main_object_count_by_type <-
-        analyses$object_counts %>%
+        object_count_by_type %>%
         filter(!(type %in% internal_type)) %>%
         filter(type %in% main_types) %>%
         mutate(group_type = type) %>%
-        mutate(type = NA)
+        mutate(type = "Main")
 
     other_object_count_by_type <-
-        analyses$object_counts %>%
+        object_count_by_type %>%
         filter(!(type %in% internal_type)) %>%
         filter(!(type %in% main_types)) %>%
         mutate(group_type = "Other")
