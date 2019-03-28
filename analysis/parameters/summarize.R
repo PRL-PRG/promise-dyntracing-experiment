@@ -1822,9 +1822,11 @@ paper <- function(analyses) {
 
     force_orders <-
         closure_strictness %>%
+        filter(formal_parameter_count > 0 & call_count > 1) %>%
         group_by(force_order_count) %>%
         summarize(function_count = n()) %>%
-        ungroup()
+        ungroup() %>%
+        mutate(relative_function_count = function_count / sum(function_count))
 
     list(closure_strictness = closure_strictness,
          package_strictness = package_strictness,
