@@ -1780,11 +1780,17 @@ paper <- function(analyses) {
                 group_by(force_order, missing_arguments) %>%
                 summarize(count = n())
 
-            force_order <-
+            force_order_seq <-
                 orders %>%
-                pull(force_order) %>%
+                pull(force_order)
+
+            force_order <-
+                force_order_seq %>%
                 str_c(collapse = " ") %>%
                 {str_c("(", . , ")")}
+
+            force_order_count <-
+                length(unique(force_order_seq))
 
             missing_arguments <-
                 orders %>%
@@ -1796,6 +1802,7 @@ paper <- function(analyses) {
                    missing_arguments = missing_arguments,
                    formal_parameter_count = formal_parameter_count,
                    call_count = call_count,
+                   force_order_count = force_order_count,
                    strict = compute_strictness(orders$force_order,
                                                orders$missing_arguments,
                                                formal_parameter_count))
@@ -1813,8 +1820,15 @@ paper <- function(analyses) {
                relative_lazy_function_count = non_strict_function_count / total_function_count) %>%
         arrange(desc(relative_strict_function_count))
 
+    force_orders <-
+        closure_strictness %>%
+        group_by(force_order_count) %>%
+        summarize(function_count = n()) %>%
+        ungroup()
+
     list(closure_strictness = closure_strictness,
-         package_strictness = package_strictness)
+         package_strictness = package_strictness,
+         force_orders = force_orders)
 
 }
 
