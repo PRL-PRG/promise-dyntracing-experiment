@@ -15,6 +15,14 @@ options(error = quote({dump.frames(to.file=FALSE); q();}))
 ## irrespective of terminal width
 options(tibble.width = Inf)
 
+## TODO
+## - arguments forcing each other
+## - non local returning arguments
+## - nested promises created by the interpreter
+## - multiple evaluation order
+## - wrapper vs non-wrapper functions
+## - side effects
+
 info <- function(...) cat((paste0(...)))
 
 function_definition_serializer <- function(filepath, pb) {
@@ -118,6 +126,58 @@ serialize_closure_usage <- function(analyses, settings, data) {
 }
 
 
+many_formal_parameter_function_definitions <- function(analses, settings) {
+    many_formal_parameter_function_definition_dirpath <-
+        path(settings$output_dirpath,
+             "many_formal_parameter_function_definitions")
+
+    dir_create(many_formal_parameter_function_definition_dirpath)
+
+    analyses$closure_formal_parameter_count_table %>%
+        filter(formal_parameter_count > 25 | formal_parameter_count == 0) %>%
+        left_join(analyses$function_definitions, by = "function_id") %>%
+        select(function_id, function_name, definition, script, formal_parameter_count) %>%
+        group_by(formal_parameter_count) %>%
+        do({
+            formal_parameter_count <- .data$formal_parameter_count[1]
+
+            filepath <- path(many_formal_parameter_function_definition_dirpath,
+                             formal_parameter_count,
+                             ext = "R")
+
+            pb <- progress_bar$new(format = "[:bar] :percent :eta",
+                                   total = nrow(.data),
+                                   clear = FALSE,
+                                   width = 100)
+
+            info("\n=> Writing to '", filepath, "'\n")
+
+            serializer <- function_definition_serializer(filepath, pb)
+
+            .data %>%
+                pmap(serializer$serialize_row)
+
+            serializer$finish()
+
+            info("=> Written to '", filepath, "'\n")
+
+            tibble(output_filepath = filepath)
+        }) %>%
+    ungroup()
+}
+
+
+functions <- function(analyses, settings) {
+
+    #many_formal_parameter_function_definitions(analyses, settings)
+
+    analyses$non_zero_parameter_multicall_closure_force_order_count %>%
+        left_join(analyses$function_definitions) %>%
+        select(function_id, function_name, definition, script, formal_parameter_count) %>%
+        group_by(wrapper, compatible_force_order_counts)
+}
+
+
 escaped_arguments <- function(analyses, settings) {
 
     to_sequence <- function(params) {
@@ -169,7 +229,8 @@ escaped_arguments <- function(analyses, settings) {
             info("=> Written to '", filepath, "'\n")
 
             tibble(output_filepath = filepath)
-        })
+        }) %>%
+    ungroup()
 
 }
 

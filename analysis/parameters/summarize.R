@@ -49,6 +49,18 @@ summarize_outliers <- function(df, grouping_column,
     df
 }
 
+
+events <- function(analyses) {
+
+    event_counts <-
+        analyses$event_counts %>%
+        group_by(event) %>%
+        summarize(count = sum(as.double(count)))
+
+    list(event_counts = event_counts)
+}
+
+
 objects <- function(analyses) {
     ## object type count is already summarized by the tracer.
     ## we only have to emit the same file again for summarization.
@@ -171,6 +183,12 @@ functions <- function(analyses) {
             select(function_type, total_function_count = function_count),
             by = "function_type") %>%
         mutate(relative_function_count = function_count / total_function_count)
+
+    closure_formal_parameter_count_table <-
+        analyses$closure_parameter_count %>%
+        group_by(function_id) %>%
+        summarize(formal_parameter_count = first(formal_parameter_count)) %>%
+        ungroup()
 
     closure_count_by_formal_parameter_count <-
         analyses$closure_parameter_count %>%
@@ -333,13 +351,18 @@ functions <- function(analyses) {
 
     non_zero_parameter_multicall_closure_force_order_count <-
         closure_force_order_count %>%
-        filter(formal_parameter_count != 0 & call_count > 1)
+        filter(formal_parameter_count != 0 & call_count > 1) %>%
+        group_by(wrapper, function_id) %>%
+        summarize(
+            force_order = to_sequence(unique(force_order)),
+            force_order_count = length(unique(force_order)),
+            compatible_force_order = to_sequence(),
+            compatible_force_order_count = length(unique(compatible_force_order)),
+            formal_parameter_count = first(formal_parameter_count)) %>%
+        ungroup()
 
     closure_count_distribution_by_wrapper_and_original_force_order <-
         non_zero_parameter_multicall_closure_force_order_count %>%
-        group_by(wrapper, function_id) %>%
-        summarize(force_order_count = length(unique(force_order))) %>%
-        ungroup() %>%
         group_by(wrapper, force_order_count) %>%
         summarize(closure_count = n()) %>%
         ungroup() %>%
@@ -348,9 +371,6 @@ functions <- function(analyses) {
 
     closure_count_distribution_by_wrapper_and_compatible_force_order <-
         non_zero_parameter_multicall_closure_force_order_count %>%
-        group_by(wrapper, function_id) %>%
-        summarize(compatible_force_order_count = length(unique(compatible_force_order))) %>%
-        ungroup() %>%
         group_by(wrapper, compatible_force_order_count) %>%
         summarize(closure_count = n()) %>%
         ungroup() %>%
@@ -387,12 +407,14 @@ functions <- function(analyses) {
          function_call_count_by_return_value_type = function_call_count_by_return_value_type,
          closure_call_count_by_return_value_type = closure_call_count_by_return_value_type,
          function_count_by_return_value_type = function_count_by_return_value_type,
+         closure_formal_parameter_count_table = closure_formal_parameter_count_table,
          closure_count_by_formal_parameter_count = closure_count_by_formal_parameter_count,
          function_call_count_by_type_and_jump = function_call_count_by_type_and_jump,
          function_call_count_by_type_and_id = function_call_count_by_type_and_id,
          function_call_count_by_method_type = function_call_count_by_method_type,
          function_count_by_method_type = function_count_by_method_type,
          closure_force_order_count = closure_force_order_count,
+         non_zero_parameter_multicall_closure_force_order_count = non_zero_parameter_multicall_closure_force_order_count,
          closure_count_by_wrapper_and_force_order = closure_count_by_wrapper_and_force_order)
 }
 

@@ -43,6 +43,25 @@ summarize_event_counts <- function(df,
 }
 
 
+verbatim <- function(analyses) {
+    c(events(analyses),
+      objects(analyses),
+      escaped_arguments(analyses),
+      function_definitions(analyses))
+}
+
+
+events <- function(analyses) {
+    if(nrow(analyses$event_counts) == 0) {
+        return(list())
+    }
+
+    ## event count is already summarized by the tracer.
+    ## we only have to emit the same file again for summarization.
+    list(event_counts = analyses$event_counts)
+}
+
+
 objects <- function(analyses) {
 
     if(nrow(analyses$object_counts) == 0) {
@@ -52,6 +71,26 @@ objects <- function(analyses) {
     ## object type count is already summarized by the tracer.
     ## we only have to emit the same file again for summarization.
     list(object_counts = analyses$object_counts)
+}
+
+
+escaped_arguments <- function(analyses) {
+
+    if(nrow(analyses$escaped_arguments) == 0) {
+        return(list())
+    }
+
+    list(escaped_arguments = analyses$escaped_arguments)
+}
+
+
+function_definitions <- function(analyses) {
+
+    if(nrow(analyses$function_definitions) == 0) {
+        return(list())
+    }
+
+    list(function_definitions = analyses$function_definitions)
 }
 
 
@@ -303,16 +342,6 @@ parameters <- function(analyses) {
 
     list(formal_parameter_usage_counts = formal_parameter_usage_counts,
          execution_times = execution_times)
-}
-
-
-escaped_arguments <- function(analyses) {
-
-    if(nrow(analyses$escaped_arguments) == 0) {
-        return(list())
-    }
-
-    list(escaped_arguments = analyses$escaped_arguments)
 }
 
 
@@ -635,16 +664,6 @@ promises <- function(analyses) {
          promise_count_by_indirect_non_lexical_scope_observation = promise_count_by_indirect_non_lexical_scope_observation,
          promise_use_distribution_by_category = promise_use_distribution_by_category,
          promise_action_distribution_by_category = promise_action_distribution_by_category)
-}
-
-
-function_definitions <- function(analyses) {
-
-    if(nrow(analyses$function_definitions) == 0) {
-        return(list())
-    }
-
-    list(function_definitions = analyses$function_definitions)
 }
 
 
