@@ -1218,7 +1218,7 @@ function_definitions <- function(analyses) {
         unlist(str_split(str_sub(seq, 2, -2), " "))
     }
 
-    function_definitions  <-
+    function_definitions_with_script  <-
         analyses$function_definitions %>%
         group_by(function_id) %>%
         summarize(function_name = encode_sequence(unique(decode_sequence(function_name))),
@@ -1227,7 +1227,12 @@ function_definitions <- function(analyses) {
                                                  sep = "/"))) %>%
         ungroup()
 
-    list(function_definitions = function_definitions)
+    function_definitions <-
+        function_definitions_with_script %>%
+        select(-script)
+
+    list(function_definitions = function_definitions,
+         function_definitions_with_script = function_definitions_with_script)
 }
 
 

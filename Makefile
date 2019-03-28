@@ -154,7 +154,7 @@ DATA_TABLE_VIEWER_ARGS :=
 LINT_FILEPATH := scripts/create-corpus-with-matching-patterns.R
 
 
-FUNCTION_DEFINITIONS_FILENAME := function_definitions
+FUNCTION_DEFINITIONS_FILENAME := function_definitions_with_script
 
 export R_KEEP_PKG_SOURCE=1
 export R_ENABLE_JIT=0
