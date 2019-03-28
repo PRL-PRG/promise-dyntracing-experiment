@@ -1828,9 +1828,16 @@ paper <- function(analyses) {
         ungroup() %>%
         mutate(relative_function_count = function_count / sum(function_count))
 
-    list(closure_strictness = closure_strictness,
-         package_strictness = package_strictness,
-         force_orders = force_orders)
+
+    ### OJBECTS
+    object_analyses <- objects(analyses)
+
+    ### PROMISES
+
+    c(list(closure_strictness = closure_strictness,
+           package_strictness = package_strictness,
+           force_orders = force_orders),
+      object_analyses)
 
 }
 
