@@ -604,7 +604,7 @@ parameters <- function(analyses) {
         formal_parameter_usage_class %>%
         nrow()
 
-    formal_parameter_count_by_usage <-
+    formal_parameter_count_by_use <-
         formal_parameter_usage_class %>%
         group_by(parameter_use) %>%
         summarize(parameter_count = n()) %>%
@@ -668,7 +668,7 @@ parameters <- function(analyses) {
         ungroup()
 
     list(argument_count_by_usage = argument_count_by_usage,
-         formal_parameter_count_by_usage = formal_parameter_count_by_usage,
+         formal_parameter_count_by_use = formal_parameter_count_by_use,
          formal_parameter_usage_class = formal_parameter_usage_class,
          formal_parameter_count_by_usage_class = formal_parameter_count_by_usage_class,
          closure_usage_class = closure_usage_class,
