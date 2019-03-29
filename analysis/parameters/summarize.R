@@ -539,15 +539,15 @@ arguments <- function(analyses) {
 
 parameters <- function(analyses) {
 
-    classify_parameter <- function(argument_use_count, call_count) {
-        if_else(argument_use_count == call_count, "Always",
-                if_else(argument_use_count == 0, "Never",
-                        "Sometimes"))
+    classify_parameter <- function(argument_use_count, count) {
+        if_else(argument_use_count == count, "Always",
+        if_else(argument_use_count == 0, "Never",
+                "Sometimes"))
     }
 
     total_argument_count <-
         analyses$formal_parameter_usage_counts %>%
-        pull(call_count) %>%
+        pull(argument_count) %>%
         as.double() %>%
         sum()
 
@@ -576,7 +576,6 @@ parameters <- function(analyses) {
                             metaprogrammed_argument_count -
                             looked_up_and_metaprogrammed_argument_count)
 
-    ## todo - this does not include ... argument counts
     argument_count_by_usage <-
         tibble(argument_use = c("Lookup", "Metaprogram", "Both", "None"),
                argument_count = c(looked_up_argument_count,
@@ -585,23 +584,21 @@ parameters <- function(analyses) {
                                   none_argument_count)) %>%
         mutate(relative_argument_count = argument_count / total_argument_count)
 
-    #formal_parameter_count_by_usage <-
-
     formal_parameter_usage_class <-
         analyses$formal_parameter_usage_counts %>%
         group_by(function_id, formal_parameter_position) %>%
         summarize(lookup = sum(lookup),
                   metaprogram = sum(metaprogram),
                   either = sum(either),
+                  argument_count = sum(argument_count),
                   call_count = sum(call_count)) %>%
         ungroup() %>%
-        mutate(lookup_class = classify_parameter(lookup, call_count),
-               metaprogram_class = classify_parameter(metaprogram, call_count),
-               either_class = classify_parameter(either, call_count)) %>%
-        mutate(parameter_use = if_else((lookup == call_count) & (metaprogram == 0), "Lookup",
-                                       if_else((lookup == 0) & (metaprogram == call_count), "Metaprogram",
-                                               if_else((metaprogram == 0) & (lookup == 0), "Nothing",
-                                                       "Lookup & Metaprogram"))))
+        mutate(lookup_class = classify_parameter(lookup, argument_count),
+               metaprogram_class = classify_parameter(metaprogram, argument_count),
+               either_class = classify_parameter(either, argument_count)) %>%
+        mutate(parameter_use = if_else((lookup == argument_count) & (metaprogram == 0), "Lookup",
+                               if_else((lookup == 0) & (metaprogram == argument_count), "Metaprogram",
+                               if_else((metaprogram == 0) & (lookup == 0), "Nothing", "Lookup & Metaprogram"))))
 
     total_formal_parameter_count <-
         formal_parameter_usage_class %>%
@@ -613,7 +610,6 @@ parameters <- function(analyses) {
         summarize(parameter_count = n()) %>%
         ungroup() %>%
         mutate(relative_parameter_count = parameter_count / sum(parameter_count))
-
 
     formal_parameter_count_by_usage_class <-
         formal_parameter_usage_class %>%

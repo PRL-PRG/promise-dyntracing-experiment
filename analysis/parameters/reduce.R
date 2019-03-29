@@ -318,24 +318,20 @@ parameters <- function(analyses) {
                metaprogram = as.logical(direct_metaprogram_count + indirect_metaprogram_count)) %>%
         select(call_id, function_id, formal_parameter_position,
                lookup, metaprogram) %>%
-        group_by(function_id, formal_parameter_position, call_id) %>%
-        summarize(metaprogram = any(metaprogram),
-                  lookup = any(lookup)) %>%
-        mutate(either = metaprogram | lookup,
-               both = metaprogram & lookup) %>%
-        summarize(lookup = sum(lookup),
+        group_by(function_id, formal_parameter_position) %>%
+        summarize(either = sum(metaprogram | lookup),
+                  both = sum(metaprogram & lookup),
+                  lookup = sum(lookup),
                   metaprogram = sum(metaprogram),
-                  either = sum(either),
-                  both = sum(both),
-                  call_count = n()) %>%
+                  argument_count = n()) %>%
+        mutate(call_count = n()) %>%
         ungroup()
 
     execution_times <-
         analyses$arguments %>%
-        filter(argument_type == "Promise") %>%
-        select(function_id, formal_parameter_position, direct_force, execution_time) %>%
+        filter(argument_type == "Promise" & direct_force != 0 & execution_time >= 1000000) %>%
+        select(function_id, formal_parameter_position, execution_time) %>%
         mutate(execution_time = round(execution_time / 1000000, digits = 1)) %>%
-        filter(direct_force != 0 & execution_time >= 1) %>%
         group_by(function_id, formal_parameter_position, execution_time) %>%
         summarize(argument_count = 1.0 * n()) %>%
         ungroup()
