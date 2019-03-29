@@ -867,7 +867,7 @@ promises <- function(analyses) {
     ##     summarize_event_counts(indirect_non_lexical_scope_observation)
 
     argument_promise_use_distribution <-
-        analyses$argument_promise_use_distribution_by_category %>%
+        analyses$argument_promise_use_distribution %>%
         mutate(promise_count = as.numeric(promise_count)) %>%
         group_by(use) %>%
         summarize(promise_count = sum(promise_count)) %>%
@@ -875,7 +875,7 @@ promises <- function(analyses) {
         mutate(relative_promise_count = promise_count / sum(promise_count))
 
     argument_promise_action_distribution <-
-        analyses$argument_promise_action_distribution_by_category %>%
+        analyses$argument_promise_action_distribution %>%
         mutate(promise_count = as.numeric(promise_count)) %>%
         group_by(action) %>%
         summarize(promise_count = sum(promise_count)) %>%
