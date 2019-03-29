@@ -47,7 +47,8 @@ verbatim <- function(analyses) {
     c(events(analyses),
       objects(analyses),
       escaped_arguments(analyses),
-      function_definitions(analyses))
+      function_definitions(analyses),
+      promise_lifecycles(analyses))
 }
 
 
@@ -91,6 +92,16 @@ function_definitions <- function(analyses) {
     }
 
     list(function_definitions = analyses$function_definitions)
+}
+
+
+promise_lifecycles <- function(analyses) {
+
+    if(nrow(analyses$promise_lifecycles) == 0) {
+        return(list())
+    }
+
+    list(promise_lifecycles = analyses$promise_lifecycles)
 }
 
 

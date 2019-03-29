@@ -674,6 +674,21 @@ parameters <- function(analyses) {
 }
 
 
+promise_lifecycles <- function(analyses) {
+
+    promise_lifecycles <-
+        analyses$promise_lifecycles %>%
+        select(action, promise_count) %>%
+        group_by(action) %>%
+        summarize(promise_count = sum(as.double(promise_count))) %>%
+        ungroup() %>%
+        mutate(relative_promise_count = promise_count / sum(promise_count)) %>%
+        arrange(desc(promise_count))
+
+    list(promise_lifecycles = promise_lifecycles)
+}
+
+
 promises <- function(analyses) {
 
     summarize_event_counts <- function(df, group_column) {
