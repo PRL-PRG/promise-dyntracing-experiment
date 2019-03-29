@@ -453,53 +453,53 @@ arguments <- function(analyses) {
         mutate(relative_promise_count = promise_count / sum(promise_count)) %>%
         summarize_outliers(sharing_count, promise_count, relative_promise_count, 3)
 
-    promise_argument_count_by_expression_type <-
-        analyses$promise_argument_count_by_expression_type %>%
-        summarize_event_counts(expression_type)
+    ## promise_argument_count_by_expression_type <-
+    ##     analyses$promise_argument_count_by_expression_type %>%
+    ##     summarize_event_counts(expression_type)
 
-    promise_argument_count_by_value_type <-
-        analyses$promise_argument_count_by_value_type %>%
-        summarize_event_counts(value_type)
+    ## promise_argument_count_by_value_type <-
+    ##     analyses$promise_argument_count_by_value_type %>%
+    ##     summarize_event_counts(value_type)
 
     promise_argument_count_by_force_type <-
         analyses$promise_argument_count_by_force_type %>%
         summarize_event_counts(force_type)
 
-    promise_argument_count_by_direct_lookup_count <-
-        analyses$promise_argument_count_by_direct_lookup_count %>%
-        summarize_event_counts(direct_lookup_count) %>%
-        summarize_outliers(direct_lookup_count,
-                           argument_count,
-                           relative_argument_count,
-                           5)
+    ## promise_argument_count_by_direct_lookup_count <-
+    ##     analyses$promise_argument_count_by_direct_lookup_count %>%
+    ##     summarize_event_counts(direct_lookup_count) %>%
+    ##     summarize_outliers(direct_lookup_count,
+    ##                        argument_count,
+    ##                        relative_argument_count,
+    ##                        5)
 
-    promise_argument_count_by_direct_and_indirect_lookup_count <-
-        analyses$promise_argument_count_by_direct_and_indirect_lookup_count %>%
-        summarize_event_counts(direct_and_indirect_lookup_count) %>%
-        summarize_outliers(direct_and_indirect_lookup_count,
-                           argument_count,
-                           relative_argument_count,
-                           5)
+    ## promise_argument_count_by_direct_and_indirect_lookup_count <-
+    ##     analyses$promise_argument_count_by_direct_and_indirect_lookup_count %>%
+    ##     summarize_event_counts(direct_and_indirect_lookup_count) %>%
+    ##     summarize_outliers(direct_and_indirect_lookup_count,
+    ##                        argument_count,
+    ##                        relative_argument_count,
+    ##                        5)
 
-    promise_argument_count_by_direct_metaprogram_count <-
-        analyses$promise_argument_count_by_direct_metaprogram_count %>%
-        summarize_event_counts(direct_metaprogram_count) %>%
-        summarize_outliers(direct_metaprogram_count,
-                           argument_count,
-                           relative_argument_count,
-                           5)
+    ## promise_argument_count_by_direct_metaprogram_count <-
+    ##     analyses$promise_argument_count_by_direct_metaprogram_count %>%
+    ##     summarize_event_counts(direct_metaprogram_count) %>%
+    ##     summarize_outliers(direct_metaprogram_count,
+    ##                        argument_count,
+    ##                        relative_argument_count,
+    ##                        5)
 
-    promise_argument_count_by_direct_and_indirect_metaprogram_count <-
-        analyses$promise_argument_count_by_direct_and_indirect_metaprogram_count %>%
-        summarize_event_counts(direct_and_indirect_metaprogram_count) %>%
-        summarize_outliers(direct_and_indirect_metaprogram_count,
-                           argument_count,
-                           relative_argument_count,
-                           5)
+    ## promise_argument_count_by_direct_and_indirect_metaprogram_count <-
+    ##     analyses$promise_argument_count_by_direct_and_indirect_metaprogram_count %>%
+    ##     summarize_event_counts(direct_and_indirect_metaprogram_count) %>%
+    ##     summarize_outliers(direct_and_indirect_metaprogram_count,
+    ##                        argument_count,
+    ##                        relative_argument_count,
+    ##                        5)
 
-    promise_argument_count_by_dispatch_type <-
-        analyses$promise_argument_count_by_dispatch_type %>%
-        summarize_event_counts(dispatch_type)
+    ## promise_argument_count_by_dispatch_type <-
+    ##     analyses$promise_argument_count_by_dispatch_type %>%
+    ##     summarize_event_counts(dispatch_type)
 
     promise_argument_forced_by_promise_argument <-
         analyses$promise_argument_forced_by_promise_argument %>%
@@ -524,14 +524,14 @@ arguments <- function(analyses) {
          non_missing_argument_count_by_dot_dot_dot = non_missing_argument_count_by_dot_dot_dot,
          promise_argument_count_by_nature = promise_argument_count_by_nature,
          promise_argument_count_by_sharing = promise_argument_count_by_sharing,
-         promise_argument_count_by_expression_type = promise_argument_count_by_expression_type,
-         promise_argument_count_by_value_type = promise_argument_count_by_value_type,
+         ## promise_argument_count_by_expression_type = promise_argument_count_by_expression_type,
+         ## promise_argument_count_by_value_type = promise_argument_count_by_value_type,
          promise_argument_count_by_force_type = promise_argument_count_by_force_type,
-         promise_argument_count_by_direct_lookup_count = promise_argument_count_by_direct_lookup_count,
-         promise_argument_count_by_direct_and_indirect_lookup_count = promise_argument_count_by_direct_and_indirect_lookup_count,
-         promise_argument_count_by_direct_metaprogram_count = promise_argument_count_by_direct_metaprogram_count,
-         promise_argument_count_by_direct_and_indirect_metaprogram_count = promise_argument_count_by_direct_and_indirect_metaprogram_count,
-         promise_argument_count_by_dispatch_type = promise_argument_count_by_dispatch_type,
+         ## promise_argument_count_by_direct_lookup_count = promise_argument_count_by_direct_lookup_count,
+         ## promise_argument_count_by_direct_and_indirect_lookup_count = promise_argument_count_by_direct_and_indirect_lookup_count,
+         ## promise_argument_count_by_direct_metaprogram_count = promise_argument_count_by_direct_metaprogram_count,
+         ## promise_argument_count_by_direct_and_indirect_metaprogram_count = promise_argument_count_by_direct_and_indirect_metaprogram_count,
+         ## promise_argument_count_by_dispatch_type = promise_argument_count_by_dispatch_type,
          promise_argument_forced_by_promise_argument = promise_argument_forced_by_promise_argument,
          promise_argument_returning_non_locally = promise_argument_returning_non_locally)
 }
