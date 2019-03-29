@@ -354,11 +354,8 @@ functions <- function(analyses) {
         filter(formal_parameter_count != 0 & call_count > 1) %>%
         group_by(wrapper, function_id) %>%
         summarize(
-            force_order = to_sequence(unique(force_order)),
             force_order_count = length(unique(force_order)),
-            compatible_force_order = to_sequence(),
-            compatible_force_order_count = length(unique(compatible_force_order)),
-            formal_parameter_count = first(formal_parameter_count)) %>%
+            compatible_force_order_count = length(unique(compatible_force_order))) %>%
         ungroup()
 
     closure_count_distribution_by_wrapper_and_original_force_order <-
