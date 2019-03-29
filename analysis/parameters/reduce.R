@@ -370,40 +370,40 @@ promises <- function(analyses) {
         summarize_event_counts(expression_type,
                                promise_count)
 
-    non_argument_promise_count_by_expression_type <-
-        non_argument_promises %>%
-        summarize_event_counts(expression_type,
-                               promise_count)
+    ## non_argument_promise_count_by_expression_type <-
+    ##     non_argument_promises %>%
+    ##     summarize_event_counts(expression_type,
+    ##                            promise_count)
 
     argument_promise_count_by_value_type <-
         argument_promises %>%
         summarize_event_counts(value_type,
                                promise_count)
 
-    non_argument_promise_count_by_value_type <-
-        non_argument_promises %>%
-        summarize_event_counts(value_type,
-                               promise_count)
+    ## non_argument_promise_count_by_value_type <-
+    ##     non_argument_promises %>%
+    ##     summarize_event_counts(value_type,
+    ##                            promise_count)
 
-    argument_promise_count_by_creation_scope <-
-        argument_promises %>%
-        summarize_event_counts(creation_scope,
-                               promise_count)
+    ## argument_promise_count_by_creation_scope <-
+    ##     argument_promises %>%
+    ##     summarize_event_counts(creation_scope,
+    ##                            promise_count)
 
-    non_argument_promise_count_by_creation_scope <-
-        non_argument_promises %>%
-        summarize_event_counts(creation_scope,
-                               promise_count)
+    ## non_argument_promise_count_by_creation_scope <-
+    ##     non_argument_promises %>%
+    ##     summarize_event_counts(creation_scope,
+    ##                            promise_count)
 
-    argument_promise_count_by_forcing_scope <-
-        argument_promises %>%
-        summarize_event_counts(forcing_scope,
-                               promise_count)
+    ## argument_promise_count_by_forcing_scope <-
+    ##     argument_promises %>%
+    ##     summarize_event_counts(forcing_scope,
+    ##                            promise_count)
 
-    non_argument_promise_count_by_forcing_scope <-
-        non_argument_promises %>%
-        summarize_event_counts(forcing_scope,
-                               promise_count)
+    ## non_argument_promise_count_by_forcing_scope <-
+    ##     non_argument_promises %>%
+    ##     summarize_event_counts(forcing_scope,
+    ##                            promise_count)
 
     S3_dispatch <- argument_promises$S3_dispatch
     S4_dispatch <- argument_promises$S4_dispatch
@@ -420,136 +420,137 @@ promises <- function(analyses) {
         summarize_event_counts(call_depth,
                                promise_count)
 
-    argument_promise_count_by_promise_depth <-
-        argument_promises %>%
-        summarize_event_counts(promise_depth,
-                               promise_count)
+    ## argument_promise_count_by_promise_depth <-
+    ##     argument_promises %>%
+    ##     summarize_event_counts(promise_depth,
+    ##                            promise_count)
 
-    argument_promise_count_by_nested_promise_depth <-
-        argument_promises %>%
-        summarize_event_counts(nested_promise_depth,
-                               promise_count)
+    ## argument_promise_count_by_nested_promise_depth <-
+    ##     argument_promises %>%
+    ##     summarize_event_counts(nested_promise_depth,
+    ##                            promise_count)
 
-    promise_count_by_force_count <-
+    argument_promise_count_by_force_count <-
         argument_promises %>%
         summarize_event_counts(force_count,
                                promise_count)
 
-    promise_count_by_metaprogram_count <-
+    argument_promise_count_by_metaprogram_count <-
         argument_promises %>%
         summarize_event_counts(metaprogram_count,
                                promise_count)
 
-    promise_count_by_value_lookup_count <-
+    argument_promise_count_by_value_lookup_count <-
         argument_promises %>%
+        mutate(value_lookup_count = value_lookup_count + force_count) %>%
         summarize_event_counts(value_lookup_count,
                                promise_count)
 
-    promise_count_by_value_assign_count <-
-        argument_promises %>%
-        summarize_event_counts(value_assign_count,
-                               promise_count)
+    ## argument_promise_count_by_value_assign_count <-
+    ##     argument_promises %>%
+    ##     summarize_event_counts(value_assign_count,
+    ##                            promise_count)
 
-    promise_count_by_expression_lookup_count <-
+    argument_promise_count_by_expression_lookup_count <-
         argument_promises %>%
         summarize_event_counts(expression_lookup_count,
                                promise_count)
 
-    promise_count_by_expression_assign_count <-
-        argument_promises %>%
-        summarize_event_counts(expression_assign_count,
-                               promise_count)
+    ## argument_promise_count_by_expression_assign_count <-
+    ##     argument_promises %>%
+    ##     summarize_event_counts(expression_assign_count,
+    ##                            promise_count)
 
-    promise_count_by_environment_lookup_count <-
-        argument_promises %>%
-        summarize_event_counts(environment_lookup_count,
-                               promise_count)
+    ## argument_promise_count_by_environment_lookup_count <-
+    ##     argument_promises %>%
+    ##     summarize_event_counts(environment_lookup_count,
+    ##                            promise_count)
 
-    promise_count_by_environment_assign_count <-
-        argument_promises %>%
-        summarize_event_counts(environment_assign_count,
-                               promise_count)
+    ## argument_promise_count_by_environment_assign_count <-
+    ##     argument_promises %>%
+    ##     summarize_event_counts(environment_assign_count,
+    ##                            promise_count)
 
 
-    summarize_side_effect <- function(df, side_effect_column, type_column) {
-        side_effect_column <- enquo(side_effect_column)
+    ## summarize_side_effect <- function(df, side_effect_column, type_column) {
+    ##     side_effect_column <- enquo(side_effect_column)
 
-        total_argument_promise_count <-
-            nrow(df)
+    ##     total_argument_promise_count <-
+    ##         nrow(df)
 
-        side_effect_promise_count <-
-            df %>%
-            pull(!!side_effect_column) %>%
-            as.logical() %>%
-            sum()
+    ##     side_effect_promise_count <-
+    ##         df %>%
+    ##         pull(!!side_effect_column) %>%
+    ##         as.logical() %>%
+    ##         sum()
 
-        no_side_effect_promise_count <-
-            total_argument_promise_count - side_effect_promise_count
+    ##     no_side_effect_promise_count <-
+    ##         total_argument_promise_count - side_effect_promise_count
 
-        tibble(c("Yes", "No"),
-               c(side_effect_promise_count, no_side_effect_promise_count)) %>%
-            `colnames<-`(c(type_column, "promise_count"))
-    }
+    ##     tibble(c("Yes", "No"),
+    ##            c(side_effect_promise_count, no_side_effect_promise_count)) %>%
+    ##         `colnames<-`(c(type_column, "promise_count"))
+    ## }
 
-    promise_count_by_direct_self_scope_mutation <-
-        argument_promises %>%
-        summarize_side_effect(direct_self_scope_mutation_count,
-                              "direct_self_scope_mutation")
+    ## promise_count_by_direct_self_scope_mutation <-
+    ##     argument_promises %>%
+    ##     summarize_side_effect(direct_self_scope_mutation_count,
+    ##                           "direct_self_scope_mutation")
 
-    promise_count_by_indirect_self_scope_mutation <-
-        argument_promises %>%
-        summarize_side_effect(indirect_self_scope_mutation_count,
-                              "indirect_self_scope_mutation")
+    ## promise_count_by_indirect_self_scope_mutation <-
+    ##     argument_promises %>%
+    ##     summarize_side_effect(indirect_self_scope_mutation_count,
+    ##                           "indirect_self_scope_mutation")
 
-    promise_count_by_direct_lexical_scope_mutation <-
-        argument_promises %>%
-        summarize_side_effect(direct_lexical_scope_mutation_count,
-                              "direct_lexical_scope_mutation")
+    ## promise_count_by_direct_lexical_scope_mutation <-
+    ##     argument_promises %>%
+    ##     summarize_side_effect(direct_lexical_scope_mutation_count,
+    ##                           "direct_lexical_scope_mutation")
 
-    promise_count_by_indirect_lexical_scope_mutation <-
-        argument_promises %>%
-        summarize_side_effect(indirect_lexical_scope_mutation_count,
-                              "indirect_lexical_scope_mutation")
+    ## promise_count_by_indirect_lexical_scope_mutation <-
+    ##     argument_promises %>%
+    ##     summarize_side_effect(indirect_lexical_scope_mutation_count,
+    ##                           "indirect_lexical_scope_mutation")
 
-    promise_count_by_direct_non_lexical_scope_mutation <-
-        argument_promises %>%
-        summarize_side_effect(direct_non_lexical_scope_mutation_count,
-                              "direct_non_lexical_scope_mutation")
+    ## promise_count_by_direct_non_lexical_scope_mutation <-
+    ##     argument_promises %>%
+    ##     summarize_side_effect(direct_non_lexical_scope_mutation_count,
+    ##                           "direct_non_lexical_scope_mutation")
 
-    promise_count_by_indirect_non_lexical_scope_mutation <-
-        argument_promises %>%
-        summarize_side_effect(indirect_non_lexical_scope_mutation_count,
-                              "indirect_non_lexical_scope_mutation")
+    ## promise_count_by_indirect_non_lexical_scope_mutation <-
+    ##     argument_promises %>%
+    ##     summarize_side_effect(indirect_non_lexical_scope_mutation_count,
+    ##                           "indirect_non_lexical_scope_mutation")
 
-    promise_count_by_direct_self_scope_observation <-
-        argument_promises %>%
-        summarize_side_effect(direct_self_scope_observation_count,
-                              "direct_self_scope_observation")
+    ## promise_count_by_direct_self_scope_observation <-
+    ##     argument_promises %>%
+    ##     summarize_side_effect(direct_self_scope_observation_count,
+    ##                           "direct_self_scope_observation")
 
-    promise_count_by_indirect_self_scope_observation <-
-        argument_promises %>%
-        summarize_side_effect(indirect_self_scope_observation_count,
-                              "indirect_self_scope_observation")
+    ## promise_count_by_indirect_self_scope_observation <-
+    ##     argument_promises %>%
+    ##     summarize_side_effect(indirect_self_scope_observation_count,
+    ##                           "indirect_self_scope_observation")
 
-    promise_count_by_direct_lexical_scope_observation <-
-        argument_promises %>%
-        summarize_side_effect(direct_lexical_scope_observation_count,
-                              "direct_lexical_scope_observation")
+    ## promise_count_by_direct_lexical_scope_observation <-
+    ##     argument_promises %>%
+    ##     summarize_side_effect(direct_lexical_scope_observation_count,
+    ##                           "direct_lexical_scope_observation")
 
-    promise_count_by_indirect_lexical_scope_observation <-
-        argument_promises %>%
-        summarize_side_effect(indirect_lexical_scope_observation_count,
-                              "indirect_lexical_scope_observation")
+    ## promise_count_by_indirect_lexical_scope_observation <-
+    ##     argument_promises %>%
+    ##     summarize_side_effect(indirect_lexical_scope_observation_count,
+    ##                           "indirect_lexical_scope_observation")
 
-    promise_count_by_direct_non_lexical_scope_observation <-
-        argument_promises %>%
-        summarize_side_effect(direct_non_lexical_scope_observation_count,
-                              "direct_non_lexical_scope_observation")
+    ## promise_count_by_direct_non_lexical_scope_observation <-
+    ##     argument_promises %>%
+    ##     summarize_side_effect(direct_non_lexical_scope_observation_count,
+    ##                           "direct_non_lexical_scope_observation")
 
-    promise_count_by_indirect_non_lexical_scope_observation <-
-        argument_promises %>%
-        summarize_side_effect(indirect_non_lexical_scope_observation_count,
-                              "indirect_non_lexical_scope_observation")
+    ## promise_count_by_indirect_non_lexical_scope_observation <-
+    ##     argument_promises %>%
+    ##     summarize_side_effect(indirect_non_lexical_scope_observation_count,
+    ##                           "indirect_non_lexical_scope_observation")
 
     summarize_use <- function(table) {
         lookup_promise_count <-
@@ -608,62 +609,59 @@ promises <- function(analyses) {
                                  nonforced_promise_count))
     }
 
-    promises <-
-        analyses$promises %>%
+    argument_promises <-
+        argument_promises %>%
         mutate(force = as.logical(force_count),
                lookup = as.logical(value_lookup_count),
                metaprogram = as.logical(metaprogram_count)) %>%
         mutate(lookup = force | lookup) %>%
-        select(promise_category = argument, force, lookup, metaprogram, preforce) %>%
-        mutate(promise_category = c("Non Argument", "Argument")[promise_category + 1])
+        select(force, lookup, metaprogram, preforce)
 
-    promise_use_distribution_by_category <-
-        promises %>%
-        group_by(promise_category) %>%
-        do(summarize_use(.data)) %>%
+    argument_promise_use_distribution <-
+        argument_promises %>%
+        summarize_use() %>%
         ungroup()
 
-    promise_action_distribution_by_category <-
-        promises %>%
-        group_by(promise_category) %>%
-        do(summarize_action(.data)) %>%
+    argument_promise_action_distribution <-
+        argument_promises %>%
+        summarize_action() %>%
         ungroup()
 
     list(promise_count_by_category = promise_count_by_category,
          argument_promise_count_by_expression_type = argument_promise_count_by_expression_type,
-         non_argument_promise_count_by_expression_type = non_argument_promise_count_by_expression_type,
+         #non_argument_promise_count_by_expression_type = non_argument_promise_count_by_expression_type,
          argument_promise_count_by_value_type = argument_promise_count_by_value_type,
-         non_argument_promise_count_by_value_type = non_argument_promise_count_by_value_type,
-         argument_promise_count_by_creation_scope = argument_promise_count_by_creation_scope,
-         non_argument_promise_count_by_creation_scope = non_argument_promise_count_by_creation_scope,
-         argument_promise_count_by_forcing_scope = argument_promise_count_by_forcing_scope,
-         non_argument_promise_count_by_forcing_scope = non_argument_promise_count_by_forcing_scope,
+         #non_argument_promise_count_by_value_type = non_argument_promise_count_by_value_type,
+         #argument_promise_count_by_creation_scope = argument_promise_count_by_creation_scope,
+         #non_argument_promise_count_by_creation_scope = non_argument_promise_count_by_creation_scope,
+         #argument_promise_count_by_forcing_scope = argument_promise_count_by_forcing_scope,
+         #non_argument_promise_count_by_forcing_scope = non_argument_promise_count_by_forcing_scope,
          argument_promise_count_by_dispatch_type = argument_promise_count_by_dispatch_type,
          argument_promise_count_by_call_depth = argument_promise_count_by_call_depth,
-         argument_promise_count_by_promise_depth = argument_promise_count_by_promise_depth,
-         argument_promise_count_by_nested_promise_depth = argument_promise_count_by_nested_promise_depth,
-         promise_count_by_force_count = promise_count_by_force_count,
-         promise_count_by_metaprogram_count = promise_count_by_metaprogram_count,
-         promise_count_by_value_lookup_count = promise_count_by_value_lookup_count,
-         promise_count_by_value_assign_count = promise_count_by_value_assign_count,
-         promise_count_by_expression_lookup_count = promise_count_by_expression_lookup_count,
-         promise_count_by_expression_assign_count = promise_count_by_expression_assign_count,
-         promise_count_by_environment_lookup_count = promise_count_by_environment_lookup_count,
-         promise_count_by_environment_assign_count = promise_count_by_environment_assign_count,
-         promise_count_by_direct_self_scope_mutation = promise_count_by_direct_self_scope_mutation,
-         promise_count_by_indirect_self_scope_mutation = promise_count_by_indirect_self_scope_mutation,
-         promise_count_by_direct_lexical_scope_mutation = promise_count_by_direct_lexical_scope_mutation,
-         promise_count_by_indirect_lexical_scope_mutation = promise_count_by_indirect_lexical_scope_mutation,
-         promise_count_by_direct_non_lexical_scope_mutation = promise_count_by_direct_non_lexical_scope_mutation,
-         promise_count_by_indirect_non_lexical_scope_mutation = promise_count_by_indirect_non_lexical_scope_mutation,
-         promise_count_by_direct_self_scope_observation = promise_count_by_direct_self_scope_observation,
-         promise_count_by_indirect_self_scope_observation = promise_count_by_indirect_self_scope_observation,
-         promise_count_by_direct_lexical_scope_observation = promise_count_by_direct_lexical_scope_observation,
-         promise_count_by_indirect_lexical_scope_observation = promise_count_by_indirect_lexical_scope_observation,
-         promise_count_by_direct_non_lexical_scope_observation = promise_count_by_direct_non_lexical_scope_observation,
-         promise_count_by_indirect_non_lexical_scope_observation = promise_count_by_indirect_non_lexical_scope_observation,
-         promise_use_distribution_by_category = promise_use_distribution_by_category,
-         promise_action_distribution_by_category = promise_action_distribution_by_category)
+         # argument_promise_count_by_promise_depth = argument_promise_count_by_promise_depth,
+         # argument_promise_count_by_nested_promise_depth = argument_promise_count_by_nested_promise_depth,
+         argument_promise_count_by_force_count = argument_promise_count_by_force_count,
+         argument_promise_count_by_metaprogram_count = argument_promise_count_by_metaprogram_count,
+         argument_promise_count_by_value_lookup_count = argument_promise_count_by_value_lookup_count,
+         # argument_promise_count_by_value_assign_count = argument_promise_count_by_value_assign_count,
+         argument_promise_count_by_expression_lookup_count = argument_promise_count_by_expression_lookup_count,
+         # argument_promise_count_by_expression_assign_count = argument_promise_count_by_expression_assign_count,
+         # argument_promise_count_by_environment_lookup_count = argument_promise_count_by_environment_lookup_count,
+         # argument_promise_count_by_environment_assign_count = argument_promise_count_by_environment_assign_count,
+         ##promise_count_by_direct_self_scope_mutation = promise_count_by_direct_self_scope_mutation,
+         ##promise_count_by_indirect_self_scope_mutation = promise_count_by_indirect_self_scope_mutation,
+         ##promise_count_by_direct_lexical_scope_mutation = promise_count_by_direct_lexical_scope_mutation,
+         ##promise_count_by_indirect_lexical_scope_mutation = promise_count_by_indirect_lexical_scope_mutation,
+         ##promise_count_by_direct_non_lexical_scope_mutation = promise_count_by_direct_non_lexical_scope_mutation,
+         ##promise_count_by_indirect_non_lexical_scope_mutation = promise_count_by_indirect_non_lexical_scope_mutation,
+         ##promise_count_by_direct_self_scope_observation = promise_count_by_direct_self_scope_observation,
+         ##promise_count_by_indirect_self_scope_observation = promise_count_by_indirect_self_scope_observation,
+         ##promise_count_by_direct_lexical_scope_observation = promise_count_by_direct_lexical_scope_observation,
+         ##promise_count_by_indirect_lexical_scope_observation = promise_count_by_indirect_lexical_scope_observation,
+         ##promise_count_by_direct_non_lexical_scope_observation = promise_count_by_direct_non_lexical_scope_observation,
+         ##promise_count_by_indirect_non_lexical_scope_observation = promise_count_by_indirect_non_lexical_scope_observation,
+         argument_promise_use_distribution = argument_promise_use_distribution,
+         argument_promise_action_distribution = argument_promise_action_distribution)
 }
 
 
