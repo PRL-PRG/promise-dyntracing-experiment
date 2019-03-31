@@ -1844,13 +1844,25 @@ paper <- function(analyses) {
     package_strictness <-
         closure_strictness %>%
         group_by(package_name) %>%
-        summarize(strict_function_count = sum(as.double(strict)),
+        summarize(uniorder_function_count = sum(force_order_count == 1),
+                  multiorder_function_count = sum(force_order_count > 1),
+                  strict_function_count = sum(as.double(strict)),
                   non_strict_function_count = sum(as.double(!strict)),
+                  strict_uniorder_function_count = sum(strict & force_order_count == 1),
+                  strict_multiorder_function_count = sum(strict & force_order_count > 1),
+                  non_strict_uniorder_function_count = sum(!strict & force_order_count == 1),
+                  non_strict_multiorder_function_count = sum(!strict & force_order_count > 1),
                   total_function_count = n()) %>%
         ungroup() %>%
-        mutate(relative_strict_function_count = strict_function_count / total_function_count,
-               relative_lazy_function_count = non_strict_function_count / total_function_count) %>%
-        arrange(desc(relative_strict_function_count))
+        mutate(relative_uniorder_function_count = uniorder_function_count / total_function_count,
+               relative_multiorder_function_count = multiorder_function_count / total_function_count,
+               relative_strict_function_count = strict_function_count / total_function_count,
+               relative_non_strict_function_count = non_strict_function_count / total_function_count,
+               relative_strict_uniorder_function_count = strict_uniorder_function_count / total_function_count,
+               relative_strict_multiorder_function_count = strict_multiorder_function_count / total_function_count,
+               relative_non_strict_uniorder_function_count = non_strict_uniorder_function_count / total_function_count,
+               relative_non_strict_multiorder_function_count = non_strict_multiorder_function_count / total_function_count) %>%
+        arrange(desc(relative_strict_uniorder_function_count))
 
     force_orders <-
         closure_strictness %>%
@@ -1860,19 +1872,9 @@ paper <- function(analyses) {
         ungroup() %>%
         mutate(relative_function_count = function_count / sum(function_count))
 
-
-    ### OJBECTS
-    object_analyses <- objects(analyses)
-
-    ### PROMISES
-    promise_analyses <- promises(analyses)
-
-    c(list(closure_strictness = closure_strictness,
-           package_strictness = package_strictness,
-           force_orders = force_orders),
-      object_analyses,
-      promise_analyses)
-
+    list(closure_strictness = closure_strictness,
+         package_strictness = package_strictness,
+         force_orders = force_orders)
 }
 
 
