@@ -16,10 +16,7 @@ options(error = quote({dump.frames(to.file=FALSE); q();}))
 options(tibble.width = Inf)
 
 ## TODO
-## - arguments forcing each other
-## - non local returning arguments
 ## - nested promises created by the interpreter
-## - multiple evaluation order
 ## - wrapper vs non-wrapper functions
 ## - side effects
 
@@ -29,7 +26,7 @@ function_definition_serializer <- function(filepath, pb) {
 
     f <- file(filepath, "w")
 
-    serialize_row <- function(function_id, function_name, definition, script, ...) {
+    serialize_row <- function(function_id, function_name, definition, ...) {
 
         separator <- str_c(rep("#", 80), collapse = "")
 
@@ -38,8 +35,6 @@ function_definition_serializer <- function(filepath, pb) {
         write_lines(str_c("## NAME  : ", function_name), f)
 
         write_lines(str_c("## ID    : ", function_id), f)
-
-        write_lines(str_c("## SOURCE: ", script), f)
 
         other_arguments <- list(...)
 
@@ -83,67 +78,20 @@ function_definition_serializer <- function(filepath, pb) {
 }
 
 
-serialize_closure_usage <- function(analyses, settings, data) {
+serialize_function_definitions <- function(data, dirpath, settings) {
 
-    handle_group <- function(group, closure_class) {
-        print(head(group))
-        filepath <- path(settings$output_dirpath,
-                         sprintf("%s-%06d",
-                                 closure_class,
-                                 group$sequence_number[1]),
-                         ext = "txt")
-
-        info("=> Writing to '", filepath, "'\n")
-
-        serializer <- function_definition_serializer(filepath)
-
-        group %>%
-            select(-sequence_number) %>%
-            pmap(serializer$serialize_row)
-
-        serializer$finish()
-
-        info("=> Written to '", filepath, "'\n\n")
-
-        filepath
-    }
-
-    total_function_count <- nrow(data)
+    function_count = nrow(data)
 
     sequence_number <-
-        c(1: (ceiling(total_function_count / settings$function_count))) %>%
+        c(1: (ceiling(function_count / settings$function_count))) %>%
         rep(each = settings$function_count) %>%
-        `[`(1:total_function_count)
+        `[`(1:function_count)
 
-    function_ids <- data$function_id
-
-    analyses$function_definitions %>%
-        filter(function_id %in% function_ids) %>%
+    data %>%
         add_column(sequence_number = sequence_number, .before = 1) %>%
         group_by(sequence_number) %>%
-        do(handle_group(.data, data$closure_class[1])) %>%
-        ungroup()
-}
-
-
-many_formal_parameter_function_definitions <- function(analses, settings) {
-    many_formal_parameter_function_definition_dirpath <-
-        path(settings$output_dirpath,
-             "many_formal_parameter_function_definitions")
-
-    dir_create(many_formal_parameter_function_definition_dirpath)
-
-    analyses$closure_formal_parameter_count_table %>%
-        filter(formal_parameter_count > 25 | formal_parameter_count == 0) %>%
-        left_join(analyses$function_definitions, by = "function_id") %>%
-        select(function_id, function_name, definition, script, formal_parameter_count) %>%
-        group_by(formal_parameter_count) %>%
         do({
-            formal_parameter_count <- .data$formal_parameter_count[1]
-
-            filepath <- path(many_formal_parameter_function_definition_dirpath,
-                             formal_parameter_count,
-                             ext = "R")
+            filepath <- path(dirpath, str_c("group-", sequence_number[1]), ext = "R")
 
             pb <- progress_bar$new(format = "[:bar] :percent :eta",
                                    total = nrow(.data),
@@ -155,6 +103,7 @@ many_formal_parameter_function_definitions <- function(analses, settings) {
             serializer <- function_definition_serializer(filepath, pb)
 
             .data %>%
+                select(-sequence_number) %>%
                 pmap(serializer$serialize_row)
 
             serializer$finish()
@@ -163,88 +112,118 @@ many_formal_parameter_function_definitions <- function(analses, settings) {
 
             tibble(output_filepath = filepath)
         }) %>%
+        ungroup()
+}
+
+
+multiparameter_functions <- function(analyses, settings) {
+
+    multiparameter_function_dirpath <-
+        path(settings$output_dirpath, "multiparameter_functions")
+
+    dir_create(multiparameter_function_dirpath)
+
+    analyses$closure_formal_parameter_count_table %>%
+        filter(formal_parameter_count > 25 | formal_parameter_count == 0) %>%
+        left_join(analyses$function_definitions, by = "function_id") %>%
+        group_by(formal_parameter_count) %>%
+        do({
+            dirpath <- path(multiparameter_function_dirpath,
+                            .data$formal_parameter_count[1])
+            dir_create(dirpath)
+            serialize_function_definitions(.data, dirpath, settings)
+        }) %>%
     ungroup()
 }
 
 
-functions <- function(analyses, settings) {
+strictness <- function(analyses, settings) {
 
-    #many_formal_parameter_function_definitions(analyses, settings)
+    strictness_dirpath <- path(settings$output_dirpath, "strictness")
 
-    analyses$non_zero_parameter_multicall_closure_force_order_count %>%
-        left_join(analyses$function_definitions) %>%
-        select(function_id, function_name, definition, script, formal_parameter_count) %>%
-        group_by(wrapper, compatible_force_order_counts)
+    analyses$closure_strictness %>%
+        left_join(analyses$function_definitions, by = c("function_id")) %>%
+        group_by(strict, force_order_count) %>%
+        do({
+            dirpath <- path(strictness_dirpath,
+                            c("non-strict", "strict")[.data$strict[1] + 1],
+                            .data$force_order_count[1])
+            dir_create(dirpath)
+
+            serialize_function_definitions(.data, dirpath, settings)
+        }) %>%
+        ungroup()
+}
+
+metaprogramming <- function(analyses, settings) {
+
+    metaprogram_dirpath <- path(settings$output_dirpath, "metaprogram")
+
+    analyses$closure_usage_class %>%
+        left_join(analyses$function_definitions, by = "function_id") %>%
+        filter(Metaprogram != "Never") %>%
+        group_by(Metaprogram) %>%
+        do({
+            dirpath <- path(metaprogram_dirpath,
+                            str_replace(.data$Metaprogram[1], "\\s\\&\\s", "-and-"))
+            dir_create(dirpath)
+            serialize_function_definitions(.data, dirpath, settings)
+        }) %>%
+    ungroup()
 }
 
 
 escaped_arguments <- function(analyses, settings) {
 
-    to_sequence <- function(params) {
-        str_c("(",
-              str_c(params, collapse = " "),
-              ")",
-              sep = "")
-    }
+    escaped_argument_dirpath <- path(settings$output_dirpath, "escaped_arguments")
 
     escaped_argument_functions <-
         analyses$escaped_arguments %>%
         group_by(return_value_type, function_id) %>%
-        summarize(formal_parameter_position =
-                      to_sequence(sort(unique(formal_parameter_position)))) %>%
+        summarize(formal_parameter_position = first(formal_parameter_position)) %>%
         ungroup() %>%
-        left_join(analyses$function_definitions, by = "function_id")
-
-    escaped_argument_function_definition_dirpath <-
-        path(settings$output_dirpath,
-             "escaped_argument_function_definitions")
-
-    dir_create(escaped_argument_function_definition_dirpath)
-
-    escaped_argument_functions %>%
+        left_join(analyses$function_definitions, by = "function_id") %>%
         group_by(return_value_type) %>%
         do({
-            return_value_type <- .data$return_value_type[1]
-
-            filepath <- path(escaped_argument_function_definition_dirpath,
-                             str_c(str_to_lower(return_value_type)),
-                             ext = "R")
-
-            pb <- progress_bar$new(format = "[:bar] :percent :eta",
-                                   total = nrow(.data),
-                                   clear = FALSE,
-                                   width = 100)
-
-            info("\n=> Writing to '", filepath, "'\n")
-
-            serializer <- function_definition_serializer(filepath, pb)
-
-            .data %>%
-                select(function_id, function_name, definition, script,
-                       formal_parameter_position, return_value_type) %>%
-                pmap(serializer$serialize_row)
-
-            serializer$finish()
-
-            info("=> Written to '", filepath, "'\n")
-
-            tibble(output_filepath = filepath)
+            dirpath <- path(escaped_argument_dirpath, .data$return_value_type[1])
+            dir_create(dirpath)
+            serialize_function_definitions(.data, dirpath, settings)
         }) %>%
     ungroup()
 
 }
+
+
+non_local_returns <- function(analyses, settings) {
+
+    non_local_dirpath <- path(settings$output_dirpath, "non_local_returns")
+
+    dir_create(non_local_dirpath)
+
+    analyses$promise_argument_returning_non_locally %>%
+        left_join(analyses$function_definitions, by = "function_id") %>%
+        serialize_function_definitions(non_local_dirpath, settings)
+}
+
+
+mutual_argument_forcing <- function(analyses, settings) {
+
+    mutual_dirpath <- path(settings$output_dirpath, "mutual_argument_forcing")
+
+    dir_create(mutual_dirpath)
+
+    analyses$promise_argument_forced_by_promise_argument %>%
+        left_join(analyses$function_definitions, by = "function_id") %>%
+        serialize_function_definitions(mutual_dirpath, settings)
+}
+
+
 
 extract <- function(analyses, settings) {
 
     extractor <- eval(as.symbol(settings$analysis))
 
     extractor(analyses, settings)
-
-    ## analyses$closure_usage_by_class_table %>%
-    ##     filter(closure_use == "Either") %>%
-    ##     group_by(closure_class) %>%
-    ##     do(serialize_closure_usage(analyses, settings, .data)) %>%
-    ##     ungroup()
 }
 
 
