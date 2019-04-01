@@ -17,6 +17,7 @@ suppressPackageStartupMessages(library(stringr))
 suppressPackageStartupMessages(library(fs))
 suppressPackageStartupMessages(library(promisedyntracer))
 suppressPackageStartupMessages(library(purrr))
+suppressPackageStartupMessages(library(lubridate))
 
 
 source("analysis/utils.R")
@@ -57,9 +58,17 @@ events <- function(analyses) {
         return(list())
     }
 
+    begin <- as_datetime(analyses$BEGIN, origin = lubridate::origin)
+    finish <- as_datetime(analyses$FINISH, origin = lubridate::origin)
+    tracing_time <- as.double(int_length(interval(begin, finish)))
+
+    event_counts <-
+        analyses$event_counts %>%
+        add_row(event = "TracingTime", count = tracing_time)
+
     ## event count is already summarized by the tracer.
     ## we only have to emit the same file again for summarization.
-    list(event_counts = analyses$event_counts)
+    list(event_counts = event_counts)
 }
 
 
@@ -771,7 +780,9 @@ reduce_raw_analysis_data <- function(settings, reducer, scan) {
                                         data_table_extension(settings$binary,
                                                              settings$compression_level))
 
-    read_raw_analysis_data <- function(input_dirpath) {
+    read_raw_analysis_data <- function(input_dirpath,
+                                       begin_input_filepath,
+                                       finish_input_filepath) {
 
         analyses <- new.env(parent = emptyenv(), hash = TRUE)
 
@@ -785,6 +796,10 @@ reduce_raw_analysis_data <- function(settings, reducer, scan) {
                                               compression_level = settings$compression_level),
                               assign.env = analyses)
             })
+
+        analyses$BEGIN <- as.integer(read_lines(begin_input_filepath))
+
+        analyses$FINISH <- as.integer(read_lines(finish_input_filepath))
 
         analyses
     }
@@ -804,6 +819,7 @@ reduce_raw_analysis_data <- function(settings, reducer, scan) {
 
     info("=> Reducing ", settings$input_dirpath, "\n")
 
+    begin_input_filepath <- path(settings$input_dirpath, "BEGIN")
     finish_input_filepath <- path(settings$input_dirpath, "FINISH")
     noerror_input_filepath <- path(settings$input_dirpath, "NOERROR")
 
@@ -832,7 +848,9 @@ reduce_raw_analysis_data <- function(settings, reducer, scan) {
         if (valid) {
 
             output_filepaths <-
-                read_raw_analysis_data(settings$input_dirpath) %>%
+                read_raw_analysis_data(settings$input_dirpath,
+                                       begin_input_filepath,
+                                       finish_input_filepath) %>%
                 reducer() %>%
                 write_raw_analysis_data(settings$output_dirpath)
 

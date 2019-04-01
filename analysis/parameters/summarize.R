@@ -54,10 +54,41 @@ events <- function(analyses) {
 
     event_counts <-
         analyses$event_counts %>%
-        group_by(event) %>%
-        summarize(count = sum(as.double(count)))
+        mutate(script = enc2utf8(file.path(package, script_type, script_name))) %>%
+        select(script, event, count)
 
-    list(event_counts = event_counts)
+    summarized_event_counts <-
+        event_counts %>%
+        group_by(event) %>%
+        summarize(count = sum(as.double(count))) %>%
+        ungroup()
+
+    extreme_event_counts <-
+        event_counts %>%
+        group_by(event) %>%
+        summarize(min_count = min(as.double(count)),
+                  max_count = max(as.double(count))) %>%
+        ungroup()
+
+    event_processing_rates <-
+        event_counts %>%
+        group_by(script) %>%
+        do({
+            expression_count <- as.double(filter(.data, event == "EvalEntry")$count)
+            event_count <- sum(as.double(filter(.data, event != "TracingTime")$count))
+            tracing_time <- as.double(filter(.data, event == "TracingTime")$count)
+             tibble("expression_count" = expression_count,
+                    "event_count" = event_count,
+                    "tracing_time" = tracing_time)
+        }) %>%
+        ungroup() %>%
+        mutate(expression_rate = expression_count / tracing_time,
+               event_rate = event_count / tracing_time)
+
+    list(event_counts = event_counts,
+         summarized_event_counts = summarized_event_counts,
+         extreme_event_counts = extreme_event_counts,
+         event_processing_rates = event_processing_rates)
 }
 
 
