@@ -138,63 +138,32 @@ functions <- function(analyses) {
         str_c("(", str_c(splits, collapse = " "), ")")
     }
 
-    extract_name_part <- function(function_names, pos) {
-        function_names %>%
-            map_chr(function(names) {
-                names %>%
-                    str_sub(2, -2) %>%
-                    str_split(" ") %>%
-                    unlist() %>%
-                    str_split("::") %>%
-                    map(function(pair) pair[pos]) %>%
-                    unlist() %>%
-                    unique()
-                                        #str_c(collapse = " ") %>%
-                                        #{str_c("(", ., ")")}
-            })
-    }
-
-    extract_package_names <- function(function_name) {
-        extract_name_part(function_name, 1)
-    }
-
-    call_summaries <-
-        analyses$call_summaries %>%
-        mutate(package_name = extract_package_names(function_name)) %>%
-        unnest(package_name)
-
     function_call_summary <-
-        call_summaries %>%
-        group_by(function_type, function_id,
-                 S3_method, S4_method,
-                 jumped, return_value_type) %>%
-        summarize(call_count = sum(as.double(call_count)),
-                  function_name = join_names(function_name)) %>%
+        analyses$call_summaries %>%
+        group_by(function_id, jumped, return_value_type) %>%
+        summarize(package = first(package),
+                  function_name = join_names(function_name),
+                  function_type = first(function_type),
+                  formal_parameter_count = first(formal_parameter_count),
+                  S3_calls = sum(as.double(call_count[S3_method])),
+                  S4_calls = sum(as.double(call_count[S4_method])),
+                  call_count = sum(as.double(call_count))) %>%
         ungroup()
-
-    closure_call_summary <-
-        call_summaries %>%
-        filter(function_type == "Closure")
 
     ## only take into account closures that are not jumped
     closure_force_order_count <-
-        closure_call_summary %>%
-        filter(!jumped) %>%
-        group_by(package_name, function_id, wrapper, force_order, missing_arguments) %>%
-        summarize(formal_parameter_count = first(formal_parameter_count),
+        analyses$call_summaries %>%
+        filter(function_type == "Closure" & !jumped) %>%
+        group_by(function_id, force_order, missing_arguments) %>%
+        summarize(package = first(package),
+                  wrapper = first(wrapper),
+                  formal_parameter_count = first(formal_parameter_count),
                   call_count = sum(as.double(call_count)),
                   function_name = join_names(function_name)) %>%
         ungroup()
 
-    closure_parameter_count <-
-        closure_call_summary %>%
-        group_by(function_id) %>%
-        summarize(formal_parameter_count = first(formal_parameter_count)) %>%
-        ungroup()
-
     list(function_call_summary = function_call_summary,
-         closure_force_order_count = closure_force_order_count,
-         closure_parameter_count = closure_parameter_count)
+         closure_force_order_count = closure_force_order_count)
 }
 
 
