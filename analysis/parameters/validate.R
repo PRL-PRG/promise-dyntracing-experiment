@@ -80,6 +80,10 @@ function_definition_serializer <- function(filepath, pb) {
 
 serialize_function_definitions <- function(data, dirpath, settings) {
 
+    data <-
+        data %>%
+        sample_n(min(10000, nrow(data)))
+
     function_count = nrow(data)
 
     sequence_number <-
@@ -91,7 +95,7 @@ serialize_function_definitions <- function(data, dirpath, settings) {
         add_column(sequence_number = sequence_number, .before = 1) %>%
         group_by(sequence_number) %>%
         do({
-            filepath <- path(dirpath, str_c("group-", sequence_number[1]), ext = "R")
+            filepath <- path(dirpath, str_c("group-", .data$sequence_number[1]), ext = "R")
 
             pb <- progress_bar$new(format = "[:bar] :percent :eta",
                                    total = nrow(.data),
@@ -165,7 +169,7 @@ metaprogramming <- function(analyses, settings) {
         group_by(Metaprogram) %>%
         do({
             dirpath <- path(metaprogram_dirpath,
-                            str_replace(.data$Metaprogram[1], "\\s\\&\\s", "-and-"))
+                            str_replace_all(.data$Metaprogram[1], "\\s\\&\\s", "-and-"))
             dir_create(dirpath)
             serialize_function_definitions(.data, dirpath, settings)
         }) %>%
