@@ -49,7 +49,8 @@ verbatim <- function(analyses) {
       objects(analyses),
       escaped_arguments(analyses),
       function_definitions(analyses),
-      promise_lifecycles(analyses))
+      promise_lifecycles(analyses),
+      side_effects(analyses))
 }
 
 
@@ -81,6 +82,18 @@ objects <- function(analyses) {
     ## object type count is already summarized by the tracer.
     ## we only have to emit the same file again for summarization.
     list(object_counts = analyses$object_counts)
+}
+
+
+side_effects <- function(analyses) {
+
+  if(nrow(analyses$side_effects) == 0) {
+    return(list())
+  }
+
+  ## object type count is already summarized by the tracer.
+  ## we only have to emit the same file again for summarization.
+  list(side_effects = analyses$side_effects)
 }
 
 
