@@ -147,7 +147,7 @@ strictness <- function(analyses, settings) {
         do({
             dirpath <- path(strictness_dirpath,
                             c("non-strict", "strict")[.data$strict[1] + 1],
-                            .data$force_order_count[1])
+                            str_c("order-", .data$force_order_count[1]))
             dir_create(dirpath)
 
             serialize_function_definitions(.data, dirpath, settings)
@@ -157,7 +157,7 @@ strictness <- function(analyses, settings) {
 
 metaprogramming <- function(analyses, settings) {
 
-    metaprogram_dirpath <- path(settings$output_dirpath, "metaprogram")
+    metaprogram_dirpath <- path(settings$output_dirpath, "metaprogramming")
 
     analyses$closure_usage_class %>%
         left_join(analyses$function_definitions, by = "function_id") %>%
