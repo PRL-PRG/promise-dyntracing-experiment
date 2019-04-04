@@ -59,8 +59,8 @@ events <- function(analyses) {
         return(list())
     }
 
-    begin <- as_datetime(analyses$BEGIN, origin = lubridate::origin)
-    finish <- as_datetime(analyses$FINISH, origin = lubridate::origin)
+    begin <- as_datetime(analyses$BEGIN)
+    finish <- as_datetime(analyses$FINISH)
     tracing_time <- as.double(int_length(interval(begin, finish)))
 
     event_counts <-
@@ -810,9 +810,9 @@ reduce_raw_analysis_data <- function(settings, reducer, scan) {
                               assign.env = analyses)
             })
 
-        analyses$BEGIN <- as.integer(read_lines(begin_input_filepath))
+        analyses$BEGIN <- read_lines(begin_input_filepath)
 
-        analyses$FINISH <- as.integer(read_lines(finish_input_filepath))
+        analyses$FINISH <- read_lines(finish_input_filepath)
 
         analyses
     }
