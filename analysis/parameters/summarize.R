@@ -22,6 +22,7 @@ suppressPackageStartupMessages(library(promisedyntracer))
 suppressPackageStartupMessages(library(purrr))
 suppressPackageStartupMessages(library(tidyr))
 suppressPackageStartupMessages(library(tibble))
+suppressPackageStartupMessages(library(rlang))
 
 info <- function(...) cat((paste0(...)))
 
@@ -143,9 +144,18 @@ functions <- function(analyses) {
         ungroup() %>%
         group_by(call_count) %>%
         summarize(closure_count = length(unique(function_id))) %>%
-        mutate(relative_closure_count = closure_count / sum(closure_count)) %>%
         ungroup() %>%
+        mutate(relative_closure_count = closure_count / sum(closure_count)) %>%
         summarize_outliers(call_count, closure_count, relative_closure_count, 10)
+
+    closure_count_by_formal_parameter_count <-
+        analyses$function_call_summary %>%
+        filter(function_type == "Closure") %>%
+        group_by(formal_parameter_count) %>%
+        summarize(closure_count = length(unique(function_id))) %>%
+        ungroup() %>%
+        mutate(relative_closure_count = closure_count / sum(closure_count)) %>%
+        summarize_outliers(formal_parameter_count, closure_count, relative_closure_count, 5)
 
     function_count_by_type <-
         analyses$function_call_summary %>%
@@ -154,19 +164,15 @@ functions <- function(analyses) {
         ungroup() %>%
         mutate(relative_function_count = function_count / sum(function_count))
 
-    primitive_function_table <-
-        analyses$function_call_summary %>%
-        filter(function_type != "Closure") %>%
-        group_by(function_type, function_id,
-                 S3_method, S4_method,
-                 jumped, return_value_type) %>%
-        summarize(call_count = sum(call_count)) %>%
-        ungroup()
+    ## primitive_function_table <-
+    ##     analyses$function_call_summary %>%
+    ##     filter(function_type != "Closure") %>%
+    ##     group_by(function_id, S3_method, S4_method, jumped, return_value_type) %>%
+    ##     summarize(function_type = first(function_type),
+    ##               call_count = sum(call_count)) %>%
+    ##     ungroup()
 
-    total_function_count <-
-        function_count_by_type %>%
-        pull(function_count) %>%
-        sum()
+    total_function_count <- sum(function_count_by_type$function_count)
 
     total_closure_count <-
         function_count_by_type %>%
@@ -192,7 +198,6 @@ functions <- function(analyses) {
 
     function_call_count_by_return_value_type <-
         analyses$function_call_summary %>%
-        filter(!jumped) %>%
         group_by(function_type, return_value_type) %>%
         summarize(call_count = sum(call_count)) %>%
         ungroup() %>%
@@ -205,84 +210,63 @@ functions <- function(analyses) {
 
     function_count_by_return_value_type <-
         analyses$function_call_summary %>%
-        filter(!jumped) %>%
         group_by(function_type, return_value_type) %>%
         summarize(function_count = length(unique(function_id))) %>%
         ungroup() %>%
-        left_join(
-            function_count_by_type %>%
-            select(function_type, total_function_count = function_count),
-            by = "function_type") %>%
+        left_join(function_count_by_type %>%
+                  select(function_type, total_function_count = function_count),
+                  by = "function_type") %>%
         mutate(relative_function_count = function_count / total_function_count)
 
-    closure_formal_parameter_count_table <-
-        analyses$closure_parameter_count %>%
-        group_by(function_id) %>%
-        summarize(formal_parameter_count = first(formal_parameter_count)) %>%
-        ungroup()
+    join_names <- function(names) {
+        splits <- unique(unlist(str_split(str_sub(names, 2, -2), " ")))
+        str_c("(", str_c(splits, collapse = " "), ")")
+    }
 
-    closure_count_by_formal_parameter_count <-
-        analyses$closure_parameter_count %>%
-        group_by(formal_parameter_count) %>%
-        summarize(closure_count = length(unique(function_id))) %>%
-        ungroup() %>%
-        mutate(relative_closure_count = closure_count / sum(closure_count)) %>%
-        summarize_outliers(formal_parameter_count, closure_count,
-                           relative_closure_count, 5)
-
-    function_call_count_by_type_and_jump <-
+    function_call_summary <-
         analyses$function_call_summary %>%
-        group_by(function_type, jumped) %>%
-        summarize(call_count = sum(call_count)) %>%
-        ungroup() %>%
-        mutate(relative_call_count = call_count / sum(call_count))
-
-    function_call_count_by_type_and_jump <-
-        analyses$function_call_summary %>%
-        group_by(function_type, jumped) %>%
-        summarize(call_count = sum(call_count)) %>%
-        ungroup() %>%
-        mutate(relative_call_count = call_count / sum(call_count))
-
-    function_call_count_by_type_and_id <-
-        analyses$function_call_summary %>%
-        group_by(function_id) %>%
-        summarize(function_type = first(function_type),
+        group_by(function_id, jumped, return_value_type) %>%
+        summarize(package = first(package),
+                  function_name = join_names(function_name),
+                  function_type = first(function_type),
+                  formal_parameter_count = first(formal_parameter_count),
+                  S3_call_count = sum(as.double(S3_calls)),
+                  S4_call_count = sum(as.double(S4_calls)),
                   call_count = sum(as.double(call_count))) %>%
         ungroup() %>%
         mutate(relative_call_count = call_count / sum(call_count))
 
-    compute_method_type <- function(S3_method, S4_method) {
-        if_else(!S3_method & !S4_method,
-                "Ordinary",
-                if_else(S3_method & !S4_method,
-                        "S3",
-                        if_else(!S3_method & S4_method,
-                                "S4",
-                                "S3 & S4")))
+    compute_method_type <- function(S3_call_count, S4_call_count) {
+        S3_method <- as.logical(S3_call_count)
+        S4_method <- as.logical(S4_call_count)
+
+        if_else(!S3_method & !S4_method, "Ordinary",
+        if_else(S3_method & !S4_method, "S3",
+        if_else(!S3_method & S4_method, "S4", "S3 & S4")))
     }
 
-    function_method_type <-
-        analyses$function_call_summary %>%
-        group_by(function_type, function_id, S3_method, S4_method) %>%
-        summarize(call_count = sum(call_count)) %>%
+    closure_method_type <-
+        function_call_summary %>%
+        filter(function_type == "Closure") %>%
+        group_by(function_id) %>%
+        summarize(S3_call_count = sum(S3_call_count),
+                  S4_call_count = sum(S4_call_count),
+                  call_count = sum(call_count)) %>%
         ungroup() %>%
-        mutate(method_type = compute_method_type(S3_method, S4_method)) %>%
-        select(function_type, function_id, method_type, call_count)
+        mutate(ordinary_call_count = call_count - S3_call_count - S4_call_count) %>%
+        mutate(method_type = compute_method_type(S3_call_count, S4_call_count))
 
-    function_call_count_by_method_type <-
-        function_method_type %>%
-        group_by(function_type, method_type) %>%
-        summarize(call_count = sum(call_count)) %>%
-        ungroup() %>%
-        mutate(relative_call_count = call_count / sum(call_count))
+    closure_call_count_by_method_type <-
+        tibble(call_type = c("S3", "S4", "Ordinary"),
+               call_count = c(sum(closure_method_type$S3_call_count),
+                              sum(closure_method_type$S4_call_count),
+                              sum(closure_method_type$ordinary_call_count)))
 
-    function_count_by_method_type <-
-        function_method_type %>%
-        group_by(function_type, method_type) %>%
+    closure_count_by_method_type <-
+        closure_method_type %>%
+        group_by(method_type) %>%
         summarize(function_count = length(unique(function_id))) %>%
-        ungroup() %>%
-        mutate(relative_function_count = function_count / total_function_count)
+        ungroup()
 
     split_pos_seq <- function(pos_seq) {
         map(str_split(str_sub(pos_seq, 2, -2), " "),
@@ -304,147 +288,168 @@ functions <- function(analyses) {
         }
     }
 
-    closure_force_order_count <-
-        analyses$closure_force_order_count %>%
-        group_by(wrapper, function_id, force_order, missing_arguments) %>%
-        summarize(formal_parameter_count = first(formal_parameter_count),
-                  call_count = sum(call_count)) %>%
-        ungroup() %>%
-        mutate(force_order = split_pos_seq(force_order),
-               missing_arguments = split_pos_seq(missing_arguments)) %>%
-        group_by(wrapper, function_id) %>%
-        do({
-            missing_data <-
-                .data %>%
-                filter(lengths(missing_arguments) != 0)
-
-            missing_force_orders <- missing_data$force_order
-            all_missing_arguments <- missing_data$missing_arguments
-
-            non_missing_data <-
-                .data %>%
-                filter(lengths(missing_arguments) == 0)
-
-            non_missing_force_orders <- unique(non_missing_data$force_order)
-
-            compatible_force_orders <-
-                map2(missing_force_orders,
-                     all_missing_arguments,
-                     function(missing_force_order, missing_arguments) {
-                         for (non_missing_force_order in non_missing_force_orders) {
-                             compatible_force_order <-
-                                 non_missing_force_order[! non_missing_force_order %in% missing_arguments]
-                             if(pos_seq_eq(compatible_force_order, missing_force_order)) {
-                                 return(non_missing_force_order)
-                             }
-                         }
-                         missing_force_order
-                     })
-
-            non_missing_data <-
-                non_missing_data %>%
-                mutate(compatible_force_order = force_order)
-
-            missing_data <-
-                missing_data %>%
-                mutate(compatible_force_order = compatible_force_orders)
-
-            bind_rows(non_missing_data,
-                      missing_data)
-        }) %>%
-        ungroup()
-
-    pos_seq_to_string <- function(pos_seq_list) {
-        map_chr(pos_seq_list,
-            function(pos_seq) {
-                str_c("(", str_c(pos_seq, collapse = " "), ")")
-            })
+    is_compatible <- function(order1, missing1, order2, missing2) {
+        non_missing_order1 <- order1[! order1 %in% missing2]
+        non_missing_order2 <- order2[! order2 %in% missing1]
+        pos_seq_eq(non_missing_order1, non_missing_order2)
     }
 
-    closure_force_order_count <-
-        closure_force_order_count %>%
-        mutate(force_order = pos_seq_to_string(force_order),
-               compatible_force_order = pos_seq_to_string(compatible_force_order),
-               missing_arguments = pos_seq_to_string(missing_arguments))
+    any_compatible <- function(force_order, missing_arguments,
+                               compatible_force_order_list,
+                               compatible_missing_arguments_list) {
 
-    zero_parameter_closure_force_order_count <-
-        closure_force_order_count %>%
-        filter(formal_parameter_count == 0) %>%
-        group_by(wrapper) %>%
-        do({
-            r <- nrow(.data)
-            tibble(closure_count = c(r, r),
-                   force_order_type = c("Original", "Compatible"))
-        }) %>%
-        ungroup() %>%
-        mutate(force_order_count = "0",
-               relative_closure_count = closure_count / total_closure_count)
+        for(i in seq2(1, length(compatible_force_order_list))) {
+            if(is_compatible(force_order,
+                             missing_arguments,
+                             compatible_force_order_list[[i]],
+                             compatible_missing_arguments_list[[i]])) {
+                return(TRUE)
+            }
+        }
 
-    non_zero_parameter_multicall_closure_force_order_count <-
-        closure_force_order_count %>%
-        filter(formal_parameter_count != 0 & call_count > 1) %>%
-        group_by(wrapper, function_id) %>%
-        summarize(
-            force_order_count = length(unique(force_order)),
-            compatible_force_order_count = length(unique(compatible_force_order))) %>%
+        return(FALSE)
+    }
+
+    combine_force_order <- function(order_seq, deep = FALSE) {
+        combiner <- function(elements) {
+            str_c("(", str_c(elements, collapse = " "), ")")
+
+        }
+        if(deep) {
+            order_seq <- map_chr(order_seq, combiner)
+        }
+
+        combiner(order_seq)
+    }
+
+    compute_strictness <- function(force_order, missing_arguments, formal_parameter_count) {
+        all(lengths(force_order) + lengths(missing_arguments) >= formal_parameter_count)
+    }
+
+    compute_function_force_order <- function(data) {
+
+        formal_parameter_count <- data$formal_parameter_count[1]
+        call_count <- sum(as.double(data$call_count))
+        wrapper <- any(data$wrapper)
+        package <- first(data$package)
+
+        orders <-
+            data %>%
+            group_by(force_order, missing_arguments) %>%
+            summarize(count = n()) %>%
+            ungroup()
+
+        force_order_list <- split_pos_seq(orders$force_order)
+
+        missing_arguments_list <- split_pos_seq(orders$missing_arguments)
+
+        original_strict <- compute_strictness(force_order_list,
+                                              missing_arguments_list,
+                                              formal_parameter_count)
+
+        compatible_force_order_list <- force_order_list[1]
+
+        compatible_missing_arguments_list <- missing_arguments_list[1]
+
+        for(i in seq2(2, length(force_order_list))) {
+
+            force_order <- force_order_list[[i]]
+            missing_arguments <- missing_arguments_list[[i]]
+            compatible <- any_compatible(force_order,
+                                         missing_arguments,
+                                         compatible_force_order_list,
+                                         compatible_missing_arguments_list)
+
+            if(!compatible) {
+                compatible_force_order_list <- c(list(force_order),
+                                                 compatible_force_order_list)
+                compatible_missing_arguments_list <- c(list(missing_arguments),
+                                                       compatible_missing_arguments_list)
+            }
+        }
+
+        strict <- compute_strictness(compatible_force_order_list,
+                                     compatible_missing_arguments_list,
+                                     formal_parameter_count)
+
+        rbind(tibble(package_name = package,
+                     wrapper = wrapper,
+                     formal_parameter_count = formal_parameter_count,
+                     call_count = call_count,
+                     type = "original",
+                     force_order = combine_force_order(orders$force_order, deep = FALSE),
+                     missing_arguments = combine_force_order(orders$missing_arguments, deep = FALSE),
+                     force_order_count = length(orders$force_order),
+                     strict = original_strict),
+              tibble(package_name = package,
+                     wrapper = wrapper,
+                     formal_parameter_count = formal_parameter_count,
+                     call_count = call_count,
+                     type = "compatible",
+                     force_order = combine_force_order(compatible_force_order_list, deep = TRUE),
+                     missing_arguments = combine_force_order(compatible_missing_arguments_list, deep = TRUE),
+                     force_order_count = length(compatible_force_order_list),
+                     strict = strict))
+    }
+
+    closure_strictness <-
+        analyses$closure_force_order_count %>%
+        group_by(function_id) %>%
+        do(compute_function_force_order(.data)) %>%
         ungroup()
 
-    closure_count_distribution_by_wrapper_and_original_force_order <-
-        non_zero_parameter_multicall_closure_force_order_count %>%
-        group_by(wrapper, force_order_count) %>%
-        summarize(closure_count = n()) %>%
-        ungroup() %>%
-        mutate(relative_closure_count = closure_count / total_closure_count,
-               force_order_type = "Original")
-
-    closure_count_distribution_by_wrapper_and_compatible_force_order <-
-        non_zero_parameter_multicall_closure_force_order_count %>%
-        group_by(wrapper, compatible_force_order_count) %>%
-        summarize(closure_count = n()) %>%
-        ungroup() %>%
-        mutate(relative_closure_count = closure_count / total_closure_count,
-               force_order_type = "Compatible") %>%
-        select(wrapper, force_order_type,
-               force_order_count = compatible_force_order_count,
-               closure_count, relative_closure_count)
-
-    closure_count_distribution_by_wrapper_and_force_order <-
-        bind_rows(closure_count_distribution_by_wrapper_and_original_force_order,
-                  closure_count_distribution_by_wrapper_and_compatible_force_order)
-
-    closure_count_distribution_by_wrapper_and_force_order_outliers <-
-        closure_count_distribution_by_wrapper_and_force_order %>%
-        filter(force_order_count > 5) %>%
-        group_by(wrapper, force_order_type) %>%
-        summarize(force_order_count = " > 5",
-                  closure_count = sum(closure_count),
-                  relative_closure_count = sum(relative_closure_count)) %>%
+    closure_count_by_force_order_count <-
+        closure_strictness %>%
+        filter(call_count > 1 & formal_parameter_count > 0) %>%
+        group_by(type, force_order_count) %>%
+        summarize(function_count = n()) %>%
+        mutate(relative_function_count = function_count / sum(function_count)) %>%
+        group_by(type) %>%
+        summarize_outliers(force_order_count, function_count, relative_function_count, 5) %>%
         ungroup()
 
-    closure_count_by_wrapper_and_force_order <-
-        closure_count_distribution_by_wrapper_and_force_order %>%
-        mutate(force_order_count = as.character(force_order_count)) %>%
-        bind_rows(closure_count_distribution_by_wrapper_and_force_order_outliers,
-                  zero_parameter_closure_force_order_count) %>%
-        mutate(wrapper = if_else(wrapper == 0, "Non Wrapper", "Wrapper"))
+    package_strictness <-
+        closure_strictness %>%
+        filter(call_count > 1 & formal_parameter_count > 0) %>%
+        group_by(package_name, type) %>%
+        summarize(uniorder_function_count = sum(force_order_count == 1),
+                  multiorder_function_count = sum(force_order_count > 1),
+                  strict_function_count = sum(as.double(strict)),
+                  non_strict_function_count = sum(as.double(!strict)),
+                  strict_uniorder_function_count = sum(strict & force_order_count == 1),
+                  strict_multiorder_function_count = sum(strict & force_order_count > 1),
+                  non_strict_uniorder_function_count = sum(!strict & force_order_count == 1),
+                  non_strict_multiorder_function_count = sum(!strict & force_order_count > 1),
+                  total_function_count = n()) %>%
+        ungroup() %>%
+        group_by(package_name, type) %>%
+        mutate(relative_uniorder_function_count = uniorder_function_count / total_function_count,
+               relative_multiorder_function_count = multiorder_function_count / total_function_count,
+               relative_strict_function_count = strict_function_count / total_function_count,
+               relative_non_strict_function_count = non_strict_function_count / total_function_count,
+               relative_strict_uniorder_function_count = strict_uniorder_function_count / total_function_count,
+               relative_strict_multiorder_function_count = strict_multiorder_function_count / total_function_count,
+               relative_non_strict_uniorder_function_count = non_strict_uniorder_function_count / total_function_count,
+               relative_non_strict_multiorder_function_count = non_strict_multiorder_function_count / total_function_count) %>%
+        ungroup()
+
 
     list(closure_count_by_call_count = closure_count_by_call_count,
          function_count_by_type = function_count_by_type,
-         primitive_function_table = primitive_function_table,
+         #primitive_function_table = primitive_function_table,
          function_call_count_by_type = function_call_count_by_type,
          function_call_count_by_return_value_type = function_call_count_by_return_value_type,
          closure_call_count_by_return_value_type = closure_call_count_by_return_value_type,
          function_count_by_return_value_type = function_count_by_return_value_type,
-         closure_formal_parameter_count_table = closure_formal_parameter_count_table,
-         closure_count_by_formal_parameter_count = closure_count_by_formal_parameter_count,
-         function_call_count_by_type_and_jump = function_call_count_by_type_and_jump,
-         function_call_count_by_type_and_id = function_call_count_by_type_and_id,
-         function_call_count_by_method_type = function_call_count_by_method_type,
-         function_count_by_method_type = function_count_by_method_type,
-         closure_force_order_count = closure_force_order_count,
-         non_zero_parameter_multicall_closure_force_order_count = non_zero_parameter_multicall_closure_force_order_count,
-         closure_count_by_wrapper_and_force_order = closure_count_by_wrapper_and_force_order)
+         function_call_summary = function_call_summary,
+         closure_method_type = closure_method_type,
+         closure_call_count_by_method_type = closure_call_count_by_method_type,
+         closure_count_by_method_type = closure_count_by_method_type,
+         closure_strictness = closure_strictness,
+         closure_count_by_force_order_count = closure_count_by_force_order_count,
+         package_strictness = package_strictness)
 }
+
 
 arguments <- function(analyses) {
 
@@ -1257,7 +1262,9 @@ function_definitions <- function(analyses) {
     function_definitions_with_script  <-
         analyses$function_definitions %>%
         group_by(function_id) %>%
-        summarize(function_name = encode_sequence(unique(decode_sequence(function_name))),
+        summarize(formal_parameter_count = first(formal_parameter_count),
+                  package = first(package),
+                  function_name = encode_sequence(unique(decode_sequence(function_name))),
                   definition = first(definition),
                   script = encode_sequence(str_c(package, script_type, script_name,
                                                  sep = "/"))) %>%
@@ -1744,168 +1751,6 @@ summarize_analyses  <- function(analyses) {
          argument_count_by_call_depth_and_expression_type = argument_count_by_call_depth_and_expression_type,
          argument_count_by_promise_depth_and_expression_type = argument_count_by_promise_depth_and_expression_type,
          argument_count_by_nested_promise_depth_and_expression_type = argument_count_by_nested_promise_depth_and_expression_type)
-}
-
-
-paper <- function(analyses) {
-
-    split_pos_seq <- function(pos_seq) {
-        map(str_split(str_sub(pos_seq, 2, -2), " "),
-            function(chr_lst) if(length(chr_lst) == 1 && chr_lst == "") c() else chr_lst)
-    }
-
-    to_pos_seq <- function(pos_seqs) {
-        map_chr(pos_seqs,
-            function(pos_seq) str_c("(", str_c(pos_seq, collapse = " "), ")"))
-    }
-
-    pos_seq_eq <- function(pos_seq_1, pos_seq_2) {
-        l1 <- length(pos_seq_1)
-        l2 <- length(pos_seq_2)
-
-        if(l1 != l2) {
-            FALSE
-        }
-        else if(l1 == 0) {
-            TRUE
-        }
-        else {
-            all(pos_seq_1 == pos_seq_2)
-        }
-    }
-
-    compute_strictness <- function(force_order, missing_arguments, formal_parameter_count) {
-        force_order <- split_pos_seq(force_order)
-        missing_arguments <- split_pos_seq(missing_arguments)
-        all(lengths(force_order) + lengths(missing_arguments) >= formal_parameter_count)
-    }
-
-    ## TODO - investigate 'jhmb9cUOgugzW1R+979kzg==' - it has argument 1 in both missing and forced position
-
-    ## closure_strictness <-
-    ##     analyses$closure_force_order_count %>%
-    ##     mutate(force_order = split_pos_seq(force_order),
-    ##            missing_arguments = split_pos_seq(missing_arguments),
-    ##            script = str_c(package, script_type, script_name, sep = "/")) %>%
-    ##     group_by(script, wrapper, function_id) %>%
-    ##     summarize(strict = all(lengths(force_order) + lengths(missing_arguments) >= formal_parameter_count),
-    ##               formal_parameter_count = first(formal_parameter_count),
-    ##               call_count = sum(call_count)) %>%
-    ##     ungroup()
-
-    ## closure_count_by_strictness_and_run <-
-    ##     closure_strictness %>%
-    ##     group_by(script, strict) %>%
-    ##     summarize(function_count = length(unique(function_id))) %>%
-    ##     mutate(relative_function_count = function_count / sum(function_count)) %>%
-    ##     ungroup()
-
-
-    extract_name_part <- function(function_names, pos) {
-        function_names %>%
-            map_chr(function(names) {
-                names %>%
-                    str_sub(2, -2) %>%
-                    str_split(" ") %>%
-                    unlist() %>%
-                    str_split("::") %>%
-                    map(function(pair) pair[pos]) %>%
-                    unlist() %>%
-                    unique()
-                    #str_c(collapse = " ") %>%
-                    #{str_c("(", ., ")")}
-            })
-    }
-
-    join_names <- function(names) {
-        splits <- unique(unlist(str_split(str_sub(names, 2, -2), " ")))
-        str_c("(", str_c(splits, collapse = " "), ")")
-    }
-
-    extract_package_names <- function(function_name) {
-        extract_name_part(function_name, 1)
-    }
-
-    extract_function_names <- function(function_name) {
-        extract_name_part(function_name, 2)
-    }
-
-    closure_strictness <-
-        analyses$closure_force_order_count %>%
-        group_by(package_name, function_id) %>%
-        do({
-            ## get unique force_order and missing_argument combinations.
-            formal_parameter_count <- .data$formal_parameter_count[1]
-            call_count <- sum(as.double(.data$call_count))
-
-            orders <-
-                .data %>%
-                group_by(force_order, missing_arguments) %>%
-                summarize(count = n())
-
-            force_order_seq <-
-                orders %>%
-                pull(force_order)
-
-            force_order <-
-                force_order_seq %>%
-                str_c(collapse = " ") %>%
-                {str_c("(", . , ")")}
-
-            force_order_count <-
-                length(unique(force_order_seq))
-
-            missing_arguments <-
-                orders %>%
-                pull(missing_arguments) %>%
-                str_c(collapse = " ") %>%
-                {str_c("(", . , ")")}
-
-            tibble(force_order = force_order,
-                   missing_arguments = missing_arguments,
-                   formal_parameter_count = formal_parameter_count,
-                   call_count = call_count,
-                   force_order_count = force_order_count,
-                   strict = compute_strictness(orders$force_order,
-                                               orders$missing_arguments,
-                                               formal_parameter_count))
-        }) %>%
-        ungroup()
-
-    package_strictness <-
-        closure_strictness %>%
-        group_by(package_name) %>%
-        summarize(uniorder_function_count = sum(force_order_count == 1),
-                  multiorder_function_count = sum(force_order_count > 1),
-                  strict_function_count = sum(as.double(strict)),
-                  non_strict_function_count = sum(as.double(!strict)),
-                  strict_uniorder_function_count = sum(strict & force_order_count == 1),
-                  strict_multiorder_function_count = sum(strict & force_order_count > 1),
-                  non_strict_uniorder_function_count = sum(!strict & force_order_count == 1),
-                  non_strict_multiorder_function_count = sum(!strict & force_order_count > 1),
-                  total_function_count = n()) %>%
-        ungroup() %>%
-        mutate(relative_uniorder_function_count = uniorder_function_count / total_function_count,
-               relative_multiorder_function_count = multiorder_function_count / total_function_count,
-               relative_strict_function_count = strict_function_count / total_function_count,
-               relative_non_strict_function_count = non_strict_function_count / total_function_count,
-               relative_strict_uniorder_function_count = strict_uniorder_function_count / total_function_count,
-               relative_strict_multiorder_function_count = strict_multiorder_function_count / total_function_count,
-               relative_non_strict_uniorder_function_count = non_strict_uniorder_function_count / total_function_count,
-               relative_non_strict_multiorder_function_count = non_strict_multiorder_function_count / total_function_count) %>%
-        arrange(desc(relative_strict_uniorder_function_count))
-
-    force_orders <-
-        closure_strictness %>%
-        filter(formal_parameter_count > 0 & call_count > 1) %>%
-        group_by(force_order_count) %>%
-        summarize(function_count = n()) %>%
-        ungroup() %>%
-        mutate(relative_function_count = function_count / sum(function_count))
-
-    list(closure_strictness = closure_strictness,
-         package_strictness = package_strictness,
-         force_orders = force_orders)
 }
 
 
