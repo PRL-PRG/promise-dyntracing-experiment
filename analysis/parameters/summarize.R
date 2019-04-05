@@ -620,18 +620,18 @@ parameters <- function(analyses) {
     formal_parameter_usage_class <-
         analyses$formal_parameter_usage_counts %>%
         group_by(function_id, formal_parameter_position) %>%
-        summarize(lookup = sum(lookup),
-                  metaprogram = sum(metaprogram),
-                  either = sum(either),
-                  argument_count = sum(argument_count),
-                  call_count = sum(call_count)) %>%
+        summarize(lookup = sum(as.double(lookup)),
+                  metaprogram = sum(as.double(metaprogram)),
+                  either = sum(as.double(either)),
+                  argument_count = sum(as.double(argument_count)),
+                  call_count = sum(as.double(call_count))) %>%
         ungroup() %>%
         mutate(lookup_class = classify_parameter(lookup, argument_count),
                metaprogram_class = classify_parameter(metaprogram, argument_count),
                either_class = classify_parameter(either, argument_count)) %>%
-        mutate(parameter_use = if_else((lookup == argument_count) & (metaprogram == 0), "Lookup",
-                               if_else((lookup == 0) & (metaprogram == argument_count), "Metaprogram",
-                               if_else((metaprogram == 0) & (lookup == 0), "Nothing", "Lookup & Metaprogram"))))
+        mutate(parameter_use = if_else((lookup != 0) & (metaprogram == 0), "Lookup",
+                               if_else((lookup == 0) & (metaprogram != 0), "Metaprogram",
+                                       if_else((metaprogram == 0) & (lookup == 0), "Nothing", "Lookup & Metaprogram"))))
 
     total_formal_parameter_count <-
         formal_parameter_usage_class %>%
@@ -671,6 +671,29 @@ parameters <- function(analyses) {
         unique() %>%
         length()
 
+    closure_metaprogramming <-
+        formal_parameter_usage_class %>%
+        group_by(function_id) %>%
+        summarize(metaprogram = any(metaprogram != 0)) %>%
+        ungroup()
+
+    closure_count_by_metaprogramming <-
+        tibble(metaprogram_category = c("Metaprogramming"), c("No Metaprogramming"),
+               function_count = c(sum(as.double(closure_metaprogramming$metaprogram)),
+                                  sum(as.double(!closure_metaprogramming$metaprogram)))) %>%
+        mutate(relative_function_count = function_count / sum(function_count))
+
+    package_metaprogramming <-
+        closure_metaprogramming %>%
+        left_join(analyses$function_definitions, by = "function_id") %>%
+        select(package, function_id, metaprogram) %>%
+        group_by(package) %>%
+        summarize(metaprogramming_function_count = sum(metaprogram),
+                  non_metaprogramming_function_count = sum(!metaprogram),
+                  total_function_count = n()) %>%
+        mutate(relative_metaprogramming_function_count = metaprogramming_function_count / total_function_count,
+               non_metaprogramming_function_count = non_metaprogramming_function_count / total_function_count)
+
     closure_usage_class <-
         formal_parameter_usage_class %>%
         group_by(function_id) %>%
@@ -704,6 +727,9 @@ parameters <- function(analyses) {
          formal_parameter_count_by_use = formal_parameter_count_by_use,
          formal_parameter_usage_class = formal_parameter_usage_class,
          formal_parameter_count_by_usage_class = formal_parameter_count_by_usage_class,
+         closure_metaprogramming = closure_metaprogramming,
+         closure_count_by_metaprogramming = closure_count_by_metaprogramming,
+         package_metaprogramming = package_metaprogramming,
          closure_usage_class = closure_usage_class,
          closure_count_distribution_by_usage_class = closure_count_distribution_by_usage_class,
          execution_times = execution_times)
