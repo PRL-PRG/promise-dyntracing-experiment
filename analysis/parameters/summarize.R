@@ -678,21 +678,23 @@ parameters <- function(analyses) {
         ungroup()
 
     closure_count_by_metaprogramming <-
-        tibble(metaprogram_category = c("Metaprogramming"), c("No Metaprogramming"),
+        tibble(metaprogram_category = c("Metaprogramming", "No Metaprogramming"),
                function_count = c(sum(as.double(closure_metaprogramming$metaprogram)),
                                   sum(as.double(!closure_metaprogramming$metaprogram)))) %>%
         mutate(relative_function_count = function_count / sum(function_count))
 
     package_metaprogramming <-
         closure_metaprogramming %>%
-        left_join(analyses$function_definitions, by = "function_id") %>%
+        left_join(select(analyses$function_definitions, function_id, package),
+                  by = "function_id") %>%
         select(package, function_id, metaprogram) %>%
         group_by(package) %>%
         summarize(metaprogramming_function_count = sum(metaprogram),
                   non_metaprogramming_function_count = sum(!metaprogram),
                   total_function_count = n()) %>%
+        ungroup() %>%
         mutate(relative_metaprogramming_function_count = metaprogramming_function_count / total_function_count,
-               non_metaprogramming_function_count = non_metaprogramming_function_count / total_function_count)
+               relative_non_metaprogramming_function_count = non_metaprogramming_function_count / total_function_count)
 
     closure_usage_class <-
         formal_parameter_usage_class %>%

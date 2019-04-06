@@ -338,6 +338,30 @@ parameters <- function(analyses) {
          execution_times = execution_times)
 }
 
+argument_expression_types <- function(analyses) {
+    if(nrow(analyses$arguments) == 0) {
+        return(list())
+    }
+
+    promise_arguments <-
+        analyses$arguments %>%
+        filter(argument_type == "Promise")
+
+    argument_expression_types <-
+        promise_arguments %>%
+        group_by(function_id, formal_parameter_position, expression_type) %>%
+        summarize(count = n()) %>%
+        ungroup()
+
+    argument_value_types <-
+        promise_arguments %>%
+        group_by(function_id, formal_parameter_position, value_type) %>%
+        summarize(count = n()) %>%
+        ungroup()
+
+    list(argument_expression_types = argument_expression_types,
+         argument_value_types = argument_value_types)
+}
 
 promises <- function(analyses) {
 
