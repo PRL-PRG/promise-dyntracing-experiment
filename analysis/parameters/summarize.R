@@ -1781,6 +1781,44 @@ summarize_analyses  <- function(analyses) {
          argument_count_by_nested_promise_depth_and_expression_type = argument_count_by_nested_promise_depth_and_expression_type)
 }
 
+argument_expression_types <- function(analyses) {
+    argument_expression_types <-
+        analyses$argument_expression_types %>%
+        group_by(function_id, formal_parameter_position, expression_type) %>%
+        summarize(count = sum(as.double(count))) %>%
+        ungroup()
+
+    argument_value_types <-
+        analyses$argument_value_types %>%
+        group_by(function_id, formal_parameter_position, value_type) %>%
+        summarize(count = sum(as.double(count))) %>%
+        ungroup()
+
+    formal_parameter_usage_class <-
+        analyses$formal_parameter_usage_class %>%
+        select(function_id, formal_parameter_position, lookup_class)
+
+    argument_expression_type_by_usage_class <-
+        argument_expression_types %>%
+        left_join(formal_parameter_usage_class,
+                  by = c("function_id", "formal_parameter_position")) %>%
+        group_by(lookup_class, expression_type) %>%
+        summarize(count = sum(count)) %>%
+        ungroup()
+
+    argument_value_type_by_usage_class <-
+        argument_value_types %>%
+        left_join(formal_parameter_usage_class,
+                  by = c("function_id", "formal_parameter_position")) %>%
+        group_by(lookup_class, value_type) %>%
+        summarize(count = sum(count)) %>%
+        ungroup()
+
+    list(argument_expression_types = argument_expression_types,
+         argument_value_types = argument_value_types,
+         argument_expression_type_by_usage_class = argument_expression_type_by_usage_class,
+         argument_value_type_by_usage_class = argument_value_type_by_usage_class)
+}
 
 summarize_combined_data <- function(settings, combined_data_table) {
 
