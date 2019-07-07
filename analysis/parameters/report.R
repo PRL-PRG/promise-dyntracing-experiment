@@ -58,6 +58,14 @@ create_rendering_environment <- function(settings) {
 
 report_analysis_data <- function(settings) {
     dir_create(path_dir(settings$report_output_filepath))
+    dir_create(settings$visualized_data_dirpath)
+    dir_create(path_dir(settings$latex_macro_filepath))
+
+    if(file_exists(settings$latex_macro_filepath)) {
+        file_delete(settings$latex_macro_filepath)
+    }
+
+    file_create(settings$latex_macro_filepath)
 
     ## force path computation to ensure that they are resolved
     ## with respect to the the current working directory.
@@ -67,12 +75,14 @@ report_analysis_data <- function(settings) {
     input <- path_abs(settings$report_template_filepath)
     output <- path_abs(settings$report_output_filepath)
 
-    rendering_environment <- create_rendering_environment(settings)
+    ##rendering_environment <- create_rendering_environment(settings)
 
     rmarkdown::render(input = input,
                       output_file = output,
                       runtime = "auto",
-                      envir = rendering_environment)
+                      params = list(summarized_data_dirpath = settings$summarized_data_dirpath,
+                                    visualized_data_dirpath = settings$visualized_data_dirpath,
+                                    latex_macro_filepath = settings$latex_macro_filepath))
 }
 
 
@@ -85,6 +95,7 @@ parse_program_arguments <- function() {
         "report-output-filepath     path to the output report file (html/pdf)",
         "summarized-data-dirpath    directory containing summarized data files",
         "visualized-data-dirpath    directory containing visualized data",
+        "latex-macro-filepath       file containing latex macros",
         sep = "\n")
 
 
@@ -110,10 +121,11 @@ parse_program_arguments <- function() {
 
     arguments <- parse_args2(option_parser)
 
-    list(report_template_filepath = arguments$args[1],
-         report_output_filepath = arguments$args[2],
-         summarized_data_dirpath = arguments$args[3],
-         visualized_data_dirpath = arguments$args[4],
+    list(report_template_filepath = path_abs(arguments$args[1]),
+         report_output_filepath = path_abs(arguments$args[2]),
+         summarized_data_dirpath = path_abs(arguments$args[3]),
+         visualized_data_dirpath = path_abs(arguments$args[4]),
+         latex_macro_filepath = path_abs(arguments$args[5]),
          binary = arguments$options$binary,
          compression_level = arguments$options$compression_level)
 }

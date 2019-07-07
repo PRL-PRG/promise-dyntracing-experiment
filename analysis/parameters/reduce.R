@@ -334,8 +334,16 @@ parameters <- function(analyses) {
         summarize(argument_count = 1.0 * n()) %>%
         ungroup()
 
+    argument_expression_types <-
+        analyses$arguments %>%
+        filter(argument_type == "Promise") %>%
+        group_by(function_id, formal_parameter_position, expression_type) %>%
+        summarize(count = n()) %>%
+        ungroup()
+
     list(formal_parameter_usage_counts = formal_parameter_usage_counts,
-         execution_times = execution_times)
+         execution_times = execution_times,
+         argument_expression_types = argument_expression_types)
 }
 
 argument_expression_types <- function(analyses) {

@@ -119,7 +119,7 @@ PACKAGE_LOG_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/log
 ## GNU Parallel arguments
 ################################################################################
 PARALLEL_JOB_COUNT := 1
-PARALLEL_JOB_COUNT_FILEPATH := scripts/procfile
+PARALLEL_JOB_COUNT_FILEPATH := $(TRACE_DIRPATH)/procfile
 TRACE_TRACING_SCRIPT_FILEPATH := scripts/trace.R
 CORPUS_FILEPATH := corpus/test.txt
 DEPENDENCIES_FILEPATH := scripts/dependencies.txt
@@ -128,7 +128,7 @@ DEPENDENCIES_FILEPATH := scripts/dependencies.txt
 ## tracer arguments
 ################################################################################
 BINARY := --binary
-COMPRESSION_LEVEL := 0
+COMPRESSION_LEVEL := 3
 TRUNCATE := --truncate
 ## timeout value in seconds
 TRACING_TIMEOUT := 3600
@@ -160,7 +160,7 @@ export R_KEEP_PKG_SOURCE=1
 export R_ENABLE_JIT=0
 export R_COMPILE_PKGS=0
 export R_DISABLE_BYTECODE=1
-export OMP_NUM_THREADS=2
+export OMP_NUM_THREADS=1
 export R_LIBS=$(PACKAGE_LIB_DIRPATH)
 
 define tracer =
@@ -193,10 +193,10 @@ define trace =
 	@echo "R_ENABLE_JIT=${R_ENABLE_JIT}"
 	@echo "R_COMPILE_PKGS=${R_COMPILE_PKGS}"
 	@echo "PARALLEL JOB COUNT=${PARALLEL_JOB_COUNT}"
-	@echo $(PARALLEL_JOB_COUNT) > $(PARALLEL_JOB_COUNT_FILEPATH)
 	@mkdir -p $(TRACE_LOGS_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_RAW_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
+	@echo $(PARALLEL_JOB_COUNT) > $(PARALLEL_JOB_COUNT_FILEPATH)
 
 	@if [ -e $(LATEST_TRACE_DIRPATH) ]; then \
 		unlink latest; \
@@ -451,12 +451,13 @@ report-analysis:
 	@mkdir -p $(TRACE_LOGS_SUMMARY_DIRPATH)
 	@mkdir -p $(TRACE_LOGS_REPORT_DIRPATH)
 
-	@$(UNBUFFER) $(TIME) $(XVFB_RUN) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                      \
+	$(UNBUFFER) $(TIME) $(XVFB_RUN) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                       \
 	                                               --file=analysis/parameters/report.R                      \
-	                                               --args $(REPORT_TEMPLATE_DIRPATH)/$(ANALYSIS).Rmd        \
-	                                                      $(TRACE_ANALYSIS_REPORT_DIRPATH)/$(ANALYSIS).html \
+	                                               --args $(REPORT_TEMPLATE_DIRPATH)/paper.Rmd              \
+	                                                      $(TRACE_ANALYSIS_REPORT_DIRPATH)/report.html      \
 	                                                      $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)              \
 	                                                      $(TRACE_ANALYSIS_VISUALIZED_DIRPATH)              \
+	                                                      $(TRACE_ANALYSIS_LATEX_DIRPATH)/$(LATEX_FILENAME) \
 	                                                      $(BINARY)                                         \
 	                                                  --compression-level=$(COMPRESSION_LEVEL)              \
 	                                               2>&1 | $(TEE) $(TEE_FLAGS)                               \
@@ -598,6 +599,17 @@ validate-analyses:
 	$(MAKE) validate-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) FUNCTION_COUNT=$(FUNCTION_COUNT) ANALYSIS=mutual_argument_forcing
 	$(MAKE) validate-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) FUNCTION_COUNT=$(FUNCTION_COUNT) ANALYSIS=multiparameter_functions
 
+pipeline:
+	-$(MAKE) trace-ast TRACE_DIRPATH=$(TRACE_DIRPATH) CORPUS_FILEPATH=$(CORPUS_FILEPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL)
+	-$(MAKE) prescan-analysis TRACE_DIRPATH=$(TRACE_DIRPATH)
+	-$(MAKE) reduce-analyses TRACE_DIRPATH=$(TRACE_DIRPATH) PARALLEL_JOB_COUNT=$(PARALLEL_JOB_COUNT) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL)
+	-$(MAKE) scan-analyses TRACE_DIRPATH=$(TRACE_DIRPATH)
+	-$(MAKE) combine-analyses TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) COMBINE_COUNT=$(COMBINE_COUNT)
+	-$(MAKE) merge-analyses TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL)
+	-$(MAKE) summarize-analyses TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL)
+	-$(MAKE) report-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL)
+	@echo "The generated report can be found at " $(TRACE_ANALYSIS_REPORT_DIRPATH)/report.html
+	@xdg-open $(TRACE_ANALYSIS_REPORT_DIRPATH)/report.html
 
 view-function-definition:
 	@$(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                                          \
@@ -607,6 +619,8 @@ view-function-definition:
 	                      $(BINARY)                                                             \
 	                      --compression-level=$(COMPRESSION_LEVEL)
 
+r-session:
+	@$(R_DYNTRACE)
 
 .PHONY: trace                           \
 	      corpus                          \
@@ -635,4 +649,6 @@ view-function-definition:
 	      summarize-analyses              \
 	      visualize-analyses              \
 	      report-analyses                 \
-	      latex-analyses
+	      latex-analyses                  \
+        pipeline                        \
+        r-session

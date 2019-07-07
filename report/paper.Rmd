@@ -1,0 +1,1176 @@
+---
+title: "On the Design, Implementation and Use of Laziness in R"
+output:
+  html_document:
+    theme: cerulean
+    toc: true
+    toc_float: true
+    collapsed: true
+    smooth_scroll: false
+    number_sections: true
+params:
+    summarized_data_dirpath: ""
+    visualized_data_dirpath: ""
+    latex_macro_filepath: ""
+---
+
+```{r results = "asis", echo = FALSE}
+cat("
+<style>
+div.section {
+  text-align: justify;
+  text-justify: inter-word;
+}
+</style>
+")
+```
+
+```{r echo = FALSE, warning=FALSE, message=FALSE}
+Sys.setenv("DISPLAY"=":0")
+
+knitr::opts_chunk$set(fig.width = 12, fig.height = 4) 
+
+library(tidyverse)
+library(ggplot2)
+
+PETA <- 10^15
+TERA <- 10^12
+GIGA <- 10^9
+MEGA <- 10^6
+KILO <- 10^3
+HECTO <- 10^2
+DECA <- 10^1
+DECI <- 10^-1
+CENTI <- 10^-2
+MILLI <- 10^-3
+MICRO <- 10^-6
+NANO <- 10^-9
+PICO <- 10^-12
+SECONDS_PER_MINUTE <- 60
+MINUTES_PER_HOUR <- 60
+HOURS_PER_DAY <- 24
+SECONDS_PER_HOUR <- SECONDS_PER_MINUTE * MINUTES_PER_HOUR
+SECONDS_PER_DAY <- HOURS_PER_DAY * SECONDS_PER_HOUR
+
+paste_round <- function(value, div, digits, suffix, sep = " ") {
+    paste(round(value/div, digits), suffix, sep = sep)
+}
+
+memory_size_labels <-  function(x, digits = 1) {
+    ifelse(x == 0, "0 B",
+           { y <- log2(x)
+             units <- c("B", "KB", "MB", "GB", "TB", "PB")
+             unit <- units[y %/% 10 + 1]
+             value <- 2 ^ (y %% 10)
+             paste(round(value, digits), unit, sep = " ") })
+  }
+
+count_labels <- Vectorize(function(x, digits = 2) 
+    if(is.na(x))       "NA"
+    else if(x < 10^3)  paste0(x)
+    else if(x < 10^6)  paste_round(x, 1000, digits, "K")
+    else if(x < 10^9)  paste_round(x, 10^6, digits, "M")
+    else if(x < 10^12) paste_round(x, 10^9, digits, "B")
+    else               paste_round(x, 10^12, digits, "T"),
+  "x")
+
+relative_labels <- function(x) percent_labels(x * 100)
+percent_labels <-  function(x) paste0(x, "%", sep="")
+  
+time_labels <- Vectorize(function(x, digits = 1)
+   if (is.na(x))                   "NA"
+   else if (x < NANO)              paste_round(x, PICO, digits, "ps")
+   else if (x < MICRO)             paste_round(x, NANO, digits, "ns")
+   else if (x < MILLI)             paste_round(x, MICRO, digits, "μs")
+   else if(x < 1)                  paste_round(x, MILLI, digits, "ms")
+   else if(x < SECONDS_PER_MINUTE) paste_round(x, 1, digits, "s")
+   else if(x < SECONDS_PER_HOUR)   paste_round(x, SECONDS_PER_MINUTE, digits, "mins")
+   else if(x < SECONDS_PER_DAY)    paste_round(x, SECONDS_PER_HOUR, digits, "hours")
+   else                            paste_round(x, SECONDS_PER_DAY, digits, "days"),
+  "x")
+
+format_as_percentage <- function(x, digits = 1) {
+    rounded <- round(x, digits = digits)
+    first_decimal_digit = as.integer(rounded * 10) %% 10
+    str_c(format(100 * x,
+                 digits = digits,
+                 nsmall = first_decimal_digit != 0,
+                 scientific = FALSE), "%")
+}
+
+format_as_absolute <- function(x, digits = 1) count_labels(x, digits)
+
+format_as_size <- function(x, digits = 1) memory_size_labels(x, digits)
+
+read_table <- function(filename, binary = TRUE, compression_level = 3) {
+    read_data_table(path(params$summarized_data_dirpath, filename),
+                    binary = binary, 
+                    compression_level = compression_level)
+}
+
+save_local_graph <- function(plot, name, device = "pdf", ...) {
+    ggsave(filename = file.path(params$visualized_data_dirpath, name),
+           plot = plot, device = device, ...)
+    plot
+}
+
+show_table <- function(tablename) {
+    read_csv(tablename, col_names = TRUE) %>%
+    datatable(fillContainer = TRUE, filter = "top")
+}
+
+show_graph <- function(graphname) include_graphics(graphname)
+
+show_two_graphs <- function(first_graphname, second_graphname) {
+    load_graph <- function(graphname) {
+        grid::rasterGrob(as.raster(readPNG(graphname)), interpolate = TRUE)
+    }
+    grid.arrange(load_graph(first_graphname),
+                 load_graph(second_graphname),
+                 ncol = 2)
+}
+
+old_theme <- theme_set(theme_bw() + theme(text = element_text(size = 15), panel.border = element_blank()))
+
+# Latex Macro Generation
+## name prefix is one of:
+## - Perc - adds a % at the end
+## - Count - adds labels like K, M, B for Kilo, Million and Billion
+## - Size - adds lables like KB, MB, GB for memory sizes
+generate_macro <- function(macro_name, value, subst = TRUE) {
+    if(subst) {
+        name <- as.character(substitute(macro_name))
+    } else {
+        name <- macro_name
+    }
+    if (str_sub(name, 1, 4) == "Perc")      formatted_value <- format_as_percentage(value)
+    else if(str_sub(name, 1, 5) == "Count") formatted_value <- format_as_absolute(value)
+    else if(str_sub(name, 1, 4) == "Size")  formatted_value <- format_as_size(value)
+    else stop(str_c("Unidentified name", name, sep = " "))
+    formatted_value <- str_replace(formatted_value, "\\%", "\\\\%")
+    definition <- str_glue("\\newcommand {{\\{name}}} {{{formatted_value}\\xspace}} %% {value}")
+    write_lines(definition, params$latex_macro_filepath, append = TRUE)
+}
+
+summarize_outliers <- function(df, grouping_column,
+                               count_column, relative_count_column,
+                               outlier_value) {
+
+    grouping_column <- enquo(grouping_column)
+    count_column <- enquo(count_column)
+    relative_count_column <- enquo(relative_count_column)
+
+    outlier_row <-
+        df %>%
+        filter(!! grouping_column > outlier_value) %>%
+        mutate(!!count_column := as.numeric(!!count_column)) %>%
+        summarize(!!grouping_column := str_c(">", toString(outlier_value), sep = " "),
+                  !!count_column := sum(!!count_column),
+                  !!relative_count_column := sum(!!relative_count_column))
+
+    df <-
+        df %>%
+        mutate(!! grouping_column := as.character(!! grouping_column)) %>%
+        bind_rows(outlier_row)
+
+    df
+}
+
+function_call_summary <- read_table("function_call_summary")
+grouped_object_count_by_type <- read_table("grouped_object_count_by_type")
+argument_promise_count_by_value_type <- read_table("argument_promise_count_by_value_type")
+argument_promise_count_by_expression_type <- read_table("argument_promise_count_by_expression_type")
+promise_count_by_category <- read_table("promise_count_by_category")
+argument_promise_count_by_dispatch_type <- read_table("argument_promise_count_by_dispatch_type")
+argument_promise_count_by_force_count <- read_table("argument_promise_count_by_force_count")
+package_strictness <- read_table("package_strictness")
+formal_parameter_count_by_use <- read_table("formal_parameter_count_by_use")
+argument_nature <- read_table("promise_argument_count_by_nature")
+formal_parameter_count_by_usage_class <- read_table("formal_parameter_count_by_usage_class")
+argument_promise_count_by_value_lookup_count <- read_table("argument_promise_count_by_value_lookup_count")
+execution_times <- read_table("execution_times")
+call_by_escape_and_type <- read_table("function_call_count_by_escape_category_and_return_value_type")
+escaped_argument_count_by_nature <- read_table("escaped_argument_count_by_nature")
+argument_promise_use_distribution <- read_table("argument_promise_use_distribution")
+package_metaprogramming <- read_table("package_metaprogramming")
+argument_expression_type_by_usage_class <- read_table("argument_expression_type_by_usage_class")
+force_orders <- read_table("closure_count_by_force_order_count")
+extreme_event_counts <- read_table("extreme_event_counts")
+event_processing_rates <- read_table("event_processing_rates")
+argument_type <- read_table("argument_count_by_type")
+closure_count_by_call_count <- read_table("closure_count_by_call_count")
+```
+
+# Overview
+
+## Functions and Calls
+```{r, eval = TRUE, echo = FALSE, results = "hide"}
+delayed_assign_id <- "zU2zBIO6UWH#zA6LsJRrFw=="
+force_id <- "K0njDVAdxhn0LsQoHtOLWA=="
+force_and_call_id <- "forceAndCall"
+substitute_id <- "substitute"
+eval_id <- "d7Cor#TdZ2FDZivyZksQqQ=="
+evalq_id <- "JYSerovrw0rT49mweaQtQw=="
+eval_parent_id <- "JRhrApn8kt7E6bPe#W0wYA=="
+local_id <- "9ltwkYFALCIgkTUFD7LNLw=="
+
+
+total_call_count <- sum(function_call_summary$call_count)
+
+total_function_count <- length(unique(function_call_summary$function_id))
+
+get_call_count <- function(df, id) {
+    id <- enquo(id)
+    function_call_summary %>%
+        filter(function_id == !!id) %>%
+        pull(call_count) %>%
+        as.double() %>%
+        sum()
+}
+
+corpus_counts <- 
+    tibble(name = character(0), value = double(0)) %>%
+    add_row(name = "CountCall", value = total_call_count) %>%
+    add_row(name = "CountFunction", value = total_function_count)
+
+jumped_call_count <-
+    function_call_summary %>%
+    filter(jumped) %>%
+    pull(call_count) %>%
+    sum()
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountJumpedCall", value = jumped_call_count) %>%
+    add_row(name = "PercJumpedCall", value = jumped_call_count / total_call_count)
+    
+unjumped_call_count <-
+    function_call_summary %>%
+    filter(!jumped) %>%
+    pull(call_count) %>%
+    sum()
+    
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountUnjumpedCall", value = unjumped_call_count) %>%
+    add_row(name = "PercUnjumpedCall", value = unjumped_call_count / total_call_count)
+
+function_call_summary <-
+    function_call_summary %>%
+    filter(!jumped) %>%
+    select(-jumped)
+
+unjumped_function_count <-
+    function_call_summary %>%
+    pull(function_id) %>%
+    unique() %>%
+    length()
+    
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountUnjumpedFunction", value = unjumped_function_count) %>%
+    add_row(name = "PercUnjumpedFunction", value = unjumped_function_count / total_function_count)
+    
+    
+builtin_call_count <-
+    function_call_summary %>%
+    filter(function_type == "Builtin") %>%
+    pull(call_count) %>%
+    sum()
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountBuiltinCall", value = builtin_call_count) %>%
+    add_row(name = "PercBuiltinCall", value = builtin_call_count / unjumped_call_count)
+
+special_call_count <-
+    function_call_summary %>%
+    filter(function_type == "Special") %>%
+    pull(call_count) %>%
+    sum()
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountSpecialCall", value = special_call_count) %>%
+    add_row(name = "PercSpecialCall", value = special_call_count / unjumped_call_count)
+
+closure_call_count <-
+    function_call_summary %>%
+    filter(function_type == "Closure") %>%
+    pull(call_count) %>%
+    sum()
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountClosureCall", value = closure_call_count) %>%
+    add_row(name = "PercClosureCall", value = closure_call_count / unjumped_call_count)
+
+builtin_function_count <-
+    function_call_summary %>%
+    filter(function_type == "Builtin") %>%
+    pull(function_id) %>%
+    unique() %>%
+    length()
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountBuiltinFunction", value = builtin_function_count)
+
+special_function_count <-
+    function_call_summary %>%
+    filter(function_type == "Special") %>%
+    pull(function_id) %>%
+    unique() %>%
+    length()
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountSpecialFunction", value = special_function_count)
+
+closure_function_count <-
+    function_call_summary %>%
+    filter(function_type == "Closure") %>%
+    pull(function_id) %>%
+    unique() %>%
+    length()
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountClosureFunction", value = closure_function_count)
+
+s3_function_count <-
+    function_call_summary %>%
+    filter(function_type == "Closure") %>%
+    filter(S3_call_count > 0) %>%
+    pull(function_id) %>%
+    unique() %>%
+    length()
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountThreeFunction", value = s3_function_count) %>%
+    add_row(name = "PercThreeFunction", value = s3_function_count / closure_function_count)
+
+s3_call_count <-
+    function_call_summary %>%
+    filter(function_type == "Closure") %>%
+    pull(S3_call_count) %>%
+    sum()
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountThreeCall", value = s3_call_count) %>%
+    add_row(name = "PercThreeCall", value = s3_call_count / closure_call_count)
+
+s4_function_count <-
+    function_call_summary %>%
+    filter(function_type == "Closure") %>%
+    filter(S4_call_count > 0) %>%
+    pull(function_id) %>%
+    unique() %>%
+    length()
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountFourFunction", value = s4_function_count) %>%
+    add_row(name = "PercFourFunction", value = s4_function_count / closure_function_count)
+
+s4_call_count <-
+    function_call_summary %>%
+    filter(function_type == "Closure") %>%
+    pull(S4_call_count) %>%
+    sum()
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountFourCall", value = s4_call_count) %>%
+    add_row(name = "PercFourCall", value = s4_call_count / closure_call_count)
+
+ordinary_function_count <-
+    function_call_summary %>%
+    filter(function_type == "Closure") %>%
+    filter(S4_call_count == 0 & S3_call_count == 0) %>%
+    pull(function_id) %>%
+    unique() %>%
+    length()
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountOrdFunction", value = ordinary_function_count) %>%
+    add_row(name = "PercOrdFunction", value = ordinary_function_count / closure_function_count)
+
+ordinary_call_count <-
+    function_call_summary %>%
+    filter(function_type == "Closure") %>%
+    mutate(ordinary_call_count = call_count - S3_call_count - S4_call_count) %>%
+    pull(ordinary_call_count) %>%
+    sum()
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountOrdCall", value = ordinary_call_count) %>%
+    add_row(name = "PercOrdCall", value = ordinary_call_count / closure_call_count)
+
+specific_counts <-
+    tibble(name = c("DelayedAssign", "Force", "ForceAndCall", "Substitute", "Eval", "EvalQ", "EvalParent", "Local"),
+           id = c(delayed_assign_id, force_id, force_and_call_id, substitute_id, eval_id,  evalq_id,  eval_parent_id, local_id)) %>%
+    mutate(call_count = map_dbl(id, function(id) get_call_count(function_call_summary, id)))
+
+specific_percs <-
+    specific_counts %>%
+    mutate(relative_call_count = call_count / closure_call_count)
+
+corpus_counts <-
+    corpus_counts %>%
+    rbind(
+        specific_counts %>%
+        mutate(name = str_c("Count", name, "Call")) %>%
+        select(name, value = call_count)
+    ) %>%
+    rbind(
+        specific_percs %>%
+        mutate(name = str_c("Perc", name, "Call")) %>%
+        select(name, value = relative_call_count)
+    )
+
+total_parameter_count <- sum(as.double(formal_parameter_count_by_use$parameter_count))
+
+total_argument_count <- sum(as.double(argument_nature$argument_count))
+
+default_argument_count <-
+    argument_nature %>%
+    filter(argument_nature == "Default") %>%
+    pull(argument_count)
+    
+non_default_argument_count <-
+    argument_nature %>%
+    filter(argument_nature == "Non Default") %>%
+    pull(argument_count)
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountParameter", value = total_parameter_count) %>%
+    add_row(name = "CountArgument",  value = total_argument_count) %>%
+    add_row(name = "CountDefArgument",  value = default_argument_count) %>%
+    add_row(name = "PercDefArgument",  value = default_argument_count / total_argument_count) %>%
+    add_row(name = "CountNonDefArgument",  value = non_default_argument_count) %>%
+    add_row(name = "PercNonDefArgument",  value = non_default_argument_count / total_argument_count)
+
+missing_argument_count <- 
+    argument_type %>%
+    filter(argument_type == "Missing") %>%
+    pull(argument_count)
+    
+relative_missing_argument_count <- 
+    argument_type %>%
+    filter(argument_type == "Missing") %>%
+    pull(relative_argument_count)
+
+promise_argument_count <-
+    argument_type %>%
+    filter(argument_type == "Promise") %>%
+    pull(argument_count)
+    
+relative_promise_argument_count <- 
+    argument_type %>%
+    filter(argument_type == "Promise") %>%
+    pull(relative_argument_count)
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountMissingArgument", value = missing_argument_count) %>%
+    add_row(name = "PercMissingArgument", value = relative_missing_argument_count) %>%
+    add_row(name = "CountPromiseArgument", value = promise_argument_count) %>%
+    add_row(name = "PercPromiseArgument", value = relative_promise_argument_count)
+
+event_processing_rates <-
+    event_processing_rates %>%
+    filter(tracing_time > 0)
+
+avg_event_processing_rate <-
+
+avg_event_processing_rate <- mean(event_processing_rates$event_rate)
+avg_expression_processing_rate <- mean(event_processing_rates$expression_rate)
+
+
+event_processing_rate <- 
+    sum(as.double(event_processing_rates$event_count)) / sum(event_processing_rates$tracing_time)
+expression_processing_rate <-
+    sum(as.double(event_processing_rates$expression_count)) / sum(event_processing_rates$tracing_time)
+
+corpus_counts <-
+    corpus_counts %>%
+    add_row(name = "CountEvent", value = sum(as.double(event_processing_rates$event_count))) %>%
+    add_row(name = "CountTotEventRate", value = event_processing_rate) %>%
+    add_row(name = "CountAvgEventRate", value = avg_event_processing_rate) %>%
+    add_row(name = "CountExpression", value = sum(as.double(event_processing_rates$expression_count))) %>%
+    add_row(name = "CountTotExpressionRate", value = expression_processing_rate) %>%
+    add_row(name = "CountAvgExpressionRate", value = avg_expression_processing_rate)
+    
+e <- environment()
+
+corpus_counts %>%
+    pmap(function(name, value) {
+        generate_macro(name, value, subst = FALSE)
+        assign(name, value, envir = e)
+    })
+```
+
+We observe `r format_as_absolute(CountCall)` calls to `r format_as_absolute(CountFunction)` functions. 
+Out of these, `r format_as_absolute(CountJumpedCall)` calls exit early due to longjump (exception handling or non-local promise returns).
+Of the remaining `r format_as_absolute(CountUnjumpedCall)` (`r format_as_percentage(PercUnjumpedCall)`) calls to 
+`r format_as_absolute(CountUnjumpedFunction)` (`r format_as_percentage(PercUnjumpedFunction)`) functions, 
+`r format_as_absolute(CountBuiltinCall)` (`r format_as_percentage(PercBuiltinCall)`) calls are made to 
+`r format_as_absolute(CountBuiltinFunction)` builtin functions, 
+`r format_as_absolute(CountSpecialCall)` (`r format_as_percentage(PercSpecialCall)`) calls are made to 
+`r format_as_absolute(CountSpecialFunction)` special functions and 
+`r format_as_absolute(CountClosureCall)` (`r format_as_percentage(PercClosureCall)`) calls are made to 
+`r format_as_absolute(CountClosureFunction)` R functions. 
+Of these calls to R functions 
+`r format_as_absolute(CountThreeCall)` (`r format_as_percentage(PercThreeCall)`) calls are made to 
+`r format_as_absolute(CountThreeFunction)` (`r format_as_percentage(PercThreeFunction)`) S3 methods,
+`r format_as_absolute(CountFourCall)` (`r format_as_percentage(PercFourCall)`) calls are made to 
+`r format_as_absolute(CountFourFunction)` (`r format_as_percentage(PercFourFunction)`) S4 methods and 
+`r format_as_absolute(CountOrdCall)` (`r format_as_percentage(PercOrdCall)`) calls are made to 
+`r format_as_absolute(CountOrdFunction)` (`r format_as_percentage(PercOrdFunction)`) ordinary R functions.
+`r format_as_absolute(CountDelayedAssignCall)` (`r format_as_percentage(PercDelayedAssignCall)`) calls are made to the `delayedAssign` function, 
+`r format_as_absolute(CountForceCall)` (`r format_as_percentage(PercForceCall)`) calls are made to the `force` function, 
+`r format_as_absolute(CountForceAndCallCall)` (`r format_as_percentage(PercForceAndCallCall)`) calls are made to `forceAndCall` function and 
+`r format_as_absolute(CountSubstituteCall)` (`r format_as_percentage(PercSubstituteCall)`) calls to the `substitute` function.
+
+The following graph shows the distribution of packages by the number of functions observed in them.
+
+```{r, eval = TRUE, echo = FALSE}
+total_package_count <- nrow(package_strictness)
+### geom_histogram did not let me add the other y axis in a reasonable way,
+### so, I explicitly computed the histogram and used geom_col instead.
+package_function_distribution <-
+    package_strictness %>%
+    filter(type == "compatible") %>%
+    group_by(total_function_count) %>%
+    summarize(relative_package_count = n() / total_package_count) %>%
+    ungroup()
+    
+dense_package_count <-
+    package_function_distribution %>%
+    filter(total_function_count > 50) %>%
+    pull(relative_package_count) %>%
+    sum()
+    
+package_function_distribution <-
+    package_function_distribution %>%
+    filter(total_function_count <= 50) %>%
+    mutate(total_function_count = as.character(total_function_count)) %>%
+    add_row(total_function_count = "> 50", relative_package_count = dense_package_count)
+
+package_function_graph <-
+    package_function_distribution %>%
+    ggplot(aes(x = total_function_count, y = relative_package_count)) +
+    geom_col() + 
+    #coord_flip() +
+    scale_x_discrete(limits = c(1:50, "> 50")) +
+    scale_y_continuous(sec.axis = sec_axis(~ .* total_package_count, labels=count_labels),
+                       labels = relative_labels) +
+    labs(x = "", y = "")
+
+save_local_graph(package_function_graph, "package_function.pdf", width = 12, height = 3)
+```
+
+The following graph shows the distribution of R functions by the number of calls.
+
+```{r, eval = TRUE, echo = FALSE}
+total_closure_count <- 
+    function_call_summary %>%
+    filter(function_type == "Closure") %>%
+    pull(function_id) %>%
+    unique() %>%
+    length()
+        
+closure_function_count <-
+    function_call_summary %>%
+    filter(function_type == "Closure") %>%
+    pull(function_id) %>%
+    unique() %>%
+    length()
+
+closure_call_distribution_graph <-
+    closure_count_by_call_count %>%
+    filter(call_count %in%  c(1:10, "> 10")) %>%
+    ggplot(aes(x = call_count,
+               y = relative_closure_count)) +
+    geom_col() +
+    scale_x_discrete(limits = c(1:10, "> 10")) +
+    scale_y_continuous(sec.axis = sec_axis(~ . * total_closure_count, labels = count_labels),
+                       labels = relative_labels) +
+    labs(x = "", y = "") +
+    coord_flip()
+
+save_local_graph(closure_call_distribution_graph, "closure_call_distribution_graph.pdf", width = 12, height = 3)
+```
+
+We observe that most functions are called more than 10 times.
+
+## Parameters and Arguments
+
+We observed `r format_as_absolute(CountParameter)` formal parameter positions.
+Of the `r format_as_absolute(CountArgument)` arguments `r format_as_absolute(CountDefArgument)` (`r format_as_percentage(PercDefArgument)`) were default arguments and the remaining `r format_as_absolute(CountNonDefArgument)` (`r format_as_percentage(PercNonDefArgument)`) were non-default arguments. `r format_as_absolute(CountMissingArgument)` (`r format_as_percentage(PercMissingArgument)`) arguments were missing and `r format_as_absolute(CountPromiseArgument)` were promises.
+
+The following graph shows the distribution of R functions by their formal parameter counts.
+
+```{r, eval = TRUE, echo = FALSE}
+total_closure_count <-
+    function_call_summary %>%
+    filter(function_type == "Closure") %>%
+    pull(function_id) %>%
+    unique() %>%
+    length()
+        
+closure_count_by_formal_parameter_count <-
+    function_call_summary %>%
+    filter(function_type == "Closure") %>%
+    group_by(formal_parameter_count) %>%
+    summarize(closure_count = length(unique(function_id))) %>%
+    ungroup() %>%
+    mutate(relative_closure_count = closure_count / sum(closure_count)) %>%
+    summarize_outliers(formal_parameter_count, closure_count, relative_closure_count, 5)
+
+closure_parameter_distribution_graph <-
+    closure_count_by_formal_parameter_count %>%
+    filter(formal_parameter_count %in% c(0:5, "> 5")) %>%
+    ggplot(aes(x = formal_parameter_count,
+               y = relative_closure_count)) +
+    geom_col() +
+    scale_x_discrete(limits = c(0:5, "> 5")) +
+    scale_y_continuous(sec.axis = sec_axis(~ . * total_closure_count, labels = count_labels),
+                       labels = relative_labels) +
+    labs(x = "", y = "") +
+    coord_flip()
+    
+save_local_graph(closure_parameter_distribution_graph, "closure_parameter_distribution_graph.pdf", width = 12, height = 3)
+```
+
+## Events and Expressions
+
+`r format_as_absolute(CountEvent)` events were analyzed from `r format_as_absolute(CountExpression)` expressions.
+The total event processing rate was `r format_as_absolute(CountTotEventRate)` events per second.
+The total expression processing rate was `r format_as_absolute(CountTotExpressionRate)` expression evaluations per second.
+
+
+# Object Counts (Fig. 3)
+
+The following graph  shows the distribution of object counts by type. 
+
+```{r, echo = FALSE, eval = TRUE}
+total_object_count <-
+    grouped_object_count_by_type %>%
+    pull(count) %>%
+    sum()
+
+## Let's get rid of funny types
+grouped_object_count_by_type <-
+   grouped_object_count_by_type %>%
+   mutate(group_type = ifelse(type=="S4","S4",group_type)) %>%
+   mutate(group_type = ifelse(type=="Symbol","Symbol",group_type)) %>%
+   filter(group_type != "Other")
+
+object_count_graph <-
+    grouped_object_count_by_type %>%
+    mutate(relative_count = count/total_object_count) %>%
+    ggplot(aes(x = reorder(group_type, -count),
+               y = relative_count, fill = type)) +
+    geom_col(fill="grey45") + 
+    coord_flip() +
+    scale_y_continuous(sec.axis = sec_axis(~ .*total_object_count, labels=count_labels),
+                       labels = relative_labels) +
+    labs(x = "", y = "") +
+    theme(legend.title = element_blank(), legend.position = "top")
+    
+save_local_graph(object_count_graph, "grouped_object_count_by_type.pdf", width = 12, height = 4)
+```
+
+
+```{r, eval = TRUE, echo = FALSE}
+CountProm <- sum(promise_count_by_category$promise_count)
+generate_macro("CountProm", CountProm)
+
+PercArgProm <- promise_count_by_category$relative_promise_count[1]
+generate_macro("PercArgProm", PercArgProm)
+
+PercForceProm <- argument_promise_count_by_force_count$relative_promise_count[2]
+generate_macro("PercForceProm", PercForceProm)
+
+CountForceProm <-
+    argument_promise_count_by_force_count %>% 
+    filter(force_count>1) %>% 
+    pull(promise_count) %>% 
+    sum()
+generate_macro("CountForceProm", CountForceProm)
+
+PercDispatch <- 
+    argument_promise_count_by_dispatch_type %>% 
+    filter(dispatch_type != "None") %>% 
+    pull(relative_promise_count) %>% 
+    sum()
+generate_macro("PercDispatch", PercDispatch)
+```
+
+We observed `r format_as_absolute(CountProm)` promises, out of which `r format_as_percentage(PercArgProm)` were created as part of argument lists. `r format_as_percentage(PercForceProm)` of promises were forced. `r format_as_percentage(PercDispatch)` of promises were forced due to dispatch. 
+
+
+# Promise Result Types (Fig. 4)
+
+
+The figure below shows the content of forced promises.
+The most common types are character strings, logicals, environments, double, integer and closure. The
+presence of null values is explained by the fact that many default argument values are set to null.
+
+```{r, eval = TRUE, echo = FALSE}
+argument_promise_count_by_value_type <- 
+    argument_promise_count_by_value_type %>%
+    rename(type = value_type, count = promise_count)
+
+argument_promise_count_by_value_type <-
+    argument_promise_count_by_value_type %>%
+    filter(type!="Unbound" ,type!="Function Call", type!="...", type!="Builtin", type!="Bytecode") %>%
+    filter(type!="Expression", type!="Externalptr", type!="Special", type!="Unknown (Jumped)") %>%
+    filter(type!="Pairlist", type!="Missing", type!="Weakref")
+
+total_count <-  sum(argument_promise_count_by_value_type$count)
+
+argument_promise_count_by_value_type_graph <-
+    argument_promise_count_by_value_type %>%
+    ggplot(aes(reorder(type, -count), relative_promise_count)) +
+    geom_col(fill="grey45") + 
+    coord_flip() +
+    scale_y_continuous(sec.axis = sec_axis(~ . * total_count, labels = count_labels),
+                       labels = relative_labels) +
+    labs(x = "", y = "") +
+    theme(legend.title = element_blank(), legend.position = "top")
+    
+save_local_graph(argument_promise_count_by_value_type_graph, "prom_types.pdf", width = 12, height = 4)
+```
+
+# Promise Expression Types (Fig. 5)
+
+Figure below shows the content of the expression slot of promises. The majority contain a single symbol to be looked
+up, e.g. x. Of course that symbol may be bound to another promise. There are some function calls, e.g. `1 + 2`. 
+The remainder are inlined values (scalar constants).
+
+```{r, eval = TRUE, echo = FALSE}
+argument_promise_count_by_expression_type <- 
+    argument_promise_count_by_expression_type %>% 
+    rename(type=expression_type, count=promise_count)
+
+argument_promise_count_by_expression_type <-
+    argument_promise_count_by_expression_type %>% 
+    filter(type!="Unbound", type!="...",type!="Builtin",type!="Bytecode") %>%
+    filter(type!="Expression",type!="Externalptr",type!="Special",type!="Unknown (Jumped)") %>%
+    filter(type!="Pairlist",type!="Missing",type!="Weakref",type!="Promise")
+
+total_count <-  sum(argument_promise_count_by_expression_type$count)
+
+argument_promise_count_by_expression_type_graph <-
+    argument_promise_count_by_expression_type %>%
+    ggplot(aes(reorder(type, -count),
+               relative_promise_count)) +
+    geom_col(fill="grey45") + coord_flip() +
+    scale_y_continuous(sec.axis = sec_axis(~ . * total_count, labels = count_labels),
+                       labels = relative_labels) +
+    labs(x = "", y = "") +
+    theme(legend.title = element_blank(),
+          legend.position = "top")
+
+save_local_graph(argument_promise_count_by_expression_type_graph, "prom_exp_types.pdf", width = 12, height = 4)
+```
+
+# Function Strictness per package (Fig. 6)
+
+```{r, eval = TRUE, echo=FALSE}
+package_strictness <- 
+   package_strictness %>%
+   mutate(package = package_name) %>%
+   filter(!(package_name %in% c("global", "empty"))) %>%
+   filter(type == "compatible")
+   
+tot_strict <-
+    package_strictness %>%
+    pull(strict_function_count) %>%
+    sum()
+
+CountFun <-
+    package_strictness %>%
+    pull(total_function_count) %>%
+    sum()
+
+PercStrictFun <- tot_strict / CountFun
+
+generate_macro("PercStrictFun", PercStrictFun)
+
+generate_macro("CountFun", CountFun)
+
+CountStrFunLess <-
+    package_strictness %>%
+    filter(relative_strict_function_count < .75) %>% 
+    pull(total_function_count) %>% 
+    sum()
+
+CountStrPackLess <-
+    package_strictness %>%
+    filter(relative_strict_function_count <.75) %>% 
+    nrow()
+
+CountStrPackMore <-
+    package_strictness %>%
+    filter(relative_strict_function_count >.75) %>% 
+    pull(total_function_count) %>% 
+    sum()
+
+CountStrFunMore <-
+    package_strictness %>%
+    filter( relative_strict_function_count >.75) %>% 
+    nrow()
+
+PercStrPackLess <- CountStrPackLess/nrow(package_strictness)
+
+PercStrFunLess <- CountStrFunLess/sum(package_strictness$total_function_count)
+
+generate_macro("CountStrPackLess", CountStrPackLess)
+generate_macro("CountStrFunLess", CountStrFunLess)
+generate_macro("PercStrPackLess", PercStrPackLess)
+generate_macro("PercStrFunLess", PercStrFunLess)
+generate_macro("CountStrPackMore", CountStrPackMore)
+generate_macro("CountStrFunMore", CountStrFunMore)
+
+total_package_count <- nrow(package_strictness)
+### geom_histogram did not let me add the other y axis in a reasonable way,
+### so, I explicitly computed the histogram and used geom_col instead.
+package_strictness_graph <-
+    package_strictness %>%
+    mutate(relative_strict_uniorder_function_count = round(relative_strict_uniorder_function_count, 1)) %>%
+    group_by(relative_strict_uniorder_function_count) %>%
+    summarize(relative_package_count = n() / total_package_count) %>%
+    ungroup() %>%
+    ggplot(aes(x = relative_strict_uniorder_function_count, y = relative_package_count)) +
+    geom_col() + coord_flip() +
+    scale_x_continuous(labels = relative_labels) +
+    scale_y_continuous(sec.axis = sec_axis(~ .* total_package_count, labels=count_labels),
+                       labels = relative_labels) +
+    labs(x = "", y = "")
+
+save_local_graph(package_strictness_graph, "package_strictness.pdf", width = 12, height = 3)
+```
+
+A function is strict if it evaluates all of its arguments. In the corpus, out of a total of `r format_as_absolute(CountFun)` non-zero argument functions, `r format_as_percentage(PercStrictFun)` are strict. Figure above gives a histogram of function strictness ratios per package. The majority of packages mostly contain strict functions.  The packages that are less than 75\% strict account for only `r format_as_absolute(CountStrPackLess)` packages (`r format_as_percentage(PercStrPackLess)` of all packages) and `r format_as_absolute(CountStrFunLess)` functions (`r format_as_percentage(PercStrFunLess)` of all functions).
+
+
+# Parameter Strictness (Fig. 7)
+
+The strictness of the `r format_as_absolute(CountParameter)` individual parameters positions can
+also be measured. We distinguish three categories: *Always* is for
+parameters that are always evaluated, *Never* is for parameters that are
+never evaluated, and *Sometimes* is for parameters that we have observed
+being evaluated in some calls and not in others. Figure below
+illustrates the distribution of parameters across the categories.
+
+```{r, eval=TRUE, echo=FALSE}
+total_parameter_count <-
+    formal_parameter_count_by_use %>%
+    pull(parameter_count) %>%
+    sum()
+
+parameter_lookup_class_graph <-
+    formal_parameter_count_by_usage_class %>%
+    filter(parameter_use == "Lookup") %>%
+    ggplot(aes(x = parameter_class, y = relative_parameter_count)) +
+    scale_y_continuous(sec.axis = sec_axis(~ . * total_parameter_count, labels = count_labels),
+                       labels = relative_labels) +
+    geom_col() + 
+    labs(x = "", y = "") + 
+    coord_flip()
+    
+save_local_graph(parameter_lookup_class_graph, "parameter_lookup_class.pdf", height=2,width=12)
+
+PercNever <-
+    formal_parameter_count_by_usage_class %>% 
+    filter(parameter_use=="Lookup",parameter_class=="Never") %>%
+    pull(relative_parameter_count)
+
+PercSometimes <- 
+    formal_parameter_count_by_usage_class %>% 
+    filter(parameter_use=="Lookup",parameter_class=="Sometimes") %>%
+    pull(relative_parameter_count)
+
+generate_macro("PercNever", PercNever)
+
+generate_macro("PercSometimes", PercSometimes)
+```
+There are `r format_as_percentage(PercNever)` parameters are never evaluated, and `r format_as_percentage(PercSometimes)` parameters are inconsistently evaluated.
+A strict function has all of its parameters always evaluated.
+
+# Computation Reuse (Fig. 8)
+
+One advantage of call-by-need is that it avoids multiple evaluations of the
+same expression. How often is this used in practice? Figure below
+shows, for each individual promise, how often its value was accessed.
+
+```{r, eval = TRUE, echo = FALSE}
+total_count <-  sum(argument_promise_count_by_value_lookup_count$promise_count)
+
+argument_promise_count_by_value_lookup_count_graph <-
+    argument_promise_count_by_value_lookup_count %>%
+    filter(value_lookup_count %in% c(0:6, ">=7")) %>%
+    ggplot(aes(value_lookup_count, relative_promise_count)) +
+    geom_col() +
+    coord_flip() +
+    scale_y_continuous(sec.axis = sec_axis(~ . * total_count,labels = count_labels),
+                       labels = relative_labels) +
+    labs(x = "", y = "") + 
+    scale_x_discrete(limits = c(0:6, ">=7"))
+
+save_local_graph(argument_promise_count_by_value_lookup_count_graph, "value_lookup.pdf", width=12, height=3)
+
+len <- nrow(argument_promise_count_by_value_lookup_count)
+
+PercTwo <- (argument_promise_count_by_value_lookup_count%>%pull(relative_promise_count))[3]
+PercTwo <- if(is.na(PercTwo)) 0 else PercTwo
+PercThree <- (argument_promise_count_by_value_lookup_count%>%pull(relative_promise_count))[4]
+PercThree <- if(is.na(PercThree)) 0 else PercThree
+PercThousand <- sum((argument_promise_count_by_value_lookup_count%>%pull(relative_promise_count))[1001:len])
+PercThousand <- if(is.na(PercThousand)) 0 else PercThousand
+generate_macro("PercTwo", PercTwo)
+generate_macro("PercThree", PercThree)
+generate_macro("PercThousand", PercThousand)
+```
+
+The majority of promises are used once. `r format_as_percentage(PercTwo)` of promises are accessed twice,
+and `r format_as_percentage(PercThree)` are accessed three times. 
+`r format_as_percentage(PercThousand)` promises are accessed over 1,000 times.
+
+
+# Promise Evaluation (Fig. 9)
+
+
+Another advantage of laziness is that could help avoid unnecessary
+computation. But do programmers avail themselves of this feature?  One way
+to test this hypothesis is to compare the execution time of arguments that
+are strict (promises passed to *Always* parameters) to those of lazy
+arguments (promises passed to *Sometimes* parameters) and see if the
+lazy arguments are more computationally intensive in any way.
+
+Figure below shows the probability density of
+promises at different running times. Promises running for less than a
+millisecond are ignored.
+
+```{r, eval=TRUE, echo=FALSE}
+## convert evaluation time to seconds from milliseconds
+## so that the scale can format it to appropriate time units
+execution_time_graph <-
+    execution_times %>%
+    mutate(execution_time = log10(execution_time / 1000)) %>%
+    ggplot(aes(lookup_class, execution_time,
+               color = lookup_class,
+               weight = relative_argument_count)) +
+    geom_violin() + 
+    coord_flip() + 
+    theme(legend.position = "none") +
+    scale_y_continuous(labels = function(x) { time_labels(10 ^ x) }) +
+    labs(x = "", y = "")
+    
+
+save_local_graph(execution_time_graph, "argument_evaluation_time.pdf",width=12,height=4)
+```
+While there is a difference in the profiles, the promises that are passed to Sometimes arguments tend to be faster to evaluate. But given the large amount of promises being observed it is difficult to be conclusive.
+
+# Function Return Type (Fig. 10)
+
+Laziness makes it possible to compute over infinite data structures.  While
+R does not provide any libraries with such data structures, it is
+conceivable that some programmers may have created some in their code. 
+One can use promises together with environments or
+closures to create unbounded data. How often does that occur? One thing that
+we can measure is *escaped promises*, the promises that outlive the
+function their are passed into.
+
+```{r,eval=TRUE,echo=FALSE}
+call_by_escape_and_type <- 
+    call_by_escape_and_type %>%
+    rename(type=return_value_type) %>%
+    filter(!(type %in% c("Unbound", "...", "Builtin", "Bytecode",
+                         "Expression", "Externalptr", "Special", "Unknown (Jumped)",
+                         "Pairlist", "Missing", "Weakref", "Promise", "S4", "Raw", "Complex")))
+type_order <-
+    call_by_escape_and_type %>%
+    filter(category == "Escaped") %>%
+    arrange(desc(relative_call_count)) %>%
+    pull(type)
+
+call_by_escape_and_type_graph <-
+    call_by_escape_and_type %>%
+    ggplot(aes(x=type,y=relative_call_count,fill=category)) +
+    geom_col(position = "dodge") +
+    scale_x_discrete(limits = type_order) +
+    scale_y_continuous(labels = relative_labels) +
+    labs(x = "", y = "") + 
+    coord_flip() +
+    theme(legend.title = element_blank(), legend.position = "top")
+    
+save_local_graph(call_by_escape_and_type_graph, "esc_return_types.pdf", width = 12, height = 4)
+```
+
+```{r eval = TRUE, echo = FALSE}
+CountEscArg <- sum(escaped_argument_count_by_nature$argument_count)
+```
+
+Of the `r format_as_absolute(CountPromiseArgument)` promises we have
+observed, only `r format_as_absolute(CountEscArg)` escape. This is a rather small number, and we
+need to establish the reason why the promise escape. One thing we can
+measure is the return type of the functions for which promises escape.
+
+Figure above compares the return types of functions which have at
+least one of their promises escaping, and functions that do not have any
+promise that escape. The main difference between the two is that functions
+with escaping promises have a large number of closures as their return
+values. 
+
+
+# Meta-programmed Promises (Fig. 11)
+
+
+We define meta-programming as the use of the `substitute` function to
+extract an abstract syntax tree from the body of a promise. 
+Figure below shows the number of promises that
+were meta-programmed. The graph has four categories: promises that were
+created but never used, promises that we meta-programmed, promises that we
+both meta-programmed and accessed, and lastly, promises that were only
+accessed.
+
+```{r, eval = TRUE, echo = FALSE}
+total_count <-  sum(argument_promise_use_distribution$promise_count)
+
+argument_promise_use_distribution_graph <-
+    argument_promise_use_distribution %>%
+    ggplot(aes(use, relative_promise_count)) + geom_col() +
+    scale_y_continuous(sec.axis = sec_axis(~ . * total_count,
+                                           labels = count_labels),
+                       labels = relative_labels) +
+    labs(x = "", y = "") + 
+    coord_flip()
+    
+save_local_graph(argument_promise_use_distribution_graph, "promise_meta_use.pdf", width=12, height=2.5)
+```
+
+```{r, eval = TRUE, echo = FALSE}
+PercLookMeta <- (argument_promise_use_distribution %>% pull(relative_promise_count))[2]
+generate_macro("PercLookMeta",  PercLookMeta)
+PercMetaOnly <- (argument_promise_use_distribution %>% pull(relative_promise_count))[3]
+generate_macro("PercMetaOnly", PercMetaOnly)
+
+package_metaprogramming <- 
+   package_metaprogramming %>%
+   filter(!(package %in% c("global", "empty")))
+
+total_package_count <- nrow(package_metaprogramming)
+
+CountPackMeta <-
+    package_metaprogramming %>%
+    filter(metaprogramming_function_count != 0) %>%
+    nrow()
+    
+generate_macro("CountPackMeta",  CountPackMeta)
+PercPackMeta <- CountPackMeta / total_package_count
+generate_macro("PercPackMeta", PercPackMeta) 
+```
+
+We observed `r format_as_absolute(CountSubstituteCall)` calls (`r format_as_percentage(PercSubstituteCall)` of all calls) to `substitute` function. The data shows that only `r format_as_percentage(PercMetaOnly)` of promises were used purely for meta-programming purposes, while `r format_as_percentage(PercLookMeta)` were both forced to obtain a value and used for meta-programming. There are `r format_as_absolute(CountPackMeta)` (`r format_as_percentage(PercPackMeta)`) packages that do meta-programming.
+
+
+# Expression Types of Parameters (Fig. 13)
+
+Figure below shows the contents of expressions held in promises, 
+contrasting promises that are passed to strict (Always) and lazy (Sometimes) argument positions.
+
+```{r, eval = TRUE, echo = FALSE}
+type_order <-
+    argument_expression_type_by_usage_class %>%
+    filter(!(expression_type %in% c("Unbound", "...", "Builtin", "Bytecode",
+                                     "Expression", "Externalptr", "Special", "Unknown (Jumped)",
+                           "Pairlist", "Missing", "Weakref", "Promise", "S4", "Raw", "Complex"))) %>%
+    filter(lookup_class == "Always") %>%
+    arrange(desc(count)) %>%
+    pull(expression_type)
+    
+argument_expression_type_graph <-
+    argument_expression_type_by_usage_class %>%
+    filter(lookup_class != "Never") %>%
+    group_by(lookup_class) %>%
+    mutate(relative_count = count / sum(count)) %>%
+    filter(expression_type %in% type_order) %>%
+    ggplot(aes(x=expression_type,y=relative_count,fill=lookup_class)) +
+    geom_col(position = "dodge") +
+    scale_x_discrete(limits = type_order) +
+    scale_y_continuous(labels = relative_labels) +
+    labs(x = "", y = "") + 
+    coord_flip() +
+    theme(legend.title = element_blank(), legend.position = "top")
+
+save_local_graph(argument_expression_type_graph, "param_expr_types.pdf", width = 12, height = 4)
+```
+
+```{r, eval = TRUE, echo = FALSE}
+PercFunCallSometimesArgExpr <-
+    argument_expression_type_by_usage_class %>%
+    filter(lookup_class == "Sometimes") %>%
+    mutate(relative_count = count / sum(count)) %>%
+    filter(expression_type == "Function Call") %>%
+    pull(relative_count) %>%
+    sum()
+```
+
+`r format_as_percentage(PercFunCallSometimesArgExpr)` of promises perform computation.
+
+# Function force orders (Fig. 14)
+
+In the graph below, we look at the order in which arguments are forced by functions. 
+We call these force orders.
+
+```{r, eval = TRUE, echo = FALSE}
+total_function_count <- sum(force_orders$function_count)
+
+force_order_graph <-
+    force_orders %>%
+    filter(type == "compatible") %>%
+    filter(force_order_count %in%  c(2:5, "> 5")) %>%
+    arrange(force_order_count) %>%
+    ggplot(aes(x = force_order_count, y = relative_function_count)) +
+    geom_col() + 
+    scale_x_discrete(limits = c(2:5, "> 5")) +
+    scale_y_continuous(sec.axis = sec_axis(~ .* total_function_count, labels=count_labels),
+                       labels = relative_labels) +
+    coord_flip() +
+    labs(x = "", y = "")
+
+save_local_graph(force_order_graph, "force_order.pdf", width = 12, height = 3)
+```
+
+```{r, eval = TRUE, echo = FALSE}
+PercSingleForceOrder <- 
+    force_orders %>%
+    filter(type == "compatible") %>%
+    filter(force_order_count == 1) %>%
+    pull(relative_function_count) %>%
+    sum()
+    
+PercDoubleForceOrder <- 
+    force_orders %>%
+    filter(type == "compatible") %>%
+    filter(force_order_count == 2) %>%
+    pull(relative_function_count) %>%
+    sum()
+```
+
+The majority of functions `r format_as_percentage(PercSingleForceOrder)` have a single force order
+(regardless of strictness). About `r format_as_percentage(PercDoubleForceOrder)` of the functions have two force
+order, and very few functions have more than that. This means that for the
+majority of function we could extract a single force order and simply
+evaluate the function early. For the multi-force order functions it is
+reasonable to expect that they are not sensitive to side-effects.

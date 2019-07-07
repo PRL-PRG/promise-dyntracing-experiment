@@ -1,0 +1,5 @@
+cellranger
+colorspace
+curl
+devtools
+dplyr

@@ -725,6 +725,22 @@ parameters <- function(analyses) {
         mutate(relative_argument_count = argument_count / sum(argument_count)) %>%
         ungroup()
 
+
+    argument_expression_types <-
+        analyses$argument_expression_types %>%
+        group_by(function_id, formal_parameter_position, expression_type) %>%
+        summarize(count = sum(as.double(count))) %>%
+        ungroup()
+
+
+    argument_expression_type_by_usage_class <-
+        argument_expression_types %>%
+        left_join(select(formal_parameter_usage_class, function_id, formal_parameter_position, lookup_class),
+                  by = c("function_id", "formal_parameter_position")) %>%
+        group_by(lookup_class, expression_type) %>%
+        summarize(count = sum(count)) %>%
+        ungroup()
+
     list(argument_count_by_usage = argument_count_by_usage,
          formal_parameter_count_by_use = formal_parameter_count_by_use,
          formal_parameter_usage_class = formal_parameter_usage_class,
@@ -734,6 +750,8 @@ parameters <- function(analyses) {
          package_metaprogramming = package_metaprogramming,
          closure_usage_class = closure_usage_class,
          closure_count_distribution_by_usage_class = closure_count_distribution_by_usage_class,
+         argument_expression_types = argument_expression_types,
+         argument_expression_type_by_usage_class = argument_expression_type_by_usage_class,
          execution_times = execution_times)
 }
 
