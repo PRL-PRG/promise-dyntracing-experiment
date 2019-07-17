@@ -609,7 +609,7 @@ pipeline:
 	-$(MAKE) summarize-analyses TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL)
 	-$(MAKE) report-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL)
 	@echo "The generated report can be found at " $(TRACE_ANALYSIS_REPORT_DIRPATH)/report.html
-	@xdg-open $(TRACE_ANALYSIS_REPORT_DIRPATH)/report.html
+	-sudo cp $(TRACE_ANALYSIS_REPORT_DIRPATH)/report.html /var/www/
 
 view-function-definition:
 	@$(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                                          \
