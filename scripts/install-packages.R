@@ -15,12 +15,7 @@ install_from_github <- function(package_names) {
                        "--install-tests",
                        ## keep line numbers
                        "--with-keep.source",
-                       "--no-multiarch"),
-                   dependencies = c("Depends",
-                                    "Imports",
-                                    "LinkingTo",
-                                    "Suggests",
-                                    "Enhances"))
+                       "--no-multiarch"))
 }
 
 install_from_cran <- function(package_names) {
@@ -40,12 +35,7 @@ install_from_cran <- function(package_names) {
                          "--install-tests",
                          ## keep line numbers
                          "--with-keep.source",
-                         "--no-multiarch"),
-                     dependencies = c("Depends",
-                                      "Imports",
-                                      "LinkingTo",
-                                      "Suggests",
-                                      "Enhances"))
+                         "--no-multiarch"))
 }
 
 get_installed_packages <- function() {
