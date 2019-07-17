@@ -1,5 +1,5 @@
-cellranger
-colorspace
+stringr
+magrittr
 curl
 devtools
-dplyr
+tidyr

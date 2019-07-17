@@ -15,7 +15,7 @@ rvest
 DBI
 lubridate
 hms
-blob
+progress
 magrittr
 glue
 Rcpp
