@@ -92,6 +92,8 @@ FUNCTION_COUNT := 1000
 ## report directory paths
 ################################################################################
 REPORT_TEMPLATE_DIRPATH := report
+REPORT_FILENAME := paper.Rmd
+REPORT_FILEPATH := $(REPORT_TEMPLATE_DIRPATH)/$(REPORT_FILENAME)
 REPORT_UTILITIES_SCRIPTPATH := report/utilities.R
 
 ################################################################################
@@ -453,7 +455,7 @@ report-analysis:
 
 	$(UNBUFFER) $(TIME) $(XVFB_RUN) $(R_DYNTRACE) $(R_DYNTRACE_FLAGS)                                       \
 	                                               --file=analysis/parameters/report.R                      \
-	                                               --args $(REPORT_TEMPLATE_DIRPATH)/paper.Rmd              \
+	                                               --args $(REPORT_FILEPATH)                                \
 	                                                      $(TRACE_ANALYSIS_REPORT_DIRPATH)/report.html      \
 	                                                      $(TRACE_ANALYSIS_SUMMARIZED_DIRPATH)              \
 	                                                      $(TRACE_ANALYSIS_VISUALIZED_DIRPATH)              \

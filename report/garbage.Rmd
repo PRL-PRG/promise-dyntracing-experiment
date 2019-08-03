@@ -1,0 +1,266 @@
+---
+title: "On the Design, Implementation and Use of Laziness in R"
+output:
+  html_document:
+    theme: cerulean
+    toc: true
+    toc_float: true
+    collapsed: true
+    smooth_scroll: false
+    number_sections: true
+params:
+    summarized_data_dirpath: ""
+    visualized_data_dirpath: ""
+    latex_macro_filepath: ""
+---
+
+```{r results = "asis", echo = FALSE}
+cat("
+<style>
+div.section {
+  text-align: justify;
+  text-justify: inter-word;
+}
+</style>
+")
+```
+
+```{r echo = TRUE, warning=FALSE, message=FALSE}
+Sys.setenv("DISPLAY"=":0")
+
+knitr::opts_chunk$set(fig.width = 12, fig.height = 4) 
+
+library(tidyverse)
+library(ggplot2)
+
+PETA <- 10^15
+TERA <- 10^12
+GIGA <- 10^9
+MEGA <- 10^6
+KILO <- 10^3
+HECTO <- 10^2
+DECA <- 10^1
+DECI <- 10^-1
+CENTI <- 10^-2
+MILLI <- 10^-3
+MICRO <- 10^-6
+NANO <- 10^-9
+PICO <- 10^-12
+SECONDS_PER_MINUTE <- 60
+MINUTES_PER_HOUR <- 60
+HOURS_PER_DAY <- 24
+SECONDS_PER_HOUR <- SECONDS_PER_MINUTE * MINUTES_PER_HOUR
+SECONDS_PER_DAY <- HOURS_PER_DAY * SECONDS_PER_HOUR
+
+paste_round <- function(value, div, digits, suffix, sep = " ") {
+    paste(round(value/div, digits), suffix, sep = sep)
+}
+
+memory_size_labels <-  function(x, digits = 1) {
+    ifelse(x == 0, "0 B",
+           { y <- log2(x)
+             units <- c("B", "KB", "MB", "GB", "TB", "PB")
+             unit <- units[y %/% 10 + 1]
+             value <- 2 ^ (y %% 10)
+             paste(round(value, digits), unit, sep = " ") })
+  }
+
+count_labels <- Vectorize(function(x, digits = 2) 
+    if(is.na(x))       "NA"
+    else if(x < 10^3)  paste0(x)
+    else if(x < 10^6)  paste_round(x, 1000, digits, "K")
+    else if(x < 10^9)  paste_round(x, 10^6, digits, "M")
+    else if(x < 10^12) paste_round(x, 10^9, digits, "B")
+    else               paste_round(x, 10^12, digits, "T"),
+  "x")
+
+relative_labels <- function(x) percent_labels(x * 100)
+percent_labels <-  function(x) paste0(x, "%", sep="")
+  
+time_labels <- Vectorize(function(x, digits = 1)
+   if (is.na(x))                   "NA"
+   else if (x < NANO)              paste_round(x, PICO, digits, "ps")
+   else if (x < MICRO)             paste_round(x, NANO, digits, "ns")
+   else if (x < MILLI)             paste_round(x, MICRO, digits, "μs")
+   else if(x < 1)                  paste_round(x, MILLI, digits, "ms")
+   else if(x < SECONDS_PER_MINUTE) paste_round(x, 1, digits, "s")
+   else if(x < SECONDS_PER_HOUR)   paste_round(x, SECONDS_PER_MINUTE, digits, "mins")
+   else if(x < SECONDS_PER_DAY)    paste_round(x, SECONDS_PER_HOUR, digits, "hours")
+   else                            paste_round(x, SECONDS_PER_DAY, digits, "days"),
+  "x")
+
+format_as_percentage <- function(x, digits = 1) {
+    rounded <- round(x, digits = digits)
+    first_decimal_digit = as.integer(rounded * 10) %% 10
+    str_c(format(100 * x,
+                 digits = digits,
+                 nsmall = first_decimal_digit != 0,
+                 scientific = FALSE), "%")
+}
+
+format_as_absolute <- function(x, digits = 1) count_labels(x, digits)
+
+format_as_size <- function(x, digits = 1) memory_size_labels(x, digits)
+
+read_table <- function(filename, binary = TRUE, compression_level = 3) {
+    read_data_table(path(params$summarized_data_dirpath, filename),
+                    binary = binary, 
+                    compression_level = compression_level)
+}
+
+save_local_graph <- function(plot, name, device = "pdf", ...) {
+    ggsave(filename = file.path(params$visualized_data_dirpath, name),
+           plot = plot, device = device, ...)
+    plot
+}
+
+show_table <- function(tablename) {
+    read_csv(tablename, col_names = TRUE) %>%
+    datatable(fillContainer = TRUE, filter = "top")
+}
+
+show_graph <- function(graphname) include_graphics(graphname)
+
+show_two_graphs <- function(first_graphname, second_graphname) {
+    load_graph <- function(graphname) {
+        grid::rasterGrob(as.raster(readPNG(graphname)), interpolate = TRUE)
+    }
+    grid.arrange(load_graph(first_graphname),
+                 load_graph(second_graphname),
+                 ncol = 2)
+}
+
+old_theme <- theme_set(theme_bw() + theme(text = element_text(size = 15), panel.border = element_blank()))
+
+# Latex Macro Generation
+## name prefix is one of:
+## - Perc - adds a % at the end
+## - Count - adds labels like K, M, B for Kilo, Million and Billion
+## - Size - adds lables like KB, MB, GB for memory sizes
+generate_macro <- function(macro_name, value, subst = TRUE) {
+    if(subst) {
+        name <- as.character(substitute(macro_name))
+    } else {
+        name <- macro_name
+    }
+    if (str_sub(name, 1, 4) == "Perc")      formatted_value <- format_as_percentage(value)
+    else if(str_sub(name, 1, 5) == "Count") formatted_value <- format_as_absolute(value)
+    else if(str_sub(name, 1, 4) == "Size")  formatted_value <- format_as_size(value)
+    else stop(str_c("Unidentified name", name, sep = " "))
+    formatted_value <- str_replace(formatted_value, "\\%", "\\\\%")
+    definition <- str_glue("\\newcommand {{\\{name}}} {{{formatted_value}\\xspace}} %% {value}")
+    write_lines(definition, params$latex_macro_filepath, append = TRUE)
+}
+
+summarize_outliers <- function(df, grouping_column,
+                               count_column, relative_count_column,
+                               outlier_value) {
+
+    grouping_column <- enquo(grouping_column)
+    count_column <- enquo(count_column)
+    relative_count_column <- enquo(relative_count_column)
+
+    outlier_row <-
+        df %>%
+        filter(!! grouping_column > outlier_value) %>%
+        mutate(!!count_column := as.numeric(!!count_column)) %>%
+        summarize(!!grouping_column := str_c(">", toString(outlier_value), sep = " "),
+                  !!count_column := sum(!!count_column),
+                  !!relative_count_column := sum(!!relative_count_column))
+
+    df <-
+        df %>%
+        mutate(!! grouping_column := as.character(!! grouping_column)) %>%
+        bind_rows(outlier_row)
+
+    df
+}
+
+bar <- function(widths, total, labels) {
+    options(device = cairo_pdf)
+    ## If you want to draw arbitrary rectangles, use geom_tile() or geom_rect()
+    xmin <- cumsum(c(0, head(widths, -1)))
+    df <- data.frame(
+        xmin = xmin,
+        xmax = cumsum(widths),
+        ymin = -0.5,
+        ymax = 0.5,
+        fill = factor(1:length(widths)),
+        label = labels,
+        xmid = widths/2.0 + xmin,
+        ymid = 0
+    )
+
+    plot <-
+        df %>%
+        ggplot() +
+        geom_rect(aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = fill)) +
+        geom_text(aes(label = label, x = xmid, y = ymid), colour = "white") +
+        scale_y_continuous() +
+        scale_x_continuous(breaks = cumsum(widths),
+                           labels = relative_labels,
+                           sec.axis = sec_axis(trans = ~ . * total,
+                                               breaks = cumsum(widths),
+                                               labels = count_labels)) +
+        theme(axis.text.y = element_blank(),
+              axis.ticks = element_blank(),
+              panel.grid.minor = element_blank(),
+              panel.grid.major = element_blank(),
+              legend.position = "none") +
+        labs(x = "", y = "")
+plot
+}
+
+```
+
+```{r echo = TRUE, warning=FALSE, message=FALSE}
+promise_alive_gc_cycles <- read_table("argument_promise_alive_gc_cycle_distribution")
+```
+
+# Promise Garbage Collection
+
+```{r, eval = TRUE, echo = FALSE}
+total_argument_promise_count <- sum(promise_alive_gc_cycles$promise_count)
+
+datatable(promise_alive_gc_cycles)
+
+zero_gc_cycle_promises <- 
+    promise_alive_gc_cycles %>%
+    filter(alive_gc_cycle == 0)
+    
+if(nrow(zero_gc_cycle_promises) == 0) {
+    zero_gc_cycle_promises <- tibble(promise_count = 0, relative_promise_count = 0.0)
+}
+
+one_gc_cycle_promises <- 
+    promise_alive_gc_cycles %>%
+    filter(alive_gc_cycle == 1)
+    
+plus_one_gc_cycle_promises <- 
+    promise_alive_gc_cycles %>%
+    filter(alive_gc_cycle > 1) %>%
+    summarize(promise_count = sum(promise_count)) %>%
+    mutate(relative_promise_count = promise_count / total_argument_promise_count)
+    
+promise_alive_gc_cycles_graph <-
+    promise_alive_gc_cycles %>%
+    filter(alive_gc_cycle <= 5) %>%
+    ggplot(aes(x = alive_gc_cycle, y = relative_promise_count)) +
+    geom_col() +
+    scale_x_discrete(limits = 0:5) +
+    scale_y_continuous(sec.axis = sec_axis(~ .* total_argument_promise_count, labels = count_labels),
+                       labels = relative_labels) +
+    coord_flip() +
+    labs(x = "", y = "")
+    
+save_local_graph(promise_alive_gc_cycles_graph, "promise_alive_gc_cycles_graph.pdf", width = 12, height = 3)
+
+
+widths <- c(zero_gc_cycle_promises$promise_count, one_gc_cycle_promises$promise_count, plus_one_gc_cycle_promises$promise_count)
+
+print(widths)
+bar(widths, total_argument_promise_count, c("0", "1", "> 1")) %>%
+save_local_graph("promise_gc_graph.pdf", width = 12, height = 1)
+#datatable()
+#
+```

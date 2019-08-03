@@ -127,6 +127,35 @@ promise_lifecycles <- function(analyses) {
 }
 
 
+promise_garbage_collection <- function(analyses) {
+
+    if(nrow(analyses$promises) == 0) {
+        return(list())
+    }
+
+    argument_promises <-
+        analyses$promises %>%
+        filter(argument)
+
+    argument_promise_alive_gc_cycle_distribution <-
+        argument_promises %>%
+        group_by(alive_gc_cycle) %>%
+        summarize(promise_count = as.double(n())) %>%
+        ungroup()
+
+
+    argument_promise_alive_multiple_gc_cycle_distribution <-
+        argument_promises %>%
+        filter(alive_gc_cycle > 1) %>%
+        group_by(alive_gc_cycle, function_id, formal_parameter_position) %>%
+        summarize(promise_count = as.double(n())) %>%
+        ungroup()
+
+    list(argument_promise_alive_gc_cycle_distribution = argument_promise_alive_gc_cycle_distribution,
+         argument_promise_alive_multiple_gc_cycle_distribution = argument_promise_alive_multiple_gc_cycle_distribution)
+}
+
+
 functions <- function(analyses) {
 
     if(nrow(analyses$call_summaries) == 0) {

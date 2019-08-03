@@ -92,6 +92,29 @@ events <- function(analyses) {
          event_processing_rates = event_processing_rates)
 }
 
+promise_garbage_collection <- function(analyses) {
+
+    if(nrow(analyses$argument_promise_alive_gc_cycle_distribution) == 0) {
+        return(list())
+    }
+
+    argument_promise_alive_gc_cycle_distribution <-
+        analyses$argument_promise_alive_gc_cycle_distribution %>%
+        group_by(alive_gc_cycle) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        ungroup() %>%
+        mutate(relative_promise_count = promise_count / sum(promise_count))
+
+    argument_promise_alive_multiple_gc_cycle_distribution <-
+        analyses$argument_promise_alive_multiple_gc_cycle_distribution %>%
+        group_by(alive_gc_cycle, function_id, formal_parameter_position) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        ungroup() %>%
+        mutate(relative_promise_count = promise_count / sum(promise_count))
+
+    list(argument_promise_alive_gc_cycle_distribution = argument_promise_alive_gc_cycle_distribution,
+         argument_promise_alive_multiple_gc_cycle_distribution = argument_promise_alive_multiple_gc_cycle_distribution)
+}
 
 objects <- function(analyses) {
     ## object type count is already summarized by the tracer.
