@@ -49,8 +49,11 @@ verbatim <- function(analyses) {
       objects(analyses),
       escaped_arguments(analyses),
       function_definitions(analyses),
+      side_effects(analyses),
+      substitute_calls(analyses),
       promise_lifecycles(analyses),
-      side_effects(analyses))
+      context_sensitive_lookups(analyses),
+      promise_gc(analyses))
 }
 
 
@@ -91,7 +94,7 @@ side_effects <- function(analyses) {
     return(list())
   }
 
-  ## object type count is already summarized by the tracer.
+  ## side effects are already summarized by the tracer.
   ## we only have to emit the same file again for summarization.
   list(side_effects = analyses$side_effects)
 }
@@ -116,6 +119,14 @@ function_definitions <- function(analyses) {
     list(function_definitions = analyses$function_definitions)
 }
 
+substitute_calls <- function(analyses) {
+
+    if(nrow(analyses$substitute_summaries) == 0) {
+        return(list())
+    }
+
+    list(substitute_summaries = analyses$substitute_summaries)
+}
 
 promise_lifecycles <- function(analyses) {
 
@@ -126,35 +137,23 @@ promise_lifecycles <- function(analyses) {
     list(promise_lifecycles = analyses$promise_lifecycles)
 }
 
+context_sensitive_lookups <- function(analyses) {
 
-promise_garbage_collection <- function(analyses) {
-
-    if(nrow(analyses$promises) == 0) {
+    if(nrow(analyses$context_sensitive_lookups) == 0) {
         return(list())
     }
 
-    argument_promises <-
-        analyses$promises %>%
-        filter(argument)
-
-    argument_promise_alive_gc_cycle_distribution <-
-        argument_promises %>%
-        group_by(alive_gc_cycle) %>%
-        summarize(promise_count = as.double(n())) %>%
-        ungroup()
-
-
-    argument_promise_alive_multiple_gc_cycle_distribution <-
-        argument_promises %>%
-        filter(alive_gc_cycle > 1) %>%
-        group_by(alive_gc_cycle, function_id, formal_parameter_position) %>%
-        summarize(promise_count = as.double(n())) %>%
-        ungroup()
-
-    list(argument_promise_alive_gc_cycle_distribution = argument_promise_alive_gc_cycle_distribution,
-         argument_promise_alive_multiple_gc_cycle_distribution = argument_promise_alive_multiple_gc_cycle_distribution)
+    list(context_sensitive_lookups = analyses$context_sensitive_lookups)
 }
 
+promise_gc <- function(analyses) {
+
+    if(nrow(analyses$promise_gc) == 0) {
+        return(list())
+    }
+
+    list(promise_gc = analyses$promise_gc)
+}
 
 functions <- function(analyses) {
 
@@ -450,10 +449,9 @@ promises <- function(analyses) {
     ##     summarize_event_counts(creation_scope,
     ##                            promise_count)
 
-    ## argument_promise_count_by_forcing_scope <-
-    ##     argument_promises %>%
-    ##     summarize_event_counts(forcing_scope,
-    ##                            promise_count)
+    argument_promise_count_by_forcing_scope <-
+         argument_promises %>%
+         summarize_event_counts(forcing_scope, promise_count)
 
     ## non_argument_promise_count_by_forcing_scope <-
     ##     non_argument_promises %>%
@@ -472,8 +470,7 @@ promises <- function(analyses) {
 
     argument_promise_count_by_call_depth <-
         argument_promises %>%
-        summarize_event_counts(call_depth,
-                               promise_count)
+        summarize_event_counts(call_depth, promise_count)
 
     ## argument_promise_count_by_promise_depth <-
     ##     argument_promises %>%
@@ -689,7 +686,7 @@ promises <- function(analyses) {
          #non_argument_promise_count_by_value_type = non_argument_promise_count_by_value_type,
          #argument_promise_count_by_creation_scope = argument_promise_count_by_creation_scope,
          #non_argument_promise_count_by_creation_scope = non_argument_promise_count_by_creation_scope,
-         #argument_promise_count_by_forcing_scope = argument_promise_count_by_forcing_scope,
+         argument_promise_count_by_forcing_scope = argument_promise_count_by_forcing_scope,
          #non_argument_promise_count_by_forcing_scope = non_argument_promise_count_by_forcing_scope,
          argument_promise_count_by_dispatch_type = argument_promise_count_by_dispatch_type,
          argument_promise_count_by_call_depth = argument_promise_count_by_call_depth,

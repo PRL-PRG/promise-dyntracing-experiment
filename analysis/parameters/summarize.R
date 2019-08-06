@@ -50,6 +50,17 @@ summarize_outliers <- function(df, grouping_column,
     df
 }
 
+verbatim <- function(analyses) {
+    c(events(analyses),
+      objects(analyses),
+      escaped_arguments(analyses),
+      function_definitions(analyses),
+      side_effects(analyses),
+      substitute_calls(analyses),
+      promise_lifecycles(analyses),
+      context_sensitive_lookups(analyses),
+      promise_gc(analyses))
+}
 
 events <- function(analyses) {
 
@@ -92,29 +103,114 @@ events <- function(analyses) {
          event_processing_rates = event_processing_rates)
 }
 
-promise_garbage_collection <- function(analyses) {
+substitute_calls <- function(analyses) {
 
-    if(nrow(analyses$argument_promise_alive_gc_cycle_distribution) == 0) {
-        return(list())
-    }
-
-    argument_promise_alive_gc_cycle_distribution <-
-        analyses$argument_promise_alive_gc_cycle_distribution %>%
-        group_by(alive_gc_cycle) %>%
-        summarize(promise_count = sum(promise_count)) %>%
+    substitute_class_summary <-
+        analyses$substitute_summaries %>%
+        group_by(substitute_class) %>%
+        summarize(call_count = sum(as.double(call_count))) %>%
         ungroup() %>%
-        mutate(relative_promise_count = promise_count / sum(promise_count))
+        mutate(relative_call_count = call_count / sum(call_count))
 
-    argument_promise_alive_multiple_gc_cycle_distribution <-
-        analyses$argument_promise_alive_multiple_gc_cycle_distribution %>%
-        group_by(alive_gc_cycle, function_id, formal_parameter_position) %>%
-        summarize(promise_count = sum(promise_count)) %>%
+    non_same_scope_substitute_calls <-
+        analyses$substitute_summaries %>%
+        filter(substitute_class != "SameScope") %>%
+        group_by(substitute_class, caller_function_id, affected_function_id) %>%
+        summarize(caller_function_namespace = first(caller_function_namespace),
+                  caller_function_names = first(caller_function_names),
+                  affected_function_namespace = first(affected_function_namespace),
+                  affected_function_names = first(affected_function_names),
+                  call_count = sum(as.double(call_count))) %>%
         ungroup() %>%
-        mutate(relative_promise_count = promise_count / sum(promise_count))
+        arrange(desc(call_count))
 
-    list(argument_promise_alive_gc_cycle_distribution = argument_promise_alive_gc_cycle_distribution,
-         argument_promise_alive_multiple_gc_cycle_distribution = argument_promise_alive_multiple_gc_cycle_distribution)
+    list(substitute_class_summary = substitute_class_summary,
+         non_same_scope_substitute_calls = non_same_scope_substitute_calls)
 }
+
+
+promise_lifecycles <- function(analyses) {
+
+    promise_lifecycles <-
+        analyses$promise_lifecycles %>%
+        filter(local)
+
+    promise_lifecycle_summary <-
+        promise_lifecycles %>%
+        group_by(argument, escaped) %>%
+        summarize(lifecycle_count = n_distinct(action, count),
+                  promise_count = sum(as.double(promise_count))) %>%
+        ungroup()
+
+    promise_lifecycle_list <-
+        promise_lifecycles %>%
+        group_by(argument, escaped, action, count) %>%
+        summarize(promise_count = sum(as.double(promise_count))) %>%
+        ungroup() %>%
+        group_by(argument, escaped) %>%
+        mutate(relative_promise_count = promise_count / sum(promise_count)) %>%
+        arrange(desc(promise_count)) %>%
+        slice(1:20) %>%
+        ungroup()
+
+    list(promise_lifecycle_summary = promise_lifecycle_summary,
+         promise_lifecycle_list = promise_lifecycle_list)
+}
+
+context_sensitive_lookups <- function(analyses) {
+    context_sensitive_lookups <-
+        analyses$context_sensitive_lookups %>%
+        filter(local) %>%
+        mutate(success = (value_type == "Closure" | value_type == "Special" | value_type == "Builtin"))
+
+    context_sensitive_lookup_summary <-
+        context_sensitive_lookups %>%
+        group_by(success, argument) %>%
+        summarize(forced = sum(as.double(forced)),
+                  not_forced = sum(as.double(!forced)),
+                  binding_lookup = sum(as.double(binding_lookup))) %>%
+        ungroup()
+
+    context_sensitive_lookup_symbols <-
+        context_sensitive_lookups %>%
+        filter(!success) %>%
+        group_by(argument, value_type, function_id, formal_parameter_position, symbol) %>%
+        summarize(package = first(package),
+                  function_names = first(function_names),
+                  promise_count = sum(as.double(n())),
+                  binding_lookup = sum(as.double(binding_lookup))) %>%
+        ungroup()
+
+    list(context_sensitive_lookup_summary = context_sensitive_lookup_summary,
+         context_sensitive_lookup_symbols = context_sensitive_lookup_symbols)
+}
+
+promise_gc <- function(analyses) {
+
+    promise_gc <-
+        analyses$promise_gc %>%
+        filter(local) %>%
+        mutate(single_gc_cycle = (gc_cycle_count == 1))
+
+    promise_gc_summary <-
+        promise_gc %>%
+        group_by(argument, escaped, single_gc_cycle) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        ungroup() %>%
+        mutate(relative_promise_count = promise_count / sum(promise_count)) %>%
+        arrange(desc(promise_count))
+
+    promise_gc_distribution_by_type <-
+        promise_gc %>%
+        group_by(single_gc_cycle, value_type) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        mutate(relative_promise_count = promise_count / sum(promise_count)) %>%
+        ungroup()
+
+    list(promise_gc_summary = promise_gc_summary,
+         promise_gc_distribution_by_type = promise_gc_distribution_by_type)
+}
+
 
 objects <- function(analyses) {
     ## object type count is already summarized by the tracer.
@@ -153,6 +249,43 @@ objects <- function(analyses) {
     list(object_count_by_type = object_count_by_type,
          grouped_object_count_by_type = grouped_object_count_by_type)
 }
+
+side_effects <- function(analyses) {
+
+    side_effects <-
+        analyses$side_effects %>%
+        group_by(function_id,
+                 package,
+                 function_name,
+                 formal_parameter_position,
+                 actual_argument_position,
+                 creator,
+                 mode,
+                 direct,
+                 expression) %>%
+                 ##symbol) %>%
+        summarize(count = sum(as.double(count))) %>%
+        ungroup() %>%
+        filter(!(package %in% c("base", "testthat"))) %>%
+        filter(function_id != "<non-function-promise>")
+
+    created_side_effects <-
+        side_effects %>%
+        filter(creator) %>%
+        mutate(relative_count = count / sum(count)) %>%
+        arrange(desc(count))
+
+
+    observed_side_effects <-
+        side_effects %>%
+        filter(!creator) %>%
+        mutate(relative_count = count / sum(count)) %>%
+        arrange(desc(count))
+
+    list(created_side_effects = created_side_effects,
+         observed_side_effects = observed_side_effects)
+}
+
 
 ## TODO - one of the summarizations has computed relative counts
 ##        incorrectly. Values are repeated and their relative count
@@ -778,22 +911,6 @@ parameters <- function(analyses) {
          execution_times = execution_times)
 }
 
-
-promise_lifecycles <- function(analyses) {
-
-    promise_lifecycles <-
-        analyses$promise_lifecycles %>%
-        select(action, promise_count) %>%
-        group_by(action) %>%
-        summarize(promise_count = sum(as.double(promise_count))) %>%
-        ungroup() %>%
-        mutate(relative_promise_count = promise_count / sum(promise_count)) %>%
-        arrange(desc(promise_count))
-
-    list(promise_lifecycles = promise_lifecycles)
-}
-
-
 promises <- function(analyses) {
 
     summarize_event_counts <- function(df, group_column) {
@@ -835,9 +952,9 @@ promises <- function(analyses) {
     ##     analyses$non_argument_promise_count_by_creation_scope %>%
     ##     summarize_event_counts(creation_scope)
 
-    ## argument_promise_count_by_forcing_scope <-
-    ##     analyses$argument_promise_count_by_forcing_scope %>%
-    ##     summarize_event_counts(forcing_scope)
+    argument_promise_count_by_forcing_scope <-
+        analyses$argument_promise_count_by_forcing_scope %>%
+        summarize_event_counts(forcing_scope)
 
     ## non_argument_promise_count_by_forcing_scope <-
     ##     analyses$non_argument_promise_count_by_forcing_scope %>%
@@ -853,7 +970,7 @@ promises <- function(analyses) {
         summarize_outliers(call_depth,
                            promise_count,
                            relative_promise_count,
-                           10)
+                           5)
 
     ## argument_promise_count_by_promise_depth <-
     ##     analyses$argument_promise_count_by_promise_depth %>%
@@ -1002,7 +1119,7 @@ promises <- function(analyses) {
          ## non_argument_promise_count_by_value_type = non_argument_promise_count_by_value_type,
          ## argument_promise_count_by_creation_scope = argument_promise_count_by_creation_scope,
          ## non_argument_promise_count_by_creation_scope = non_argument_promise_count_by_creation_scope,
-         ## argument_promise_count_by_forcing_scope = argument_promise_count_by_forcing_scope,
+         argument_promise_count_by_forcing_scope = argument_promise_count_by_forcing_scope,
          ## non_argument_promise_count_by_forcing_scope = non_argument_promise_count_by_forcing_scope,
          argument_promise_count_by_dispatch_type = argument_promise_count_by_dispatch_type,
          argument_promise_count_by_call_depth = argument_promise_count_by_call_depth,
@@ -1035,6 +1152,10 @@ promises <- function(analyses) {
 
 
 escaped_arguments <- function(analyses) {
+
+    if(is.null(analyses$escaped_arguments) || nrow(analyses$escaped_arguments) == 0) {
+        return(list())
+    }
 
     escaped_arguments <-
         analyses$escaped_arguments %>%
@@ -1346,7 +1467,6 @@ function_definitions <- function(analyses) {
     list(function_definitions = function_definitions,
          function_definitions_with_script = function_definitions_with_script)
 }
-
 
 summarize_analyses  <- function(analyses) {
 
@@ -1990,3 +2110,5 @@ main <- function() {
 
 
 main()
+
+

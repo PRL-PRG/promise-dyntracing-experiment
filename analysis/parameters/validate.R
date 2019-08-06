@@ -222,6 +222,32 @@ mutual_argument_forcing <- function(analyses, settings) {
 }
 
 
+context_sensitive_lookups <- function(analyses, settings) {
+
+    dirpath <- path(settings$output_dirpath, "context_sensitive_lookups")
+
+    dir_create(dirpath)
+
+    analyses$context_sensitive_lookup_symbols %>%
+        left_join(analyses$function_definitions, by = "function_id") %>%
+        serialize_function_definitions(dirpath, settings)
+
+}
+
+
+substitute_calls <- function(analyses, settings) {
+
+    dirpath <- path(settings$output_dirpath, "substitute_calls")
+
+    dir_create(dirpath)
+
+    analyses$non_same_scope_substitute_calls %>%
+        rename(function_id = caller_function_id) %>%
+        left_join(analyses$function_definitions, by = "function_id") %>%
+        serialize_function_definitions(dirpath, settings)
+
+}
+
 
 extract <- function(analyses, settings) {
 
