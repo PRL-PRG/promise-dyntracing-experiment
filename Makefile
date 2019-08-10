@@ -110,7 +110,7 @@ PACKAGE_SETUP_REPOSITORIES := --setup-cran --setup-bioc
 PACKAGE_SETUP_NCPUS := 8
 PACKAGE_SETUP_DIRPATH := ~/r-dyntrace-packages
 PACKAGE_LIB_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/lib
-PACKAGE_CONTRIB_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/contrib
+PACKAGE_MIRROR_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/mirror
 PACKAGE_SRC_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/src
 PACKAGE_TEST_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/tests
 PACKAGE_EXAMPLE_DIRPATH := $(PACKAGE_SETUP_DIRPATH)/examples
@@ -163,7 +163,7 @@ export R_ENABLE_JIT=0
 export R_COMPILE_PKGS=0
 export R_DISABLE_BYTECODE=1
 export OMP_NUM_THREADS=1
-export R_LIBS=$(PACKAGE_LIB_DIRPATH)
+export R_LIBS_USER=$(PACKAGE_LIB_DIRPATH)
 
 define tracer =
 $(TIME) $(R_DYNTRACE) --slave                                                     \
@@ -284,33 +284,93 @@ add-dependents-and-dependencies:
 	                      --dependencies
 
 
-define rsync-repository
-	rsync -rtlzv                                    \
-	      --include="*.tar.gz"                      \
-	      --include="PACKAGES*"                     \
-	      --exclude="*/*"                           \
-	      $(1)                                      \
-	      $(PACKAGE_CONTRIB_DIRPATH)                \
-	      2>&1 | $(TEE) $(TEE_FLAGS)                \
-	                    $(PACKAGE_LOG_DIRPATH)/$(2)
-endef
-
 
 mirror-package-repositories:
-	@mkdir -p $(PACKAGE_CONTRIB_DIRPATH)
+	@mkdir -p $(PACKAGE_MIRROR_DIRPATH)
+	@mkdir -p $(PACKAGE_LIB_DIRPATH)
 	@mkdir -p $(PACKAGE_SRC_DIRPATH)
 	@mkdir -p $(PACKAGE_LOG_DIRPATH)
 
-	$(call rsync-repository,mirrors.nic.cz::CRAN/src/contrib/,cran.log)
-	$(call rsync-repository,master.bioconductor.org::release/bioc/src/contrib/,bioc.log)
-	$(call rsync-repository,master.bioconductor.org::release/data/annotation/src/contrib/,bioc-data-annotation.log)
-	$(call rsync-repository,master.bioconductor.org::release/data/experiment/src/contrib/,bioc-data-experiment.log)
-	$(call rsync-repository,master.bioconductor.org::release/workflows/src/contrib/,bioc-workflows.log)
-	find $(PACKAGE_CONTRIB_DIRPATH)/ -maxdepth 1 -type f -name "*.tar.gz" -execdir tar -xvf '{}' -C $(PACKAGE_SRC_DIRPATH) \;
+  rsync -zrtlv --delete \
+	             --include '/bioc/' \
+	             --include '/bioc/REPOSITORY' \
+	             --include '/bioc/SYMBOLS' \
+	             --include '/bioc/VIEWS' \
+	             --include '/bioc/src/' \
+	             --include '/bioc/src/contrib/' \
+	             --include '/bioc/src/contrib/**' \
+	             --exclude '/bioc/src/contrib/Archive/**' \
+	             --include '/data/' \
+	             --include '/data/experiment/' \
+	             --include '/bioc/experiment/REPOSITORY' \
+	             --include '/bioc/experiment/SYMBOLS' \
+	             --include '/bioc/experiment/VIEWS' \
+	             --include '/data/experiment/src/' \
+	             --include '/data/experiment/src/contrib/' \
+	             --include '/data/experiment/src/contrib/**' \
+	             --exclude '/data/experiment/src/contrib/Archive/**' \
+	             --include '/data/annotation/' \
+	             --include '/bioc/annotation/REPOSITORY' \
+	             --include '/bioc/annotation/SYMBOLS' \
+	             --include '/bioc/annotation/VIEWS' \
+	             --include '/data/annotation/src/' \
+	             --include '/data/annotation/src/contrib/' \
+	             --include '/data/annotation/src/contrib/**' \
+	             --exclude '/data/annotation/src/contrib/Archive/**' \
+	             --include '/workflows/' \
+	             --include '/workflows/REPOSITORY' \
+	             --include '/workflows/SYMBOLS' \
+	             --include '/workflows/VIEWS' \
+	             --include '/workflows/src/' \
+	             --include '/workflows/src/contrib/' \
+	             --include '/workflows/src/contrib/**' \
+	             --exclude '/workflows/src/contrib/Archive/**' \
+	             --exclude '/**' \
+	             master.bioconductor.org::release $(PACKAGE_MIRROR_DIRPATH)/bioconductor/release \
+	             2>&1 | $(TEE) $(TEE_FLAGS) $(PACKAGE_LOG_DIRPATH)/bioc-mirror.log
+
+	rsync -zrtlv --delete \
+	             --include '/src' \
+	             --include '/src/contrib' \
+	             --include '/src/contrib/*.tar.gz' \
+	             --include '/src/contrib/PACKAGES' \
+	             --include '/src/contrib/Symlink' \
+	             --include '/src/contrib/Symlink/**' \
+	             --exclude '**' \
+	             cran.r-project.org::CRAN $(PACKAGE_MIRROR_DIRPATH)/cran \
+	             2>&1 | $(TEE) $(TEE_FLAGS) $(PACKAGE_LOG_DIRPATH)/cran-mirror.log
+	# TODO - fix this to extract package sources from mirror
+	#find $(PACKAGE_CONTRIB_DIRPATH)/ -maxdepth 1 -type f -name "*.tar.gz" -execdir tar -xvf '{}' -C $(PACKAGE_SRC_DIRPATH) \;
+
+
+install-packages-from-mirror:
+	@mkdir -p $(PACKAGE_MIRROR_DIRPATH)
+	@mkdir -p $(PACKAGE_LIB_DIRPATH)
+	@mkdir -p $(PACKAGE_SRC_DIRPATH)
+	@mkdir -p $(PACKAGE_LOG_DIRPATH)
+
+	mkdir -p $(PACKAGE_MIRROR_DIRPATH)/bioconductor/packages
+	ln -s $(PACKAGE_MIRROR_DIRPATH)/bioconductor/3.9 $(PACKAGE_MIRROR_DIRPATH)/bioconductor/packages/3.8
+	$(XVFB_RUN) $(R_DYNTRACE) -e "library(BiocManager); \
+	                              options(repos = c(CRAN = 'file:///$(PACKAGE_MIRROR_DIRPATH)/cran'), \
+	                                      BioC_mirror = 'file:///$(PACKAGE_MIRROR_DIRPATH)/bioconductor'); \
+	                              ncpus <- as.integer(system2('nproc', stdout = TRUE, stderr = TRUE)); \
+	                              cat('Installing packages with', ncpus, 'cpus\n'); \
+	                              install(available(), \
+	                                      Ncpus = ncpus, \
+	                                      keep_outputs = TRUE, \
+	                                      INSTALL_opts = c(## extract and keep examples \
+	                                                       '--example', \
+	                                                       ## copy and retain test directory for the package \
+	                                                       '--install-tests', \
+	                                                       ## keep line numbers \
+	                                                       '--with-keep.source', \
+	                                                       '--no-multiarch'), \
+	                                                       dependencies = c('Depends', 'Imports', 'LinkingTo', 'Suggests', 'Enhances'))"
 
 
 setup-package-repositories:
-	@mkdir -p $(PACKAGE_SRC_DIRPATH)
+	@mkdir -p $(PACKAGE_MIRROR_DIRPATH)
 	@mkdir -p $(PACKAGE_LIB_DIRPATH)
 	@mkdir -p $(PACKAGE_LOG_DIRPATH)
 
@@ -624,6 +684,23 @@ view-function-definition:
 r-session:
 	@$(R_DYNTRACE)
 
+setup-debian-dependencies:
+	apt-get update
+	apt-get dist-upgrade
+	apt-get install git subversion
+	apt-get install curl wget rsync
+	apt-get install texinfo texlive-full pandoc
+	apt-get install r-base r-base-dev
+	apt-get install debian-keyring
+	gpg --recv-keys 3B1C3B572302BCB1
+	gpg --armor --export 3B1C3B572302BCB1 | apt-key add -
+	echo "deb http://statmath.wu.ac.at/AASC/debian testing main non-free" > /etc/apt/sources.list.d/rcheckserver.list
+	apt-get update
+	apt-get install rcheckserver
+	git clone https://github.com/Bioconductor/BiocManager.git
+	$(R_DYNTRACE) CMD INSTALL --no-byte-compile --with-keep.source --latex --html BiocManager
+
+
 .PHONY: trace                           \
 	      corpus                          \
 	      install-dependencies            \
@@ -653,4 +730,6 @@ r-session:
 	      report-analyses                 \
 	      latex-analyses                  \
         pipeline                        \
-        r-session
+        r-session                       \
+        setup-debian-dependencies       \
+	      install-packages-from-mirror
