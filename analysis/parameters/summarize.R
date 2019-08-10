@@ -53,7 +53,7 @@ summarize_outliers <- function(df, grouping_column,
 verbatim <- function(analyses) {
     c(events(analyses),
       objects(analyses),
-      escaped_arguments(analyses),
+      #escaped_arguments(analyses),
       function_definitions(analyses),
       side_effects(analyses),
       substitute_calls(analyses),
@@ -110,7 +110,7 @@ substitute_calls <- function(analyses) {
         group_by(substitute_class) %>%
         summarize(call_count = sum(as.double(call_count))) %>%
         ungroup() %>%
-        mutate(relative_call_count = call_count / sum(call_count))
+        mutate(relative_call_count = call_count / sum(as.numeric(call_count)))
 
     non_same_scope_substitute_calls <-
         analyses$substitute_summaries %>%
@@ -195,7 +195,7 @@ promise_gc <- function(analyses) {
     promise_gc_summary <-
         promise_gc %>%
         group_by(argument, escaped, single_gc_cycle) %>%
-        summarize(promise_count = sum(promise_count)) %>%
+        summarize(promise_count = sum(as.numeric(promise_count))) %>%
         ungroup() %>%
         mutate(relative_promise_count = promise_count / sum(promise_count)) %>%
         arrange(desc(promise_count))
@@ -203,7 +203,7 @@ promise_gc <- function(analyses) {
     promise_gc_distribution_by_type <-
         promise_gc %>%
         group_by(single_gc_cycle, value_type) %>%
-        summarize(promise_count = sum(promise_count)) %>%
+        summarize(promise_count = sum(as.numeric(promise_count))) %>%
         mutate(relative_promise_count = promise_count / sum(promise_count)) %>%
         ungroup()
 
