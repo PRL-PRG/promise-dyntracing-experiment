@@ -291,7 +291,7 @@ mirror-package-repositories:
 	@mkdir -p $(PACKAGE_SRC_DIRPATH)
 	@mkdir -p $(PACKAGE_LOG_DIRPATH)
 
-  rsync -zrtlv --delete \
+	rsync -zrtlv --delete \
 	             --include '/bioc/' \
 	             --include '/bioc/REPOSITORY' \
 	             --include '/bioc/SYMBOLS' \
