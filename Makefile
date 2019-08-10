@@ -352,23 +352,21 @@ install-packages-from-mirror:
 	@mkdir -p $(PACKAGE_LOG_DIRPATH)
 
 	mkdir -p $(PACKAGE_MIRROR_DIRPATH)/bioconductor/packages
-	ln -s $(PACKAGE_MIRROR_DIRPATH)/bioconductor/3.9 $(PACKAGE_MIRROR_DIRPATH)/bioconductor/packages/3.8
+	ln -s $(PACKAGE_MIRROR_DIRPATH)/bioconductor/release $(PACKAGE_MIRROR_DIRPATH)/bioconductor/packages/3.8
+	ln -s $(PACKAGE_MIRROR_DIRPATH)/bioconductor/release $(PACKAGE_MIRROR_DIRPATH)/bioconductor/packages/3.9
 	$(XVFB_RUN) $(R_DYNTRACE) -e "library(BiocManager); \
-	                              options(repos = c(CRAN = 'file:///$(PACKAGE_MIRROR_DIRPATH)/cran'), \
-	                                      BioC_mirror = 'file:///$(PACKAGE_MIRROR_DIRPATH)/bioconductor'); \
+	                              options(repos = c(CRAN = 'file:$(PACKAGE_MIRROR_DIRPATH)/cran'), \
+	                                      BioC_mirror = 'file:$(PACKAGE_MIRROR_DIRPATH)/bioconductor'); \
 	                              ncpus <- as.integer(system2('nproc', stdout = TRUE, stderr = TRUE)); \
 	                              cat('Installing packages with', ncpus, 'cpus\n'); \
 	                              install(available(), \
-	                                      Ncpus = ncpus, \
+	                                      Ncpus = 72, \
 	                                      keep_outputs = TRUE, \
-	                                      INSTALL_opts = c(## extract and keep examples \
-	                                                       '--example', \
-	                                                       ## copy and retain test directory for the package \
+	                                      INSTALL_opts = c('--example', \
 	                                                       '--install-tests', \
-	                                                       ## keep line numbers \
 	                                                       '--with-keep.source', \
 	                                                       '--no-multiarch'), \
-	                                                       dependencies = c('Depends', 'Imports', 'LinkingTo', 'Suggests', 'Enhances'))"
+	                                                       dependencies = c('Depends', 'Imports', 'LinkingTo', 'Suggests', 'Enhances'));"
 
 
 setup-package-repositories:
