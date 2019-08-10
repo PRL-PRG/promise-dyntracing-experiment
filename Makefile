@@ -290,6 +290,8 @@ mirror-package-repositories:
 	@mkdir -p $(PACKAGE_LIB_DIRPATH)
 	@mkdir -p $(PACKAGE_SRC_DIRPATH)
 	@mkdir -p $(PACKAGE_LOG_DIRPATH)
+	@mkdir -p $(PACKAGE_MIRROR_DIRPATH)/bioconductor/release
+	@mkdir -p $(PACKAGE_MIRROR_DIRPATH)/cran
 
 	rsync -zrtlv --delete \
 	             --include '/bioc/' \
