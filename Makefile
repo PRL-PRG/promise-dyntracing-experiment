@@ -613,10 +613,7 @@ merge-analyses:
 
 
 summarize-analyses:
-	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=events
-	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=objects
-	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=escaped_arguments
-	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=function_definitions
+	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=verbatim
 	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=functions
 	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=promises
 	$(MAKE) summarize-analysis TRACE_DIRPATH=$(TRACE_DIRPATH) BINARY=$(BINARY) COMPRESSION_LEVEL=$(COMPRESSION_LEVEL) ANALYSIS=arguments
@@ -699,6 +696,19 @@ setup-debian-dependencies:
 	apt-get install rcheckserver
 	git clone https://github.com/Bioconductor/BiocManager.git
 	$(R_DYNTRACE) CMD INSTALL --no-byte-compile --with-keep.source --latex --html BiocManager
+
+
+define compute-runtime
+	$(R_DYNTRACE) --slave -e "library(readr); x <- read_tsv('${1}', col_types = cols()); sum(x$$'JobRuntime')/(60 * 60 * 70);"
+endef
+
+tracing-time:
+	@echo "Trace", `$(call compute-runtime,$(TRACE_LOGS_SUMMARY_RAW_DIRPATH))`
+
+reduce-time:
+	@echo "Verbatim", `$(call compute-runtime,$(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH)/verbatim)`
+	@echo "Arguments", `$(call compute-runtime,$(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH)/arguments)`
+	@echo "Promises", `$(call compute-runtime,$(TRACE_LOGS_SUMMARY_REDUCED_DIRPATH)/promises)`
 
 
 .PHONY: trace                           \
