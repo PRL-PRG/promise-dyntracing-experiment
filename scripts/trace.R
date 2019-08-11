@@ -252,7 +252,8 @@ run_script <- function(settings, script_filepath) {
     processx::run(command = settings$r_dyntrace,
                   args = str_c("--file=", script_filepath),
                   timeout = settings$tracing_timeout,
-                  cleanup_tree = TRUE)
+                  cleanup_tree = TRUE,
+                  echo = TRUE, echo_cmd = TRUE)
 
     script_filepath
 }
