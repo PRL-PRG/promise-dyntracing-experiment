@@ -405,13 +405,20 @@ promises <- function(analyses) {
         return(list())
     }
 
+    non_local_promises <-
+        analyses$promises %>%
+        filter(!local) %>%
+        group_by(expression_type, value_type) %>%
+        summarize(promise_count = as.numeric(n())) %>%
+        ungroup()
+
     argument_promises <-
         analyses$promises %>%
-        filter(argument)
+        filter(argument & local)
 
     non_argument_promises <-
         analyses$promises %>%
-        filter(!argument)
+        filter(!argument & local)
 
     promise_count_by_category <-
         tibble(
@@ -679,7 +686,8 @@ promises <- function(analyses) {
         summarize_action() %>%
         ungroup()
 
-    list(promise_count_by_category = promise_count_by_category,
+    list(non_local_promises = non_local_promises,
+         promise_count_by_category = promise_count_by_category,
          argument_promise_count_by_expression_type = argument_promise_count_by_expression_type,
          #non_argument_promise_count_by_expression_type = non_argument_promise_count_by_expression_type,
          argument_promise_count_by_value_type = argument_promise_count_by_value_type,

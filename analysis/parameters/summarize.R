@@ -924,6 +924,13 @@ promises <- function(analyses) {
             mutate(relative_promise_count = promise_count / sum(promise_count))
     }
 
+    non_local_promises <-
+        analyses$non_local_promises %>%
+        group_by(expression_type, value_type) %>%
+        summarize(promise_count = sum(promise_count)) %>%
+        ungroup() %>%
+        mutate(relative_promise_count = promise_count / sum(promise_count))
+
     promise_count_by_category <-
         analyses$promise_count_by_category %>%
         summarize_event_counts(promise_category)
@@ -1112,7 +1119,8 @@ promises <- function(analyses) {
         ungroup() %>%
         mutate(relative_promise_count = promise_count / sum(promise_count))
 
-    list(promise_count_by_category = promise_count_by_category,
+    list(non_local_promises = non_local_promises,
+         promise_count_by_category = promise_count_by_category,
          argument_promise_count_by_expression_type = argument_promise_count_by_expression_type,
          ## non_argument_promise_count_by_expression_type = non_argument_promise_count_by_expression_type,
          argument_promise_count_by_value_type = argument_promise_count_by_value_type,
