@@ -140,7 +140,8 @@ promise_lifecycles <- function(analyses) {
         group_by(argument, escaped) %>%
         summarize(lifecycle_count = n_distinct(action, count),
                   promise_count = sum(as.double(promise_count))) %>%
-        ungroup()
+        ungroup() %>%
+        mutate(total_lifecycle_count = n_distinct(promise_lifecycles$action, promise_lifecycles$count))
 
     promise_lifecycle_list <-
         promise_lifecycles %>%

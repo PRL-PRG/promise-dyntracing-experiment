@@ -712,6 +712,7 @@ PercDispatch <-
     pull(relative_promise_count) %>% 
     sum()
 generate_macro("PercDispatch", PercDispatch)
+
 ```
 
 We observed `r format_as_absolute(CountProm)` promises, out of which `r format_as_percentage(PercArgProm)` were created as part of argument lists. `r format_as_percentage(PercForceProm)` of promises were forced. `r format_as_percentage(PercDispatch)` of promises were forced due to dispatch. 
@@ -779,6 +780,14 @@ argument_promise_count_by_expression_type_graph <-
     labs(x = "", y = "") +
     theme(legend.title = element_blank(),
           legend.position = "top")
+          
+CountArgumentPromiseExpressionFunctionCall <-
+    argument_promise_count_by_expression_type %>%
+    filter(type == "Function Call") %>%
+    pull(count) %>%
+    sum()
+    
+generate_macro("PercArgumentPromiseExpressionFunctionCall", CountArgumentPromiseExpressionFunctionCall/total_count)
 
 save_local_graph(argument_promise_count_by_expression_type_graph, "prom_exp_types.pdf", width = 12, height = 4)
 ```
@@ -1018,11 +1027,12 @@ save_local_graph(call_by_escape_and_type_graph, "esc_return_types.pdf", width = 
 ```
 
 ```{r eval = TRUE, echo = FALSE}
-CountEscArg <- sum(escaped_argument_count_by_nature$argument_count)
+CountEscapeArgument <- sum(escaped_argument_count_by_nature$argument_count)
+generate_macro("CountEscapeArgument", CountEscapeArgument)
 ```
 
 Of the `r format_as_absolute(CountPromiseArgument)` promises we have
-observed, only `r format_as_absolute(CountEscArg)` escape. This is a rather small number, and we
+observed, only `r format_as_absolute(CountEscapeArgument)` escape. This is a rather small number, and we
 need to establish the reason why the promise escape. One thing we can
 measure is the return type of the functions for which promises escape.
 

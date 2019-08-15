@@ -100,6 +100,8 @@ format_as_absolute <- function(x, digits = 1) count_labels(x, digits)
 
 format_as_size <- function(x, digits = 1) memory_size_labels(x, digits)
 
+format_as_code <- function(x) paste0("\\code{", x,  "}")
+
 read_table <- function(filename, binary = TRUE, compression_level = 3) {
     read_data_table(path(params$summarized_data_dirpath, filename),
                     binary = binary, 
@@ -135,7 +137,9 @@ old_theme <- theme_set(theme_bw() + theme(text = element_text(size = 15), panel.
 ## - Perc - adds a % at the end
 ## - Count - adds labels like K, M, B for Kilo, Million and Billion
 ## - Size - adds lables like KB, MB, GB for memory sizes
-generate_macro <- function(macro_name, value, subst = TRUE) {
+## - Code - wraps the value in \code{}
+## - Text - content is as is
+generate_macro <- function(macro_name, value, subst = FALSE) {
     if(subst) {
         name <- as.character(substitute(macro_name))
     } else {
@@ -144,6 +148,8 @@ generate_macro <- function(macro_name, value, subst = TRUE) {
     if (str_sub(name, 1, 4) == "Perc")      formatted_value <- format_as_percentage(value)
     else if(str_sub(name, 1, 5) == "Count") formatted_value <- format_as_absolute(value)
     else if(str_sub(name, 1, 4) == "Size")  formatted_value <- format_as_size(value)
+    else if(str_sub(name, 1, 4) == "Code")  formatted_value <- format_as_code(value)
+    else if(str_sub(name, 1, 4) == "Text")  formatted_value <- format_as_code(value)
     else stop(str_c("Unidentified name", name, sep = " "))
     formatted_value <- str_replace(formatted_value, "\\%", "\\\\%")
     definition <- str_glue("\\newcommand {{\\{name}}} {{{formatted_value}\\xspace}} %% {value}")
@@ -237,6 +243,9 @@ promise_gc_distribution_by_type <- read_table("promise_gc_distribution_by_type")
 
 promise_argument_forced_by_promise_argument <- read_table("promise_argument_forced_by_promise_argument")
 promise_argument_returning_non_locally <- read_table("promise_argument_returning_non_locally")
+
+created_side_effects <- read_table("created_side_effects")
+observed_side_effects <- read_table("observed_side_effects")
 ```
 
 # Events
@@ -247,7 +256,7 @@ datatable(summarized_event_counts)
 event_graph <-
     bar(summarized_event_counts$count, sum(summarized_event_counts$count), summarized_event_counts$event)
     
-save_local_graph(event_graph, "event_graph.pdf", width=12, height=2.5)    
+save_local_graph(event_graph, "event_graph.pdf", width=12, height=2.5)
 ```
 
 # Substitute Summary
@@ -255,29 +264,137 @@ save_local_graph(event_graph, "event_graph.pdf", width=12, height=2.5)
 ```{r, eval = TRUE, echo = FALSE}
 datatable(substitute_class_summary)
 
+PercCallerEnvSubstituteCalls <-
+    substitute_class_summary %>%
+    filter(substitute_class == "SameScope") %>%
+    pull(relative_call_count)
+generate_macro("PercCallerEnvSubstituteCalls", PercCallerEnvSubstituteCalls)
+
+PercNewEnvSubstituteCalls <-
+    substitute_class_summary %>%
+    filter(substitute_class == "NewScope") %>%
+    pull(relative_call_count)
+generate_macro("PercNewEnvSubstituteCalls", PercNewEnvSubstituteCalls)
+
+CountDynamicEnvSubstituteCalls <-
+    substitute_class_summary %>%
+    filter(substitute_class %in% c("DynamicScope", "StaticScope")) %>%
+    pull(call_count) %>%
+    sum()
+generate_macro("CountDynamicEnvSubstituteCalls", CountDynamicEnvSubstituteCalls)
+
 datatable(non_same_scope_substitute_calls)
 ```
 
 # Promise Lifecycle
 
 ```{r, eval = TRUE, echo = FALSE}
+alphabetical_row_names = c(letters, toupper(letters))
+
 datatable(promise_lifecycle_summary)
 
-promise_lifecycle_list %>%
-filter(argument, escaped) %>%
-datatable()
+CountLifecycleTotal <-
+    promise_lifecycle_summary %>% 
+    pull(total_lifecycle_count) %>%
+    first()
 
-promise_lifecycle_list %>%
-filter(!argument, escaped) %>%
-datatable()
+generate_macro("CountLifecycleTotal", CountLifecycleTotal)
 
-promise_lifecycle_list %>%
-filter(argument, !escaped) %>%
-datatable()
+CountLifecycleUnescapedArguments <-
+    promise_lifecycle_summary %>% 
+    filter(argument, !escaped) %>% 
+    pull(lifecycle_count)
 
-promise_lifecycle_list %>%
-filter(!argument, !escaped) %>%
-datatable()
+generate_macro("CountLifecycleUnescapedArguments", CountLifecycleUnescapedArguments)
+
+CountLifecycleEscapedArguments <-
+    promise_lifecycle_summary %>% 
+    filter(argument, escaped) %>% 
+    pull(lifecycle_count)
+
+generate_macro("CountLifecycleEscapedArguments", CountLifecycleEscapedArguments)
+
+CountLifecycleNonArguments <-
+    promise_lifecycle_summary %>% 
+    filter(!argument) %>% 
+    pull(lifecycle_count)
+
+generate_macro("CountLifecycleNonArguments", CountLifecycleNonArguments)
+
+decode_sequence <- function(seq) {
+        unlist(str_split(str_sub(seq, 2, -2), " "))
+}
+    
+expand_lifecycle <- function(action, count) {
+    if(action == "()") {
+        ""
+    } else {
+        action_seq <- decode_sequence(action)
+        count_seq <- decode_sequence(count)
+        str_c(rep(action_seq, count_seq), collapse = " ")
+    }
+}
+
+promise_lifecycle_list <-
+    promise_lifecycle_list %>%
+    mutate(event = map2_chr(action, count, expand_lifecycle)) %>%
+    select(-action, -count, -promise_count)
+
+escaped_argument_list <-
+    promise_lifecycle_list %>%
+    filter(argument, escaped)
+
+datatable(escaped_argument_list)
+
+escaped_argument_list %>%
+    select(event, relative_promise_count) %>%
+    arrange(desc(relative_promise_count)) %>%
+    slice(1:10) %>%
+    mutate(index = alphabetical_row_names[dplyr::row_number()]) %>%
+    pmap(function(event, relative_promise_count, index) {
+        name <- str_c("TextLifecycleEscapedArguments", index)
+        generate_macro(name, event)
+        name <- str_c("PercLifecycleEscapedArguments", index)
+        generate_macro(name, relative_promise_count)
+    })
+
+
+unescaped_argument_list <-
+    promise_lifecycle_list %>%
+    filter(argument, !escaped)
+    
+datatable(unescaped_argument_list)
+
+unescaped_argument_list %>%
+    select(event, relative_promise_count) %>%
+    arrange(desc(relative_promise_count)) %>%
+    slice(1:10) %>%
+    mutate(index = alphabetical_row_names[dplyr::row_number()]) %>%
+    pmap(function(event, relative_promise_count, index) {
+        name <- str_c("TextLifecycleUnescapedArguments", index)
+        generate_macro(name, event)
+        name <- str_c("PercLifecycleUnescapedArguments", index)
+        generate_macro(name, relative_promise_count)
+    })
+
+non_argument_list <-
+    promise_lifecycle_list %>%
+    filter(!argument)
+    
+datatable(non_argument_list)
+
+non_argument_list %>%
+    select(event, relative_promise_count) %>%
+    arrange(desc(relative_promise_count)) %>%
+    slice(1:10) %>%
+    mutate(index = alphabetical_row_names[dplyr::row_number()]) %>%
+    pmap(function(event, relative_promise_count, index) {
+        name <- str_c("TextLifecycleNonArguments", index)
+        generate_macro(name, event)
+        name <- str_c("PercLifecycleNonArguments", index)
+        generate_macro(name, relative_promise_count)
+    })
+
 ```
 
 # Context Sensitive Lookup
@@ -285,7 +402,77 @@ datatable()
 ```{r, eval = TRUE, echo = FALSE}
 datatable(context_sensitive_lookup_summary)
 
-datatable(context_sensitive_lookup_symbols)
+context_sensitive_binding_lookup <- 
+    context_sensitive_lookup_summary %>%
+    pull(binding_lookup) %>%
+    sum()
+generate_macro("CountConSenBndgLkp", context_sensitive_binding_lookup)
+
+context_sensitive_argument_binding_lookup_failure <- 
+    context_sensitive_lookup_summary %>%
+    filter(argument & !success) %>%
+    pull(binding_lookup) %>%
+    sum()
+generate_macro("CountConSenArgBndgLkpFailure", context_sensitive_argument_binding_lookup_failure)
+
+context_sensitive_argument_force <-
+    context_sensitive_lookup_summary %>% 
+    filter(argument) %>% 
+    pull(forced) %>% 
+    sum()
+generate_macro("CountConSenArgForce", context_sensitive_argument_force)
+    
+context_sensitive_argument_force_successful <-
+    context_sensitive_lookup_summary %>% 
+    filter(argument & success) %>% 
+    pull(forced) %>% 
+    sum()
+generate_macro("CountConSenArgForceSuccess", context_sensitive_argument_force_successful)
+generate_macro("PercConSenArgForceSuccess", context_sensitive_argument_force_successful/context_sensitive_argument_force)
+
+context_sensitive_argument_force_failure <-
+    context_sensitive_lookup_summary %>% 
+    filter(argument & !success) %>% 
+    pull(forced) %>% 
+    sum()
+generate_macro("CountConSenArgForceFailure", context_sensitive_argument_force_failure)
+generate_macro("PercConSenArgForceFailure", context_sensitive_argument_force_failure / context_sensitive_argument_force)
+
+context_sensitive_lookup_symbols <-
+    context_sensitive_lookup_symbols %>%
+    filter(formal_parameter_position != -1)
+
+symbol_overload_table <-
+    context_sensitive_lookup_symbols %>%
+    filter(argument) %>%
+    group_by(symbol) %>%
+    summarize(count = n_distinct(function_id, formal_parameter_position)) %>%
+    ungroup() %>%
+    arrange(desc(count))
+
+context_sensitive_overloaded_parameter_count <-
+    context_sensitive_lookup_symbols %>%
+    distinct(function_id, formal_parameter_position) %>%
+    nrow()
+generate_macro("CountConSenParameter", context_sensitive_overloaded_parameter_count)
+
+context_sensitive_overloaded_function_count <-
+    context_sensitive_lookup_symbols %>%
+    distinct(function_id) %>%
+    nrow()
+generate_macro("CountConSenFunction", context_sensitive_overloaded_function_count)
+
+row_names <- c(letters, toupper(letters))
+
+symbol_overload_table %>%
+    slice(1:30) %>%
+    mutate(index = row_names[dplyr::row_number()]) %>%
+    pmap(function(index, symbol, count) {
+        generate_macro(paste0("CodeConSenSymbol", index), symbol)
+        generate_macro(paste0("CountConSenSymbol", index), count)
+    })
+
+datatable(symbol_overload_table)
 ```
 
 # Promise GC 
@@ -293,26 +480,243 @@ datatable(context_sensitive_lookup_symbols)
 ```{r, eval = TRUE, echo = FALSE}
 datatable(promise_gc_summary)
 
+AllGcPromises <-
+    promise_gc_summary %>%
+    pull(promise_count) %>%
+    sum()
+
+CountSingleGcPromises <-
+    promise_gc_summary %>%
+    filter(single_gc_cycle) %>%
+    pull(promise_count) %>%
+    sum()
+generate_macro("PercSingleGCPromises", CountSingleGcPromises/AllGcPromises)
+
+CountMultipleGcPromises <-
+    promise_gc_summary %>%
+    filter(!single_gc_cycle) %>%
+    pull(promise_count) %>%
+    sum()
+generate_macro("PercMultipleGcPromises", CountMultipleGcPromises/AllGcPromises)
+
+CountMultipleGcEscapedArgumentPromises <-
+    promise_gc_summary %>%
+    filter(!single_gc_cycle & escaped & argument) %>%
+    pull(promise_count) %>%
+    sum()
+generate_macro("PercMultipleGcEscapedArgumentPromises", CountMultipleGcEscapedArgumentPromises/CountMultipleGcPromises)
+
+CountMultipleGcUnescapedArgumentPromises <-
+    promise_gc_summary %>%
+    filter(!single_gc_cycle & argument & !escaped) %>%
+    pull(promise_count) %>%
+    sum()
+generate_macro("PercMultipleGcUnescapedArgumentPromises", CountMultipleGcUnescapedArgumentPromises/CountMultipleGcPromises)
+
+CountMultipleGcNonArgumentPromises <-
+    promise_gc_summary %>%
+    filter(!single_gc_cycle & !argument) %>%
+    pull(promise_count) %>%
+    sum()
+generate_macro("PercMultipleGcNonArgumentPromises", CountMultipleGcNonArgumentPromises/CountMultipleGcPromises)
+
 datatable(promise_gc_distribution_by_type)
 ```
 
 # Side Effects
 
 ```{r, eval = TRUE, echo = FALSE}
-print("TODO")
+
+CountEffectPromises <-
+    created_side_effects %>%
+    pull(count) %>%
+    sum()
+    
+generate_macro("CountEffectPromises", CountEffectPromises)
+
+
+CountEffectSamePromises <-
+    created_side_effects %>%
+    filter(mode == "S") %>%
+    pull(count) %>%
+    sum()
+    
+generate_macro("CountEffectSamePromises", CountEffectSamePromises)
+generate_macro("PercEffectSamePromises", CountEffectSamePromises / CountEffectPromises)
+
+
+CountEffectOtherPromises <-
+    created_side_effects %>%
+    filter(mode == "O") %>%
+    pull(count) %>%
+    sum()
+    
+generate_macro("CountEffectOtherPromises", CountEffectOtherPromises)
+generate_macro("PercEffectOtherPromises", CountEffectOtherPromises / CountEffectPromises)
+
+CountEffectLexicalPromises <-
+    created_side_effects %>%
+    filter(mode == "L") %>%
+    pull(count) %>%
+    sum()
+    
+generate_macro("CountEffectLexicalPromises", CountEffectLexicalPromises)
+generate_macro("PercEffectLexicalPromises", CountEffectLexicalPromises / CountEffectPromises)
+```
+## Direct & Same Environment
+
+```{r, eval = TRUE, echo = FALSE}
+
+direct_S_created_side_effects <-
+    created_side_effects %>%
+    filter(direct & mode == "S") %>%
+    arrange(desc(count))
+
+datatable(direct_S_created_side_effects)
+
+CountEffectDirectSamePromises <-
+    direct_S_created_side_effects %>%
+    pull(count) %>%
+    sum()
+
+generate_macro("PercEffectDirectSamePromises", CountEffectDirectSamePromises / CountEffectSamePromises)
+```
+
+## Indirect & Same Environment
+
+```{r, eval = TRUE, echo = FALSE}
+indirect_S_created_side_effects <-
+    created_side_effects %>%
+    filter(!direct & mode == "S") %>%
+    arrange(desc(count))
+
+datatable(indirect_S_created_side_effects)
+
+CountEffectIndirectSamePromises <-
+    indirect_S_created_side_effects %>%
+    pull(count) %>%
+    sum()
+
+generate_macro("PercEffectIndirectSamePromises", CountEffectIndirectSamePromises / CountEffectSamePromises)
+```
+
+## Direct & Other Environment
+
+```{r, eval = TRUE, echo = FALSE}
+direct_O_created_side_effects <-
+    created_side_effects %>%
+    filter(direct & mode == "O") %>%
+    arrange(desc(count))
+
+datatable(direct_O_created_side_effects)
+
+CountEffectDirectOtherPromises <-
+    direct_O_created_side_effects %>%
+    pull(count) %>%
+    sum()
+
+generate_macro("PercEffectDirectOtherPromises", CountEffectDirectOtherPromises / CountEffectOtherPromises)
+```
+
+## Indirect & Other Environment
+
+```{r, eval = TRUE, echo = FALSE}
+indirect_O_created_side_effects <-
+    created_side_effects %>%
+    filter(!direct & mode == "O") %>%
+    arrange(desc(count))
+
+datatable(indirect_O_created_side_effects)
+
+CountEffectIndirectOtherPromises <-
+    indirect_O_created_side_effects %>%
+    pull(count) %>%
+    sum()
+
+generate_macro("PercEffectIndirectOtherPromises", CountEffectIndirectOtherPromises / CountEffectOtherPromises)
+```
+
+## Direct & Lexical Parent Environment
+
+```{r, eval = TRUE, echo = FALSE}
+direct_L_created_side_effects <-
+    created_side_effects %>%
+    filter(direct & mode == "L") %>%
+    arrange(desc(count))
+
+datatable(direct_L_created_side_effects)
+
+CountEffectDirectLexicalPromises <-
+    direct_L_created_side_effects %>%
+    pull(count) %>%
+    sum()
+
+generate_macro("PercEffectDirectLexicalPromises", CountEffectDirectLexicalPromises / CountEffectLexicalPromises)
+```
+
+## Indirect & Lexical Parent Environment
+
+```{r, eval = TRUE, echo = FALSE}
+indirect_L_created_side_effects <-
+    created_side_effects %>%
+    filter(!direct & mode == "L") %>%
+    arrange(desc(count))
+
+datatable(indirect_L_created_side_effects)
+
+CountEffectIndirectLexicalPromises <-
+    indirect_L_created_side_effects %>%
+    pull(count) %>%
+    sum()
+
+generate_macro("PercEffectIndirectLexicalPromises", CountEffectIndirectLexicalPromises / CountEffectLexicalPromises)
+```
+##datatable(observed_side_effects)
 ```
 
 # Evaluation Call Depth
 
 ```{r, eval = TRUE, echo = FALSE}
+
 datatable(argument_promise_count_by_call_depth)
+
+## remove non-argument and escaped promises
+argument_promise_count_by_call_depth <-
+    argument_promise_count_by_call_depth %>%
+    filter(call_depth != "-1")
+
+CountPromiseAllDepth <-
+    argument_promise_count_by_call_depth %>%
+    pull(promise_count) %>%
+    sum()
+
+CountPromiseZeroDepth <-
+    argument_promise_count_by_call_depth %>%
+    filter(call_depth == "0") %>%
+    pull(promise_count) %>%
+    sum()
+generate_macro("PercPromiseZeroDepth", CountPromiseZeroDepth / CountPromiseAllDepth)
+    
+CountPromiseOneDepth <-
+    argument_promise_count_by_call_depth %>%
+    filter(call_depth == "1") %>%
+    pull(promise_count) %>%
+    sum()
+generate_macro("PercPromiseOneDepth", CountPromiseOneDepth / CountPromiseAllDepth)
+    
+CountPromiseMultipleDepth <-
+    argument_promise_count_by_call_depth %>%
+    filter(call_depth != "0" & call_depth != "1") %>%
+    pull(promise_count) %>%
+    sum()
+generate_macro("PercPromiseMultipleDepth", CountPromiseMultipleDepth / CountPromiseAllDepth)
 
 total_count <-  sum(argument_promise_count_by_call_depth$promise_count)
 
 argument_promise_call_depth_graph <-
     argument_promise_count_by_call_depth %>%
     filter(call_depth %in% c(1:5, "> 5")) %>%
-    ggplot(aes(call_depth, relative_promise_count)) + 
+    ggplot(aes(call_depth, relative_promise_count)) +
     geom_col() +
     scale_x_discrete(limits = c(1:5, "> 5")) +
     scale_y_continuous(sec.axis = sec_axis(~ . * total_count,
@@ -321,13 +725,35 @@ argument_promise_call_depth_graph <-
     labs(x = "", y = "") + 
     coord_flip()
     
-save_local_graph(argument_promise_call_depth_graph, "argument_promise_call_depth_graph.pdf", width=12, height=2.5)
+save_local_graph(argument_promise_call_depth_graph, "forcedepth.pdf", width=12, height=2.5)
 ```
 
 # Mutually Forcing Argument Promises
 
 ```{r, eval = TRUE, echo = FALSE}
 datatable(promise_argument_forced_by_promise_argument)
+
+CountMutualForcing <-
+    sum(promise_argument_forced_by_promise_argument$count)
+
+generate_macro("CountMutualForcing", CountMutualForcing)
+
+CountMutualForcingFunctions <-
+    n_distinct(promise_argument_forced_by_promise_argument$function_id)
+
+generate_macro("CountMutualForcingFunctions", CountMutualForcingFunctions)
+
+CountMutualForcingArgumentPositions <-
+    n_distinct(promise_argument_forced_by_promise_argument$function_id, 
+               promise_argument_forced_by_promise_argument$forcing_actual_argument_position)
+
+generate_macro("CountMutualForcingArgumentPositions", CountMutualForcingArgumentPositions)
+
+CountMutualForcedArgumentPositions <-
+    n_distinct(promise_argument_forced_by_promise_argument$function_id, 
+               promise_argument_forced_by_promise_argument$formal_parameter_position)
+
+generate_macro("CountMutualForcedArgumentPositions", CountMutualForcedArgumentPositions)
 ```
 
 # Non local returning promises
@@ -339,6 +765,21 @@ datatable(promise_argument_returning_non_locally)
 # Promise Dispatch Force
 
 ```{r, eval = TRUE, echo = FALSE}
+
+s3_promise_force <-
+    argument_promise_count_by_forcing_scope %>%
+    filter(forcing_scope == "S3") %>%
+    pull(promise_count) %>%
+    sum()
+generate_macro("CountSThreePromiseForce", s3_promise_force)
+
+s4_promise_force <-
+    argument_promise_count_by_forcing_scope %>%
+    filter(forcing_scope == "S4") %>%
+    pull(promise_count) %>%
+    sum()
+generate_macro("CountSFourPromiseForce", s4_promise_force)
+
 datatable(argument_promise_count_by_forcing_scope)
 ```
 

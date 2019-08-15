@@ -724,6 +724,26 @@ promises <- function(analyses) {
          argument_promise_action_distribution = argument_promise_action_distribution)
 }
 
+promise_call_depth_and_expression <- function(analyses) {
+
+    if(nrow(analyses$promises) == 0) {
+        return(list())
+    }
+
+    argument_promises <-
+        analyses$promises %>%
+        filter(argument & local)
+
+    argument_promise_count_by_call_depth_and_expression_type <-
+        argument_promises %>%
+        group_by(call_depth, expression_type) %>%
+        summarize(promise_count = n()) %>%
+        ungroup()
+
+    list(argument_promise_count_by_call_depth_and_expression_type = argument_promise_count_by_call_depth_and_expression_type)
+
+}
+
 
 reduce_analysis <- function(analyses) {
 
