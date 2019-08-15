@@ -44,6 +44,7 @@ summarize_outliers <- function(df, grouping_column,
 
     df <-
         df %>%
+        filter(!! grouping_column <= outlier_value) %>%
         mutate(!! grouping_column := as.character(!! grouping_column)) %>%
         bind_rows(outlier_row)
 
@@ -53,7 +54,7 @@ summarize_outliers <- function(df, grouping_column,
 verbatim <- function(analyses) {
     c(events(analyses),
       objects(analyses),
-      #escaped_arguments(analyses),
+      escaped_arguments(analyses),
       function_definitions(analyses),
       side_effects(analyses),
       substitute_calls(analyses),
