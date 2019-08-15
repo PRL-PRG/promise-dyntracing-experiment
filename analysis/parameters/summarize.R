@@ -1448,6 +1448,23 @@ escaped_arguments <- function(analyses) {
         ##  escaped_argument_function_count_distribution_by_return_type_and_category = escaped_argument_function_count_distribution_by_return_type_and_category)
 }
 
+promise_call_depth_and_expression <- function(analyses) {
+
+    if(nrow(analyses$argument_promise_count_by_call_depth_and_expression_type) == 0) {
+        return(list())
+    }
+
+    argument_promise_count_by_call_depth_and_expression_type <-
+        analyses$argument_promise_count_by_call_depth_and_expression_type %>%
+        group_by(call_depth, expression_type) %>%
+        summarize(promise_count = sum(as.double(promise_count))) %>%
+        ungroup() %>%
+        mutate(relative_promise_count = promise_count / sum(promise_count))
+
+    list(argument_promise_count_by_call_depth_and_expression_type = argument_promise_count_by_call_depth_and_expression_type)
+
+}
+
 
 function_definitions <- function(analyses) {
 
