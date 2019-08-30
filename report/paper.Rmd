@@ -270,6 +270,7 @@ promise_argument_returning_non_locally <- read_table("promise_argument_returning
 
 created_side_effects <- read_table("created_side_effects")
 observed_side_effects <- read_table("observed_side_effects")
+function_definitions <- read_table("function_definitions")
 ```
 
 # Overview
@@ -612,12 +613,14 @@ Of these calls to R functions
 The following graph shows the distribution of packages by the number of functions observed in them.
 
 ```{r, eval = TRUE, echo = FALSE}
-total_package_count <- nrow(package_strictness)
+total_package_count <- length(unique(function_definitions$package))
 ### geom_histogram did not let me add the other y axis in a reasonable way,
 ### so, I explicitly computed the histogram and used geom_col instead.
 package_function_distribution <-
-    package_strictness %>%
-    filter(type == "compatible") %>%
+    function_definitions %>%
+    group_by(package) %>%
+     summarize(total_function_count = length(unique(function_id))) %>%
+     ungroup() %>%
     group_by(total_function_count) %>%
     summarize(relative_package_count = n() / total_package_count) %>%
     ungroup()
@@ -1030,18 +1033,22 @@ parameter_lookup_class_graph <-
     
 save_local_graph(parameter_lookup_class_graph, "parameter_lookup_class.pdf", height=2,width=12)
 
+PercAlways <-
+    formal_parameter_count_by_usage_class %>% 
+    filter(parameter_use=="Lookup",parameter_class=="Always") %>%
+    pull(relative_parameter_count)
+generate_macro("PercAlways", PercAlways)
+
 PercNever <-
     formal_parameter_count_by_usage_class %>% 
     filter(parameter_use=="Lookup",parameter_class=="Never") %>%
     pull(relative_parameter_count)
+generate_macro("PercNever", PercNever)
 
 PercSometimes <- 
     formal_parameter_count_by_usage_class %>% 
     filter(parameter_use=="Lookup",parameter_class=="Sometimes") %>%
     pull(relative_parameter_count)
-
-generate_macro("PercNever", PercNever)
-
 generate_macro("PercSometimes", PercSometimes)
 ```
 There are `r format_as_percentage(PercNever)` parameters are never evaluated, and `r format_as_percentage(PercSometimes)` parameters are inconsistently evaluated.
@@ -1210,7 +1217,7 @@ package_metaprogramming <-
    package_metaprogramming %>%
    filter(!(package %in% c("global", "empty")))
 
-total_package_count <- nrow(package_metaprogramming)
+total_package_count <- length(unique(function_definitions$package)) #nrow(package_metaprogramming)
 
 CountPackMeta <-
     package_metaprogramming %>%
@@ -1399,7 +1406,7 @@ expand_lifecycle <- function(action, count) {
     } else {
         action_seq <- decode_sequence(action)
         count_seq <- decode_sequence(count)
-        str_c(rep(action_seq, count_seq), collapse = "")
+        str_replace_all(str_c(rep(action_seq, count_seq), collapse = ""), "L", "R")
     }
 }
 
@@ -1751,7 +1758,8 @@ datatable(argument_promise_count_by_call_depth)
 ## remove non-argument and escaped promises
 argument_promise_count_by_call_depth <-
     argument_promise_count_by_call_depth %>%
-    filter(call_depth != "-1")
+    filter(call_depth != "-1") %>%
+    mutate(relative_promise_count = promise_count / sum(promise_count))
 
 CountPromiseAllDepth <-
     argument_promise_count_by_call_depth %>%
@@ -1839,6 +1847,8 @@ CountMutualForcing <-
     sum(promise_argument_forced_by_promise_argument$count)
 
 generate_macro("CountMutualForcing", CountMutualForcing)
+
+generate_macro("PercMutualForcing", CountMutualForcing / argument_promise_count_by_force_count$promise_count[2])
 
 CountMutualForcingFunctions <-
     n_distinct(promise_argument_forced_by_promise_argument$function_id)
